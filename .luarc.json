@@ -1,0 +1,32 @@
+{
+    "diagnostics.globals": [
+        "fuzz_recoil",
+        "vector",
+        "ImGui",
+        "AddUniqueCall",
+        "vector2",
+        "vector4",
+        "level",
+        "RegisterScriptCallback",
+        "device",
+        "SYS_GetParam",
+        "utils_data",
+        "hud_adjust",
+        "ImGuiCond",
+        "ImGuiWindowFlags",
+        "VEC_ZERO",
+        "log",
+        "utils_xml",
+        "time_global",
+        "ini_sys",
+        "str_explode",
+        "fuzz_recoil_utils",
+        "db",
+        "fuzz_recoil_converter",
+        "fuzz_recoil_logger"
+    ],
+    "diagnostics.disable": [
+        "unused-local",
+        "lowercase-global"
+    ]
+}
