@@ -24,6 +24,7 @@ local showInfo = true
 local showLogs = true
 local debug_text1 = "Debug start"
 local auto_scroll_logs = true
+local export_hint = "Export profile to your game's bin folder"
 
 --NOTE: we have to updadte all raw vector and nullable ref here
 --silly but work for debuging
@@ -196,7 +197,7 @@ function renderConfig()
 		frm.force_reset_recoil()
 	end
 
-	if ImGui.TreeNode("Weapon profile(fake)") then
+	if ImGui.TreeNode("Weapon profile") then
 		_, wpn_profile.is_bolt_action = ImGui.Checkbox("Bolt Action", wpn_profile.is_bolt_action)
 		_, wpn_profile.cam_recoil_power =
 			ImGui.SliderFloat("Cam Recoil Power", wpn_profile.cam_recoil_power, 0.1, 16.0, "%.2f")
@@ -225,6 +226,11 @@ function renderConfig()
 		end
 		ImGui.TextColored(vector4():set(1, 0, 0, 1), "NOT IMPLEMENTED YET")
 		_, wpn_profile.increase_rate = ImGui.SliderFloat("Increase Rate", wpn_profile.increase_rate, 0.0, 2.0, "%.2f")
+		ImGui.Separator()
+		ImGui.Text(export_hint)
+		if ImGui.Button("Export to LTX", vector2():set(-1, 25)) then
+			export_profile_to_ltx()
+		end
 		ImGui.TreePop()
 	end
 
@@ -372,4 +378,30 @@ function indicator_drawer(val, label, min, max)
 	if type(val) == "number" then
 		_, _ = ImGui.SliderFloat(label, val, min, max, "%.5f")
 	end
+end
+
+function export_profile_to_ltx()
+	local profile = frm.wpn_profile
+	local wpn_name = tostring(frm.cur_wpn:section())
+
+	local filename = string.format("mod_system_z_fuzz_recoil_%s.ltx", wpn_name)
+	local file = io.open(filename, "w")
+	if not file then
+		export_hint = "Failed to open file when exporting"
+		logger.err(export_hint)
+	end
+
+	local content = ""
+	local function new_line(msg, ...)
+		content = content .. "\n" .. string.format(msg, ...)
+	end
+	new_line("![%s]", wpn_name)
+	new_line("fuzz_recoil=%s_fuzz_recoil", wpn_name)
+	new_line("[%s_fuzz_recoil]", wpn_name)
+	for k, v in pairs(profile) do
+		new_line("%s=%s", k, v)
+	end
+	file:write(content)
+	file:close()
+	export_hint = "Recoil profile exported to " .. filename
 end
