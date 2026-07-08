@@ -68,7 +68,7 @@ function renderImguiTab()
 	ImGui.SameLine()
 	if ImGui.Button("Load Weapon", vector2():set(100, 25)) then
 		if frm.get_current_weapon() then
-			debug_text1 = cur_wpn:section() .. ":" .. state.cur_wpn_id
+			debug_text1 = frm.cur_wpn:section() .. ":" .. state.cur_wpn_id
 		else
 			debug_text1 = "Failed to load weapon"
 		end
@@ -386,8 +386,7 @@ end
 
 function export_profile_to_ltx()
 	local profile = frm.wpn_profile
-	--FIXME: scope name will be appended when attaching
-	local wpn_name = tostring(frm.cur_wpn:section())
+	local wpn_name = tostring(utils.get_base_weapon(frm.cur_wpn:section()))
 
 	local filename = string.format("mod_system_z_fuzz_recoil_%s.ltx", wpn_name)
 	local file = io.open(filename, "w")

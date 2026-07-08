@@ -209,3 +209,12 @@ function iterator(section)
 		end
 	end
 end
+--TODO: recusive needed?
+function fuzz_utils.get_base_weapon(wpn_sec)
+	local parent_section = ini_sys:r_string_ex(wpn_sec, "parent_section")
+	if parent_section and wpn_sec ~= parent_section then
+		return fuzz_utils.get_base_weapon(parent_section)
+	else
+		return wpn_sec
+	end
+end
