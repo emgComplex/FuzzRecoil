@@ -1,4 +1,4 @@
-fuzz_recoil = { version = "a1" }
+fuzz_recoil = { version = "a2" }
 ---@diagnostic disable: lowercase-global
 ----Imports
 local utils = fuzz_utils or fuzz_recoil_utils.fuzz_utils
@@ -28,7 +28,7 @@ wpn_info = {
 	rpm = 600,
 }
 settings = {
-	debug_mode = true,
+	debug_mode = false,
 
 	--TODO:
 	recoil_v_scale = 1,
