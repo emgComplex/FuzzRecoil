@@ -490,9 +490,9 @@ function collect_wpn_info(wpn_sec)
 	try_get_recoil_profile(wpn_sec)
 end
 function try_get_recoil_profile(wpn_sec)
-	local profile = utils.get_string(wpn_sec, "fuzz_recoil")
-	if not profile == "" then
-		wpn_profile.is_bolt_action = utils.get_bool(profile, "cam_recoil_power", false)
+	local profile = ini_sys:r_string_ex(wpn_sec, "fuzz_recoil", nil)
+	if profile then
+		wpn_profile.is_bolt_action = utils.get_bool(profile, "is_bolt_action", false)
 		wpn_profile.cam_recoil_power = utils.get_float(profile, "cam_recoil_power", 4)
 		wpn_profile.cam_return_speed = utils.get_float(profile, "cam_return_speed", 1)
 
