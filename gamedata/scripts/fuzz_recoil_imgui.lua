@@ -2,6 +2,7 @@
 local frm = fuzz_recoil -- or require("scripts.fuzz_recoil")
 local utils = fuzz_utils or fuzz_recoil_utils.fuzz_utils
 local logger = logger or fuzz_recoil_logger.logger
+local cvter = converter or fuzz_recoil_converter.converter
 local CAM_FX_ID = frm.CAM_FX_ID
 --stylua: ignore start
 local cur_wpn = frm.cur_wpn
@@ -18,11 +19,11 @@ local settings = frm.settings
 local test_cur_pos_inc = VEC_ZERO
 local test_cur_rot_inc = VEC_ZERO
 
-local showImguiWin = true
-local showProfile = true
-local showInfo = true
-local showLogs = true
-local debug_text1 = "Debug start"
+local showImguiWin = false
+local showProfile = false
+local showInfo = false
+local showLogs = false
+local debug_text1 = "Weapon profile won't refresh untill you shot a bullet"
 local auto_scroll_logs = true
 local export_hint = "Export profile to your game's bin folder"
 
@@ -73,6 +74,16 @@ function renderImguiTab()
 		end
 	end
 	if cur_wpn then
+		ImGui.TextColored(vector4():set(0, 1, 0, 1), "Weapon: " .. cur_wpn:section())
+		ImGui.Separator()
+		if ImGui.Button("ResetHand") then
+			frm.reset_hud_hand()
+		end
+		ImGui.SameLine()
+		if ImGui.Button("ForeceResetRecoil", vector2():set(150, 25)) then
+			frm.force_reset_recoil()
+		end
+		renderProfile()
 		if ImGui.TreeNode("Recoil Config") then
 			renderConfig()
 			ImGui.TreePop()
@@ -187,17 +198,9 @@ function info_overlay()
 end
 AddUniqueCall(info_overlay)
 
-function renderConfig()
-	ImGui.Separator()
-	if ImGui.Button("ResetHand") then
-		frm.reset_hud_hand()
-	end
-	ImGui.SameLine()
-	if ImGui.Button("ForeceResetRecoil", vector2():set(150, 25)) then
-		frm.force_reset_recoil()
-	end
-
+function renderProfile()
 	if ImGui.TreeNode("Weapon profile") then
+		ImGui.Text("To input a value directly,You can crlt+click on the slider")
 		_, wpn_profile.is_bolt_action = ImGui.Checkbox("Bolt Action", wpn_profile.is_bolt_action)
 		_, wpn_profile.cam_recoil_power =
 			ImGui.SliderFloat("Cam Recoil Power", wpn_profile.cam_recoil_power, 0.1, 16.0, "%.2f")
@@ -231,9 +234,13 @@ function renderConfig()
 		if ImGui.Button("Export to LTX", vector2():set(-1, 25)) then
 			export_profile_to_ltx()
 		end
+		if ImGui.Button("Convert from vannilla", vector2():set(-1, 25)) then
+			cvter.convert(frm.wpn_info, frm.wpn_profile)
+		end
 		ImGui.TreePop()
 	end
-
+end
+function renderConfig()
 	ImGui.TextColored(vector4():set(1, 0, 0, 1), "vvvvv DO NOT TOUCH THIS vvvvv")
 	if ImGui.TreeNode("Config") then
 		ImGui.TextColored(vector4():set(1, 1, 0, 1), "UNLESS YOU KNOW WHAT YOU ARE DOING")
@@ -287,9 +294,6 @@ function renderConfig()
 end
 
 function renderHudControls()
-	ImGui.Separator()
-	ImGui.TextColored(vector4():set(0, 1, 0, 1), "Weapon: " .. cur_wpn:section())
-
 	ImGui.Text("Original Hand Pos:" .. utils.vector_to_string(ori_hand_trs[1]))
 	ImGui.Text("Original Hand Rot:" .. utils.vector_to_string(ori_hand_trs[2]))
 	ImGui.Text(string.format("Current HUD Pos: X:%.3f, Y:%.3f, Z:%.3f", cur_hud_pos.x, cur_hud_pos.y, cur_hud_pos.z))
@@ -382,6 +386,7 @@ end
 
 function export_profile_to_ltx()
 	local profile = frm.wpn_profile
+	--FIXME: scope name will be appended when attaching
 	local wpn_name = tostring(frm.cur_wpn:section())
 
 	local filename = string.format("mod_system_z_fuzz_recoil_%s.ltx", wpn_name)
