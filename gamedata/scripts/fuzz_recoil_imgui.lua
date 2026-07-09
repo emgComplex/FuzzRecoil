@@ -105,6 +105,7 @@ end)
 
 -- Force scroll if the user was already at the bottom, or if a new item triggered a scroll
 function log_overlay()
+	ImGui.SetNextWindowSize(vector2():set(400, 200), ImGuiCond.FirstUseEver)
 	if not showLogs then
 		return
 	end
@@ -121,6 +122,7 @@ end
 AddUniqueCall(log_overlay)
 
 function profile_overlay()
+	ImGui.SetNextWindowSize(vector2():set(400, 600), ImGuiCond.FirstUseEver)
 	if not showProfile then
 		return
 	end
@@ -148,6 +150,7 @@ end
 AddUniqueCall(profile_overlay)
 
 function info_overlay()
+	ImGui.SetNextWindowSize(vector2():set(400, 600), ImGuiCond.FirstUseEver)
 	if not showInfo then
 		return
 	end
