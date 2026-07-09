@@ -19,10 +19,11 @@ local settings = frm.settings
 local test_cur_pos_inc = VEC_ZERO
 local test_cur_rot_inc = VEC_ZERO
 
-local showImguiWin = false
-local showProfile = false
-local showInfo = false
-local showLogs = false
+local showImguiWin = fuzz_dev and true or false
+local showProfile = fuzz_dev and true or false
+local showInfo = fuzz_dev and true or false
+local showLogs = fuzz_dev and true or false
+
 local debug_text1 = "Weapon profile won't refresh untill you shot a bullet"
 local auto_scroll_logs = true
 local export_hint = "Export profile to your game's bin folder"

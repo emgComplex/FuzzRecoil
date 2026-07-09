@@ -28,7 +28,7 @@ wpn_info = {
 	rpm = 600,
 }
 settings = {
-	debug_mode = false,
+	debug_mode = fuzz_dev and true or false,
 
 	--TODO:
 	recoil_v_scale = 1,
