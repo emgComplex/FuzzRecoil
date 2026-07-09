@@ -23,6 +23,46 @@ local export_hint = "Export profile to your game's bin folder"
 --NOTE: we have to updadte all raw vector and nullable ref here
 --silly but work for debuging
 
+local LinePlot = {}
+LinePlot.__index = LinePlot
+function LinePlot.new(label, max_size, min_val, max_val, width, height)
+	local self = setmetatable({}, LinePlot)
+
+	self.label = label or "Plot"
+	self.max_size = max_size or 100
+	self.min_val = min_val or -1.0
+	self.max_val = max_val or 1.0
+	self.width = width or 300
+	self.height = height or 150
+
+	self.history_data = {}
+	for i = 1, self.max_size do
+		table.insert(self.history_data, 0)
+	end
+
+	return self
+end
+function LinePlot:draw(new_value)
+	table.remove(self.history_data, 1)
+	table.insert(self.history_data, new_value)
+
+	local min_y = self.min_val or nil
+	local max_y = self.max_val or nil
+
+	--NOTE: sadly no lua bindings for plot...
+	ImGui.PlotLines(
+		self.label,
+		self.history_data,
+		self.max_size,
+		0,
+		nil,
+		min_y,
+		max_y,
+		vector2():set(self.width, self.height)
+	)
+end
+
+local cam_angle_plot = LinePlot.new("CamAngle", 100, 0, 1)
 function renderImguiWindow()
 	ImGui.SetNextWindowSize(vector2():set(800, 600), ImGuiCond.FirstUseEver)
 
