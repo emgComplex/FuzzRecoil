@@ -1,4 +1,4 @@
-fuzz_recoil = { version = "a2" }
+fuzz_recoil = { version = "a3" }
 ---@diagnostic disable: lowercase-global
 ----Imports
 local utils = fuzz_utils or fuzz_recoil_utils.fuzz_utils
