@@ -24,7 +24,8 @@
         "db",
         "fuzz_recoil_converter",
         "fuzz_recoil_logger",
-        "fuzz_recoil_imgui"
+        "fuzz_recoil_imgui",
+        "ImGuiStyleVar"
     ],
     "diagnostics.disable": [
         "unused-local",

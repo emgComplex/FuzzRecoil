@@ -15,6 +15,7 @@ local showImguiWin = fuzz_dev and true or false
 local showProfile = fuzz_dev and true or false
 local showInfo = fuzz_dev and true or false
 local showLogs = fuzz_dev and true or false
+local showPlots = fuzz_dev and true or false
 
 local debug_text1 = "Weapon profile won't refresh untill you shot a bullet"
 local auto_scroll_logs = true
@@ -62,7 +63,33 @@ function LinePlot:draw(new_value)
 	)
 end
 
-local cam_angle_plot = LinePlot.new("CamAngle", 100, 0, 1)
+local LinePlotHack = {}
+LinePlotHack.__index = LinePlotHack
+
+function LinePlotHack.new(max_size, width, unit_size)
+	local self = setmetatable({}, LinePlotHack)
+	self.max_size = max_size or 50
+	self.width = width or 300
+	self.unit_size = unit_size or 1
+	self.history_data = {}
+	for i = 1, self.max_size do
+		table.insert(self.history_data, 0.0)
+	end
+	return self
+end
+function LinePlotHack:draw(new_val)
+	if new_val then
+		table.remove(self.history_data, 1)
+		table.insert(self.history_data, math.max(0.0, math.min(1.0, new_val)))
+	end
+	ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, vector2():set(0, 0))
+	for i, val in ipairs(self.history_data) do
+		ImGui.ProgressBar(val, vector2():set(self.width, 1), "")
+	end
+	ImGui.PopStyleVar()
+end
+
+local cam_angle_plot = LinePlotHack.new(300, 300, 1)
 function renderImguiWindow()
 	ImGui.SetNextWindowSize(vector2():set(800, 600), ImGuiCond.FirstUseEver)
 
@@ -79,7 +106,7 @@ function renderImguiTab()
 	ImGui.Text(debug_text1)
 	_, showProfile = ImGui.Checkbox("Profile", showProfile)
 	ImGui.SameLine()
-	_, frm.debug_new_force = ImGui.Checkbox("new", frm.debug_new_force)
+	_, showPlots = ImGui.Checkbox("Histogram", showPlots)
 	ImGui.SameLine()
 	_, showInfo = ImGui.Checkbox("Info", showInfo)
 	ImGui.SameLine()
@@ -145,6 +172,21 @@ function log_overlay()
 	ImGui.End()
 end
 AddUniqueCall(log_overlay)
+
+function plot_overlay()
+	if not showPlots then
+		return
+	end
+	expanded, _ = ImGui.Begin("Histogram", true)
+	ImGui.SetNextWindowSize(vector2():set(300, 600), ImGuiCond.FirstUseEver)
+	if expanded and frm.cur_wpn then
+		ImGui.Text("cam_angle")
+		local new_val = frm.state.active and frm.state.cam_angle or nil
+		cam_angle_plot:draw(new_val)
+	end
+	ImGui.End()
+end
+AddUniqueCall(plot_overlay)
 
 function profile_overlay()
 	ImGui.SetNextWindowSize(vector2():set(400, 600), ImGuiCond.FirstUseEver)
