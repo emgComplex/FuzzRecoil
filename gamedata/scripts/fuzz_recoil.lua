@@ -38,6 +38,7 @@ settings = {
 	handling_speed_scale = 1,
 	--The higher the sharper, the lower the smoother (and softer)
 	cam_drag = 12,
+	bolt_action_Y_lift = true,
 }
 config = {
 	max_hud_rot = vector():set(3, 3, 0),
@@ -256,7 +257,9 @@ end
 --TODO: we should desync it
 function pos_y_sync_with_cam()
 	if state.should_shot_delay then
-		state.hud_pos_raw.y = state.cam_angle * wpn_profile.shot_pos_y
+		--PERF: should cached once code is stablelized
+		y_impulse = wpn_profile.is_bolt_action and math.abs(wpn_profile.shot_pos_y) * 2 or wpn_profile.shot_pos_y
+		state.hud_pos_raw.y = state.cam_angle * y_impulse
 	end
 end
 function on_hud_update_phys(dt)
