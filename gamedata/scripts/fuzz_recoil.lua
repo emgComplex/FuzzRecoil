@@ -50,6 +50,9 @@ config = {
 
 	firing_handling_ease = utils.simple_ease:new(1, 0.2, 4),
 	idle_handling_ease = utils.simple_ease:new(-1, 0.7, 0.5, "in"),
+
+	--NOGUI
+	pitch_expansion = 1.5,
 }
 wpn_profile = {
 	is_bolt_action = false,
@@ -117,7 +120,6 @@ function on_game_start()
 	RegisterScriptCallback("actor_on_update", actor_on_update)
 	RegisterScriptCallback("actor_on_weapon_before_fire", on_before_fire)
 	RegisterScriptCallback("actor_on_weapon_fired", on_fire)
-	utils.init_vector_extensions()
 end
 function actor_on_update()
 	on_update(device().time_delta / 1000)
@@ -237,30 +239,25 @@ function update_sim_shooting(dt)
 		end
 	end
 end
-
---REFT:redundant
 function on_hud_update_phys(dt)
 	local pull_strength = wpn_profile.pull_force * state.handling_power
 
 	apply_recoil_forces(dt, pull_strength, wpn_profile.firing_damping)
 
+	-- limit before smooth
+	state.hud_rot_raw:clamp(config.max_hud_rot)
+	state.hud_pos_raw:clamp(config.max_hud_pos)
+
 	apply_simple_smooth(dt, config.smooth_firing)
 
 	set_hud_offset(state.hud_pos_smooth, state.hud_rot_smooth)
 end
---REFT:redundant
 function do_hud_return_phys(dt)
 	local spring = config.return_spring
 	local damping = config.return_damping
 
-	local accel_rot = -state.hud_rot_raw * spring - state.vel_hud_rot * damping
-	local accel_pos = -state.hud_pos_raw * spring - state.vel_hud_pos * damping
-
-	state.vel_hud_rot = state.vel_hud_rot + accel_rot * dt
-	state.vel_hud_pos = state.vel_hud_pos + accel_pos * dt
-
-	state.hud_rot_raw = state.hud_rot_raw + state.vel_hud_rot * dt
-	state.hud_pos_raw = state.hud_pos_raw + state.vel_hud_pos * dt
+	apply_spring_vec(state.hud_pos_raw, state.vel_hud_pos, dt, spring, damping)
+	apply_spring_vec(state.hud_rot_raw, state.vel_hud_rot, dt, spring, damping)
 
 	local threshold_return = 0.001
 	if state.hud_rot_raw:magnitude() < threshold_return and state.hud_pos_raw:magnitude() < threshold_return then
@@ -461,20 +458,20 @@ function apply_cur_hud_hand()
 	set_hud_hand(cur_hud_pos, cur_hud_rot)
 end
 function update_cur_hud_hand_by(pos, rot)
-	cur_hud_pos = cur_hud_pos + pos
-	cur_hud_rot = cur_hud_rot + rot
+	cur_hud_pos:add(pos)
+	cur_hud_rot:add(rot)
 end
 function set_hud_offset(pos, rot)
-	cur_hud_pos = ori_hand_trs[1] + pos
-	cur_hud_rot = ori_hand_trs[2] + rot
+	cur_hud_pos = vector():set(ori_hand_trs[1]):add(pos)
+	cur_hud_rot = vector():set(ori_hand_trs[2]):add(rot)
 	apply_cur_hud_hand()
 end
 function reset_hud_hand()
-	cur_hud_pos = utils.vector_clone(ori_hand_trs[1])
-	cur_hud_rot = utils.vector_clone(ori_hand_trs[2])
+	cur_hud_pos = vector():set(ori_hand_trs[1])
+	cur_hud_rot = vector():set(ori_hand_trs[2])
 	apply_cur_hud_hand()
 end
---==========Basic============
+--=========Init Recoil and Info Collection============
 --NOTE:this is safer,cause we are changing cam_recoil
 --FIXME: this doesn't respect upgrades!
 function collect_wpn_info(wpn_sec)
@@ -598,36 +595,73 @@ local function get_aim_state()
 		state.cur_aim_state = 0
 	end
 end
------PHYSICS
+--================PHYSICS======================
+function apply_spring(raw_val, vel, dt, spring, damping)
+	if not damping then
+		--Calculate critical damping
+		damping = math.sqrt(spring) * 2
+	end
+	--TODO: switch to solution for better fps adaption
+	dt = math.min(dt, 1 / 30)
+	local acc = raw_val * -spring - vel * damping
+	vel = vel + acc * dt
+	raw_val = raw_val + vel * dt
+end
+function apply_spring_vec(raw_vec, vel_vec, dt, spring, damping)
+	if not damping then
+		--Calculate critical damping
+		damping = math.sqrt(spring) * 2
+	end
+	--TODO: switch to solution
+	dt = math.min(dt, 1 / 30)
+	local acc = vector():set(raw_vec):mul(-spring)
+	acc:sub(vector():set(vel_vec):mul(damping))
+	vel_vec:add(acc:mul(dt))
+	raw_vec:add(vector():set(vel_vec):mul(dt))
+end
 --REFT:redundant
+--NOTE: i mean i know this is not accurate (or completely wrong) , but it works...
+function apply_spring_vec_with_decay(raw_vec, vel_vec, dt, spring, damping)
+	--TODO: switch to solution
+	dt = math.min(dt, 1 / 30)
+	local damping_factor = math.max(0, 1 - damping * dt)
+	vel_vec:sub(vector():set(raw_vec):mul(spring:mul(dt))):mul(damping_factor)
+	raw_vec:add(vector():set(vel_vec):mul(dt))
+end
+
+---FIXME: duck duck tell me, why this is not working.
+-- function apply_spring_vec(raw_vec, vel_vec, dt, spring, damping)
+-- 	apply_spring(raw_vec.x, vel_vec.x, dt, spring, damping)
+-- 	apply_spring(raw_vec.y, vel_vec.y, dt, spring, damping)
+-- 	-- apply_spring(raw_vec.z, vel_vec.z, dt, spring, damping)
+-- end
+-- function apply_spring_vec_with_decay(raw_vec, vel_vec, dt, spring, damping)
+-- 	if not damping then
+-- 		--Calculate critical damping
+-- 		damping = math.sqrt(spring) * 2
+-- 	end
+-- 	--TODO: switch to solution
+-- 	dt = math.min(dt, 1 / 30)
+-- 	local acc = vector():set(raw_vec):mul(-spring):mul(dt)
+-- 	vel_vec:add(dt)
+-- 	local damping_factor = math.max(0, 1 - damping * dt)
+-- 	-- vel_vec:mul(decay factor)
+-- 	vel_vec:mul(damping_factor)
+-- 	raw_vec:add(vector():set(vel_vec):mul(dt))
+-- end
 function apply_recoil_forces(dt, control_strength, damping)
 	local base_feedback = (wpn_profile.shot_pitch / state.fire_interval) * control_strength
 	local feedback_strength = base_feedback * wpn_profile.pull_force
 
 	local strength_vec = vector():set(feedback_strength * 1.5, feedback_strength, 0)
 
-	state.vel_hud_rot = state.vel_hud_rot - (state.hud_rot_raw * strength_vec) * dt
-	state.vel_hud_pos = state.vel_hud_pos - (state.hud_pos_raw * strength_vec) * dt
-
-	local damping_factor = math.max(0, 1 - damping * dt)
-	state.vel_hud_rot = state.vel_hud_rot * damping_factor
-	state.vel_hud_pos = state.vel_hud_pos * damping_factor
-
-	state.hud_rot_raw = state.hud_rot_raw + state.vel_hud_rot * dt
-	state.hud_pos_raw = state.hud_pos_raw + state.vel_hud_pos * dt
-
-	-- limit
-	state.hud_rot_raw.y = utils.math_clamp(state.hud_rot_raw.y, -config.max_hud_rot.y, config.max_hud_rot.y)
-	state.hud_pos_raw.y = utils.math_clamp(state.hud_pos_raw.y, -config.max_hud_pos.y, config.max_hud_pos.y)
-
-	state.hud_rot_raw.x = utils.math_clamp(state.hud_rot_raw.x, -config.max_hud_rot.x, config.max_hud_rot.x)
-	state.hud_pos_raw.x = utils.math_clamp(state.hud_pos_raw.x, -config.max_hud_pos.x, config.max_hud_pos.x)
+	apply_spring_vec_with_decay(state.hud_rot_raw, state.vel_hud_rot, dt, strength_vec, damping)
+	apply_spring_vec_with_decay(state.hud_pos_raw, state.vel_hud_pos, dt, strength_vec, damping)
 end
-
 function apply_simple_smooth(dt, smooth)
 	if smooth <= 0.001 then
-		state.hud_rot_smooth = utils.vector_clone(state.hud_rot_raw)
-		state.hud_pos_smooth = utils.vector_clone(state.hud_pos_raw)
+		state.hud_rot_smooth = vector():set(state.hud_rot_raw)
+		state.hud_pos_smooth = vector():set(state.hud_pos_raw)
 	else
 		local smooth_factor = utils.math_clamp(smooth * dt, 0, 1)
 		state.hud_rot_smooth = utils.vector_lerp(state.hud_rot_smooth, state.hud_rot_raw, smooth_factor)
