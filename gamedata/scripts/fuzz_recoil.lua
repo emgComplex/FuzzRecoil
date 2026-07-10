@@ -194,7 +194,11 @@ function on_update(dt)
 
 	update_handling_power(dt)
 	if state.is_firing then
-		on_cam_update(dt)
+		if debug_var.bool0 then
+			on_cam_update_cubic(dt)
+		else
+			on_cam_update(dt)
+		end
 		on_hud_update_phys(dt)
 		return
 	else
@@ -277,12 +281,30 @@ function do_hud_return_phys(dt)
 	set_hud_offset(state.hud_pos_smooth, state.hud_rot_smooth)
 end
 
---TODO:
+debug_var.float_x1 = 12
+debug_var.float_x2 = 15
 function on_cam_update(dt)
 	if state.is_firing and math.abs(state.cam_vel) > 0.01 then
-		state.cam_vel = state.cam_vel * (1.0 - dt * 15.0)
+		-- state.cam_vel = state.cam_vel * (1.0 - dt * debug_var.float_x2)
+		local decay = math.exp(-dt * debug_var.float_x1)
+		local step = state.cam_vel * (1 - decay) / debug_var.float_x2
+		state.cam_vel = state.cam_vel * decay
+		state.cam_angle = state.cam_angle + step
+		set_player_angle(state.cam_angle)
+	end
+end
+function on_cam_update_cubic(dt)
+	if state.is_firing and math.abs(state.cam_vel) > 0.01 then
+		local drag = debug_var.float_x1 * math.sqrt(math.abs(state.cam_vel))
+		state.cam_vel = state.cam_vel * math.exp(-drag * dt)
 		local step = state.cam_vel * dt
 		state.cam_angle = state.cam_angle + step
+		set_player_angle(state.cam_angle)
+	end
+end
+function on_cam_update_spring(dt)
+	if state.is_firing and math.abs(state.cam_vel) > 0.01 then
+		state.cam_angle, state.cam_vel = apply_spring(state.cam_angle, state.cam_vel, dt, debug_var.float_x1)
 		set_player_angle(state.cam_angle)
 	end
 end
@@ -348,7 +370,6 @@ function reset_cam_recoil()
 	set_player_angle(0.0001)
 	state.is_cam_returned = true
 	state.cam_angle = 0
-	state.cam_angle_max = 0
 	state.cam_vel = 0
 end
 function reset_hud_recoil()
