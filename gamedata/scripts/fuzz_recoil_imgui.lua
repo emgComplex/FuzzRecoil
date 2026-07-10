@@ -15,6 +15,7 @@ local showImguiWin = fuzz_dev and true or false
 local showProfile = fuzz_dev and true or false
 local showInfo = fuzz_dev and true or false
 local showLogs = fuzz_dev and true or false
+local showPlots = fuzz_dev and true or false
 
 local debug_text1 = "Weapon profile won't refresh untill you shot a bullet"
 local auto_scroll_logs = true
@@ -22,6 +23,71 @@ local export_hint = "Export profile to your game's bin folder"
 
 --NOTE: we have to updadte all raw vector and nullable ref here
 --silly but work for debuging
+
+local LinePlot = {}
+LinePlot.__index = LinePlot
+function LinePlot.new(label, max_size, min_val, max_val, width, height)
+	local self = setmetatable({}, LinePlot)
+
+	self.label = label or "Plot"
+	self.max_size = max_size or 100
+	self.min_val = min_val or -1.0
+	self.max_val = max_val or 1.0
+	self.width = width or 300
+	self.height = height or 150
+
+	self.history_data = {}
+	for i = 1, self.max_size do
+		table.insert(self.history_data, 0)
+	end
+
+	return self
+end
+function LinePlot:draw(new_value)
+	table.remove(self.history_data, 1)
+	table.insert(self.history_data, new_value)
+
+	local min_y = self.min_val or nil
+	local max_y = self.max_val or nil
+
+	--NOTE: sadly no lua bindings for plot...
+	ImGui.PlotLines(
+		self.label,
+		self.history_data,
+		self.max_size,
+		0,
+		nil,
+		min_y,
+		max_y,
+		vector2():set(self.width, self.height)
+	)
+end
+
+local LinePlotHack = {}
+LinePlotHack.__index = LinePlotHack
+
+function LinePlotHack.new(max_size, width, unit_size)
+	local self = setmetatable({}, LinePlotHack)
+	self.max_size = max_size or 50
+	self.width = width or 300
+	self.unit_size = unit_size or 1
+	self.history_data = {}
+	for i = 1, self.max_size do
+		table.insert(self.history_data, 0.0)
+	end
+	return self
+end
+function LinePlotHack:draw(new_val)
+	if new_val then
+		table.remove(self.history_data, 1)
+		table.insert(self.history_data, math.max(0.0, math.min(1.0, new_val)))
+	end
+	ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, vector2():set(0, 0))
+	for i, val in ipairs(self.history_data) do
+		ImGui.ProgressBar(val, vector2():set(self.width, 1), "")
+	end
+	ImGui.PopStyleVar()
+end
 
 function renderImguiWindow()
 	ImGui.SetNextWindowSize(vector2():set(800, 600), ImGuiCond.FirstUseEver)
@@ -38,8 +104,6 @@ end
 function renderImguiTab()
 	ImGui.Text(debug_text1)
 	_, showProfile = ImGui.Checkbox("Profile", showProfile)
-	ImGui.SameLine()
-	_, frm.debug_new_force = ImGui.Checkbox("new", frm.debug_new_force)
 	ImGui.SameLine()
 	_, showInfo = ImGui.Checkbox("Info", showInfo)
 	ImGui.SameLine()
@@ -58,6 +122,7 @@ function renderImguiTab()
 			debug_text1 = "Failed to load weapon"
 		end
 	end
+	_, showPlots = ImGui.Checkbox("Histogram", showPlots)
 	if frm.cur_wpn then
 		ImGui.TextColored(vector4():set(0, 1, 0, 1), "Weapon: " .. frm.cur_wpn:section())
 		ImGui.Separator()
@@ -75,6 +140,10 @@ function renderImguiTab()
 		end
 		if ImGui.TreeNode("HUD Control") then
 			renderHudControls()
+			ImGui.TreePop()
+		end
+		if ImGui.TreeNode("Debug Vars") then
+			renderDebugVars()
 			ImGui.TreePop()
 		end
 	end
@@ -105,6 +174,28 @@ function log_overlay()
 	ImGui.End()
 end
 AddUniqueCall(log_overlay)
+
+local cam_angle_plot = LinePlotHack.new(300, 300, 1)
+local handling_power_plot = LinePlotHack.new(300, 300, 1)
+function plot_overlay()
+	if not showPlots then
+		return
+	end
+	expanded, _ = ImGui.Begin("Histogram", true)
+	ImGui.SetNextWindowSize(vector2():set(300, 600), ImGuiCond.FirstUseEver)
+	if expanded and frm.cur_wpn then
+		ImGui.Text("cam_angle")
+		local new_val = frm.state.active and frm.state.cam_angle or nil
+		cam_angle_plot:draw(new_val)
+		if ImGui.TreeNode("handling_power") then
+			new_val = frm.state.active and frm.state.handling_power or nil
+			handling_power_plot:draw(new_val)
+			ImGui.TreePop()
+		end
+	end
+	ImGui.End()
+end
+AddUniqueCall(plot_overlay)
 
 function profile_overlay()
 	ImGui.SetNextWindowSize(vector2():set(400, 600), ImGuiCond.FirstUseEver)
@@ -212,7 +303,7 @@ function renderProfile()
 			ImGui.SliderFloat("Handling speed", frm.wpn_profile.handling_speed, 0.1, 2.0, "%.2f")
 		if handle_speed_change then
 			frm.config.firing_handling_ease:set_speed(frm.wpn_profile.handling_speed)
-			frm.config.idle_handling_ease:set_speed(frm.wpn_profile.handling_speed * -1)
+			frm.config.idle_handling_ease:set_speed(frm.wpn_profile.handling_speed)
 		end
 		ImGui.TextColored(vector4():set(1, 0, 0, 1), "NOT IMPLEMENTED YET")
 		_, frm.wpn_profile.increase_rate =
@@ -248,6 +339,7 @@ function renderConfig()
 		_, frm.config.return_spring = ImGui.SliderFloat("Return Spring", frm.config.return_spring, 0.1, 30.0, "%.2f")
 		_, frm.config.return_damping = ImGui.SliderFloat("Return Damping", frm.config.return_damping, 0.1, 16.0, "%.2f")
 		ImGui.Text("Settings")
+		_, frm.settings.cam_drag = ImGui.SliderFloat("Cam Drag", frm.settings.cam_drag, 5.0, 20.0, "%.2f")
 		ImGui.TextColored(vector4():set(1, 0, 0, 1), "NOT IMPLEMENTED YET")
 		_, frm.settings.recoil_v_scale =
 			ImGui.SliderFloat("Recoil scale(Vert)", frm.settings.recoil_v_scale, 0.1, 2.0, "%.2f")
@@ -281,6 +373,16 @@ function renderConfig()
 	-- 		frm.on_fire_stop()
 	-- 	end
 	-- end
+end
+function renderDebugVars()
+	vars = frm.debug_var
+	ImGui.TextColored(vector4():set(0.2, 0.9, 0.4, 1), "=== DEBUG VARS ===")
+	_, vars.bool0 = ImGui.Checkbox("bool0", vars.bool0)
+	_, vars.bool1 = ImGui.Checkbox("bool1", vars.bool1)
+	_, vars.float_s1 = ImGui.SliderFloat("float_s1", vars.float_s1, 0, 1, "%.4f")
+	_, vars.float_s2 = ImGui.SliderFloat("float_s2", vars.float_s2, 0, 1, "%.4f")
+	_, vars.float_x1 = ImGui.SliderFloat("float_x1", vars.float_x1, 0, 50, "%.2f")
+	_, vars.float_x2 = ImGui.SliderFloat("float_x2", vars.float_x2, 0, 50, "%.2f")
 end
 
 function renderHudControls()

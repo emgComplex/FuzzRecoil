@@ -36,6 +36,9 @@ settings = {
 	recoil_cam_scale = 1,
 	increase_rate_scale = 1,
 	handling_speed_scale = 1,
+	--The higher the sharper, the lower the smoother (and softer)
+	cam_drag = 12,
+	bolt_action_Y_lift = true,
 }
 config = {
 	max_hud_rot = vector():set(3, 3, 0),
@@ -48,10 +51,11 @@ config = {
 	smooth_firing = 4.5,
 	smooth_return = 10,
 
-	firing_handling_ease = utils.simple_ease:new(1, 0.2, 4),
-	idle_handling_ease = utils.simple_ease:new(-1, 0.7, 0.5, "in"),
+	firing_handling_ease = utils.simple_ease:new(1, 1, 0.2, 4),
+	idle_handling_ease = utils.simple_ease:new(-1, -1, 0.2, 6),
 
 	--NOGUI
+	sniper_idle_handling = { offset = 0.2, intensity = 0.8 },
 	pitch_expansion = 1.5,
 }
 wpn_profile = {
@@ -115,11 +119,22 @@ cur_hud_pos = VEC_ZERO
 cur_hud_rot = VEC_ZERO
 sim_firing = false
 sim_timer = 0.0
+debug_var = {
+	bool0 = false,
+	bool1 = true,
+	float_s1 = 0,
+	float_s2 = 0,
+	float_x1 = 0,
+	float_x2 = 0,
+}
 
 function on_game_start()
 	RegisterScriptCallback("actor_on_update", actor_on_update)
 	RegisterScriptCallback("actor_on_weapon_before_fire", on_before_fire)
 	RegisterScriptCallback("actor_on_weapon_fired", on_fire)
+	RegisterScriptCallback("actor_on_changed_slot", function(_, _, _, _)
+		force_reset_recoil()
+	end)
 end
 function actor_on_update()
 	on_update(device().time_delta / 1000)
@@ -159,7 +174,8 @@ function on_fire()
 
 	on_fire_phys()
 
-	local cam_impulse = wpn_profile.cam_recoil_power * (1.0 - state.handling_power) * state.shot_cam_impulse_factor
+	local cam_handle_factor = math.pow(1.0 - state.handling_power, 2)
+	local cam_impulse = wpn_profile.cam_recoil_power * cam_handle_factor * state.shot_cam_impulse_factor
 	state.cam_vel = state.cam_vel + cam_impulse
 end
 function on_fire_phys()
@@ -186,7 +202,11 @@ function on_update(dt)
 
 	update_handling_power(dt)
 	if state.is_firing then
-		on_cam_update(dt)
+		if state.should_shot_delay then
+			on_cam_update_cubic(dt)
+		else
+			on_cam_update(dt)
+		end
 		on_hud_update_phys(dt)
 		return
 	else
@@ -198,7 +218,7 @@ function on_update(dt)
 			do_hud_return_phys(dt)
 			-- reset_hud_recoil()
 		end
-		if state.is_cam_returned and state.is_hud_returned then
+		if state.is_cam_returned and state.is_hud_returned and state.handling_power <= 0 then
 			reset_recoil()
 		end
 	end
@@ -239,6 +259,14 @@ function update_sim_shooting(dt)
 		end
 	end
 end
+--TODO: we should desync it
+function pos_y_sync_with_cam()
+	if state.should_shot_delay then
+		--PERF: should cached once code is stablelized
+		y_impulse = wpn_profile.is_bolt_action and math.abs(wpn_profile.shot_pos_y) * 2 or wpn_profile.shot_pos_y
+		state.hud_pos_raw.y = state.cam_angle * y_impulse
+	end
+end
 function on_hud_update_phys(dt)
 	local pull_strength = wpn_profile.pull_force * state.handling_power
 
@@ -248,6 +276,7 @@ function on_hud_update_phys(dt)
 	state.hud_rot_raw:clamp(config.max_hud_rot)
 	state.hud_pos_raw:clamp(config.max_hud_pos)
 
+	pos_y_sync_with_cam()
 	apply_simple_smooth(dt, config.smooth_firing)
 
 	set_hud_offset(state.hud_pos_smooth, state.hud_rot_smooth)
@@ -265,16 +294,36 @@ function do_hud_return_phys(dt)
 		return
 	end
 
+	pos_y_sync_with_cam()
+
 	apply_simple_smooth(dt, config.smooth_return)
 	set_hud_offset(state.hud_pos_smooth, state.hud_rot_smooth)
 end
 
---TODO:
+debug_var.float_x1 = 12
+debug_var.float_x2 = 15
 function on_cam_update(dt)
 	if state.is_firing and math.abs(state.cam_vel) > 0.01 then
-		state.cam_vel = state.cam_vel * (1.0 - dt * 15.0)
+		-- state.cam_vel = state.cam_vel * (1.0 - dt * debug_var.float_x2)
+		local decay = math.exp(-dt * debug_var.float_x1)
+		local step = state.cam_vel * (1 - decay) / debug_var.float_x2
+		state.cam_vel = state.cam_vel * decay
+		state.cam_angle = state.cam_angle + step
+		set_player_angle(state.cam_angle)
+	end
+end
+function on_cam_update_cubic(dt)
+	if state.is_firing and math.abs(state.cam_vel) > 0.01 then
+		local drag = settings.cam_drag * math.sqrt(math.abs(state.cam_vel))
+		state.cam_vel = state.cam_vel * math.exp(-drag * dt)
 		local step = state.cam_vel * dt
 		state.cam_angle = state.cam_angle + step
+		set_player_angle(state.cam_angle)
+	end
+end
+function on_cam_update_spring(dt)
+	if state.is_firing and math.abs(state.cam_vel) > 0.01 then
+		state.cam_angle, state.cam_vel = apply_spring(state.cam_angle, state.cam_vel, dt, debug_var.float_x1)
 		set_player_angle(state.cam_angle)
 	end
 end
@@ -309,7 +358,14 @@ function init_weapon(wpn_sec)
 	-- inil some recoil paramete from here
 	state.fire_interval = 60 / wpn_info.rpm
 	config.firing_handling_ease:set_speed(wpn_profile.handling_speed)
-	config.idle_handling_ease:set_speed(wpn_profile.handling_speed * -1)
+	config.idle_handling_ease:set_speed(wpn_profile.handling_speed)
+
+	if wpn_profile.is_bolt_action then
+		config.idle_handling_ease.intensity = config.sniper_idle_handling.intensity
+		config.idle_handling_ease.offset = config.sniper_idle_handling.offset
+	else
+		config.idle_handling_ease:reset()
+	end
 
 	-- NOTE: or we can just check available firemodes?
 	-- REFT: look at this mess...
@@ -319,7 +375,7 @@ function init_weapon(wpn_sec)
 	local skind = shot_delay_table[wpn_info.kind]
 	if skind and wpn_info.rpm <= skind.rpm then
 		state.should_shot_delay = true
-		state.shot_delay_time = utils.math_clamp(state.fire_interval, 0.1, 0.4)
+		state.shot_delay_time = utils.math_clamp(state.fire_interval, 0.1, 0.5)
 		state.shot_cam_impulse_factor = skind.cam_impulse
 	end
 
@@ -330,17 +386,16 @@ function init_recoil()
 	reset_hud_hand()
 	enable_hud_adjust()
 	if not level.check_cam_effector(CAM_FX_ID) then
-		level.add_cam_effector("camera_effects\\onerad.anm", 7897, true, "", 0, true, 0)
+		level.add_cam_effector("camera_effects\\onerad.anm", 7897, true, "", 0, true, 0.0001)
 	end
 	RemoveTimeEvent("fuzz_recoil", "bolt_delay")
 	logger.dbg("Initialize Recoil")
 end
 
 function reset_cam_recoil()
-	set_player_angle(0)
+	set_player_angle(0.0001)
 	state.is_cam_returned = true
 	state.cam_angle = 0
-	state.cam_angle_max = 0
 	state.cam_vel = 0
 end
 function reset_hud_recoil()
@@ -441,7 +496,7 @@ function set_player_angle(angle)
 		logger.err("player not found")
 		return
 	end
-	level.set_cam_effector_factor(7897, math.max(0, math.min(angle, 0.999)))
+	level.set_cam_effector_factor(7897, math.max(0.0001, math.min(angle, 0.999)))
 end
 
 function enable_hud_adjust()
@@ -605,7 +660,7 @@ function apply_spring(raw_val, vel, dt, spring, damping)
 	dt = math.min(dt, 1 / 30)
 	local acc = raw_val * -spring - vel * damping
 	vel = vel + acc * dt
-	raw_val = raw_val + vel * dt
+	return raw_val + vel * dt, vel
 end
 function apply_spring_vec(raw_vec, vel_vec, dt, spring, damping)
 	if not damping then

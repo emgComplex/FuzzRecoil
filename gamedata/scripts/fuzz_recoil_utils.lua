@@ -92,18 +92,21 @@ end
 
 fuzz_utils.simple_ease = {}
 fuzz_utils.simple_ease.__index = fuzz_utils.simple_ease
-function fuzz_utils.simple_ease:new(base_speed, offset, intensity, mode)
+function fuzz_utils.simple_ease:new(base_speed, speed_mul, offset, intensity, mode)
 	local ins = {
 		base_speed = base_speed,
+		speed_mul = speed_mul,
 		offset = offset,
+		offset_def = offset,
 		intensity = intensity,
+		intensity_def = intensity,
 		is_ease_in = (mode == "in"),
 	}
 	setmetatable(ins, fuzz_utils.simple_ease)
 	return ins
 end
 function fuzz_utils.simple_ease:set_speed(speed)
-	self.base_speed = speed
+	self.base_speed = speed * self.speed_mul
 end
 function fuzz_utils.simple_ease:update(progress, dt)
 	local p_factor = self.is_ease_in and progress or (1 - progress)
@@ -117,6 +120,10 @@ function fuzz_utils.simple_ease:draw_imgui(label)
 		_, self.intensity = ImGui.SliderFloat("Intensity", self.intensity, 0.1, 10, "%.2f")
 		ImGui.TreePop()
 	end
+end
+function fuzz_utils.simple_ease:reset()
+	self.offset = self.offset_def
+	self.intensity = self.intensity_def
 end
 
 function fuzz_utils.math_clamp(val, min, max)
