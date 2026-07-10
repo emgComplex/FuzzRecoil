@@ -338,14 +338,14 @@ function init_recoil()
 	reset_hud_hand()
 	enable_hud_adjust()
 	if not level.check_cam_effector(CAM_FX_ID) then
-		level.add_cam_effector("camera_effects\\onerad.anm", 7897, true, "", 0, true, 0)
+		level.add_cam_effector("camera_effects\\onerad.anm", 7897, true, "", 0, true, 0.0001)
 	end
 	RemoveTimeEvent("fuzz_recoil", "bolt_delay")
 	logger.dbg("Initialize Recoil")
 end
 
 function reset_cam_recoil()
-	set_player_angle(0)
+	set_player_angle(0.0001)
 	state.is_cam_returned = true
 	state.cam_angle = 0
 	state.cam_angle_max = 0
@@ -449,7 +449,7 @@ function set_player_angle(angle)
 		logger.err("player not found")
 		return
 	end
-	level.set_cam_effector_factor(7897, math.max(0, math.min(angle, 0.999)))
+	level.set_cam_effector_factor(7897, math.max(0.0001, math.min(angle, 0.999)))
 end
 
 function enable_hud_adjust()
