@@ -319,7 +319,7 @@ function init_weapon(wpn_sec)
 	local skind = shot_delay_table[wpn_info.kind]
 	if skind and wpn_info.rpm <= skind.rpm then
 		state.should_shot_delay = true
-		state.shot_delay_time = utils.math_clamp(state.fire_interval, 0.1, 0.4)
+		state.shot_delay_time = utils.math_clamp(state.fire_interval, 0.1, 0.5)
 		state.shot_cam_impulse_factor = skind.cam_impulse
 	end
 

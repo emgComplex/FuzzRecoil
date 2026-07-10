@@ -106,8 +106,6 @@ function renderImguiTab()
 	ImGui.Text(debug_text1)
 	_, showProfile = ImGui.Checkbox("Profile", showProfile)
 	ImGui.SameLine()
-	_, showPlots = ImGui.Checkbox("Histogram", showPlots)
-	ImGui.SameLine()
 	_, showInfo = ImGui.Checkbox("Info", showInfo)
 	ImGui.SameLine()
 	_, showLogs = ImGui.Checkbox("Logs", showLogs)
@@ -125,6 +123,7 @@ function renderImguiTab()
 			debug_text1 = "Failed to load weapon"
 		end
 	end
+	_, showPlots = ImGui.Checkbox("Histogram", showPlots)
 	if frm.cur_wpn then
 		ImGui.TextColored(vector4():set(0, 1, 0, 1), "Weapon: " .. frm.cur_wpn:section())
 		ImGui.Separator()
