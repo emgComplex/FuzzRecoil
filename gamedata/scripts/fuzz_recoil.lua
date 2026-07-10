@@ -613,7 +613,7 @@ function apply_spring(raw_val, vel, dt, spring, damping)
 	dt = math.min(dt, 1 / 30)
 	local acc = raw_val * -spring - vel * damping
 	vel = vel + acc * dt
-	raw_val = raw_val + vel * dt
+	return raw_val + vel * dt, vel
 end
 function apply_spring_vec(raw_vec, vel_vec, dt, spring, damping)
 	if not damping then
