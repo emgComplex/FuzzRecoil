@@ -115,6 +115,14 @@ cur_hud_pos = VEC_ZERO
 cur_hud_rot = VEC_ZERO
 sim_firing = false
 sim_timer = 0.0
+debug_var = {
+	bool0 = false,
+	bool1 = true,
+	float_s1 = 0,
+	float_s2 = 0,
+	float_x1 = 0,
+	float_x2 = 0,
+}
 
 function on_game_start()
 	RegisterScriptCallback("actor_on_update", actor_on_update)

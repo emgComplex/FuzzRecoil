@@ -143,6 +143,10 @@ function renderImguiTab()
 			renderHudControls()
 			ImGui.TreePop()
 		end
+		if ImGui.TreeNode("Debug Vars") then
+			renderDebugVars()
+			ImGui.TreePop()
+		end
 	end
 end
 ImGui.Groups.Main.Widget(function()
@@ -362,6 +366,16 @@ function renderConfig()
 	-- 		frm.on_fire_stop()
 	-- 	end
 	-- end
+end
+function renderDebugVars()
+	vars = frm.debug_var
+	ImGui.TextColored(vector4():set(0.2, 0.9, 0.4, 1), "=== DEBUG VARS ===")
+	_, vars.bool0 = ImGui.Checkbox("bool0", vars.bool0)
+	_, vars.bool1 = ImGui.Checkbox("bool1", vars.bool1)
+	_, vars.float_s1 = ImGui.SliderFloat("float_s1", vars.float_s1, 0, 1, "%.4f")
+	_, vars.float_s2 = ImGui.SliderFloat("float_s2", vars.float_s2, 0, 1, "%.4f")
+	_, vars.float_x1 = ImGui.SliderFloat("float_x1", vars.float_x1, 0, 50, "%.2f")
+	_, vars.float_x2 = ImGui.SliderFloat("float_x2", vars.float_x2, 0, 50, "%.2f")
 end
 
 function renderHudControls()
