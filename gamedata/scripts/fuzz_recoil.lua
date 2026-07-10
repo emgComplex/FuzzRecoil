@@ -251,6 +251,12 @@ function update_sim_shooting(dt)
 		end
 	end
 end
+--TODO: we should desync it
+function pos_y_sync_with_cam()
+	if state.should_shot_delay then
+		state.hud_pos_raw.y = state.cam_angle * wpn_profile.shot_pos_y
+	end
+end
 function on_hud_update_phys(dt)
 	local pull_strength = wpn_profile.pull_force * state.handling_power
 
@@ -260,6 +266,7 @@ function on_hud_update_phys(dt)
 	state.hud_rot_raw:clamp(config.max_hud_rot)
 	state.hud_pos_raw:clamp(config.max_hud_pos)
 
+	pos_y_sync_with_cam()
 	apply_simple_smooth(dt, config.smooth_firing)
 
 	set_hud_offset(state.hud_pos_smooth, state.hud_rot_smooth)
@@ -276,6 +283,8 @@ function do_hud_return_phys(dt)
 		reset_hud_recoil()
 		return
 	end
+
+	pos_y_sync_with_cam()
 
 	apply_simple_smooth(dt, config.smooth_return)
 	set_hud_offset(state.hud_pos_smooth, state.hud_rot_smooth)
