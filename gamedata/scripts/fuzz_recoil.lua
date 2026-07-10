@@ -467,8 +467,8 @@ function set_hud_offset(pos, rot)
 	apply_cur_hud_hand()
 end
 function reset_hud_hand()
-	cur_hud_pos = utils.vector_clone(ori_hand_trs[1])
-	cur_hud_rot = utils.vector_clone(ori_hand_trs[2])
+	cur_hud_pos = vector():set(ori_hand_trs[1])
+	cur_hud_rot = vector():set(ori_hand_trs[2])
 	apply_cur_hud_hand()
 end
 --=========Init Recoil and Info Collection============
@@ -660,8 +660,8 @@ function apply_recoil_forces(dt, control_strength, damping)
 end
 function apply_simple_smooth(dt, smooth)
 	if smooth <= 0.001 then
-		state.hud_rot_smooth = utils.vector_clone(state.hud_rot_raw)
-		state.hud_pos_smooth = utils.vector_clone(state.hud_pos_raw)
+		state.hud_rot_smooth = vector():set(state.hud_rot_raw)
+		state.hud_pos_smooth = vector():set(state.hud_pos_raw)
 	else
 		local smooth_factor = utils.math_clamp(smooth * dt, 0, 1)
 		state.hud_rot_smooth = utils.vector_lerp(state.hud_rot_smooth, state.hud_rot_raw, smooth_factor)

@@ -129,7 +129,7 @@ function fuzz_utils.range_lerp(val, from, to, offset, clamp)
 	if clamp then
 		val = fuzz_utils.math_clamp(val, from.min, from.max)
 	end
-	log(
+	logger.dbg(
 		string.format(
 			"val:%.2f,from_min:%.2f,from_max:%.2f,to_min:%.2f,to_max:%.2f,offset:%.2f",
 			val,
@@ -148,10 +148,6 @@ function fuzz_utils.vector_clamp_with_sign(val, min)
 	local sign = flag and -1 or 1
 	local magnitude = math.max(math.abs(val), min)
 	return magnitude * sign
-end
---NOTE: we can use vector:set directly i guess
-function fuzz_utils.vector_clone(target)
-	return vector():set(target)
 end
 function fuzz_utils.vector_lerp(from, to, t)
 	return vector():set(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t, from.z + (to.z - from.z) * t)
