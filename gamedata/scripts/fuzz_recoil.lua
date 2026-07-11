@@ -124,7 +124,6 @@ config = {
 
 	--NOGUI
 	sniper_idle_handling = { offset = 0.2, intensity = 0.8 },
-	pitch_expansion = 1.5,
 }
 wpn_profile = {
 	is_bolt_action = false,
@@ -172,7 +171,6 @@ state = {
 	hud_rot_raw = vector():set(0, 0, 0),
 	hud_pos_smooth = vector():set(0, 0, 0),
 	hud_rot_smooth = vector():set(0, 0, 0),
-	-- cur_aim_state = 0
 	--no need to reset
 	cur_wpn_id = 0,
 	addon_sig = "",
@@ -583,12 +581,6 @@ function clamp_cam_angle()
 	end
 	if wpn_profile.cam_max_angle > 0 and state.cam_angle > wpn_profile.cam_max_angle then
 		state.cam_angle = wpn_profile.cam_max_angle
-	end
-end
-function on_cam_update_spring(dt)
-	if state.is_firing and math.abs(state.cam_vel) > 0.01 then
-		state.cam_angle, state.cam_vel = apply_spring(state.cam_angle, state.cam_vel, dt, debug_var.float_x1)
-		set_player_angle(state.cam_angle)
 	end
 end
 --NOTE: min_step is the best i can got...still can't get the final phase right.
@@ -1032,19 +1024,6 @@ function init_hud_adjust(wpn_sec)
 	hud_adjust.set_value("scope_zoom_factor_alt", utils.get_float(wpn_sec, "scope_zoom_factor_alt"))
 	hud_adjust.enabled(false)
 end
-local function get_aim_state()
-	-- local is_gl = weapon:weapon_in_grenade_mode()
-	if not cur_cast_wpn:IsZoomed() then
-		state.cur_aim_state = 0
-		return
-	end
-	state.cur_aim_state = cur_cast_wpn:GetZoomType() + 1
-	-- --FIXME: out of bound check
-	if state.cur_aim_state > 3 then
-		logger.err("Unknown aim state(out of bound):" .. state.cur_aim_state)
-		state.cur_aim_state = 0
-	end
-end
 --================PHYSICS======================
 function apply_spring(raw_val, vel, dt, spring, damping)
 	if not damping then
@@ -1081,26 +1060,6 @@ function apply_spring_vec_with_decay(raw_vec, vel_vec, dt, spring, damping)
 	raw_vec:add(vector():set(vel_vec):mul(dt))
 end
 
----FIXME: duck duck tell me, why this is not working.
--- function apply_spring_vec(raw_vec, vel_vec, dt, spring, damping)
--- 	apply_spring(raw_vec.x, vel_vec.x, dt, spring, damping)
--- 	apply_spring(raw_vec.y, vel_vec.y, dt, spring, damping)
--- 	-- apply_spring(raw_vec.z, vel_vec.z, dt, spring, damping)
--- end
--- function apply_spring_vec_with_decay(raw_vec, vel_vec, dt, spring, damping)
--- 	if not damping then
--- 		--Calculate critical damping
--- 		damping = math.sqrt(spring) * 2
--- 	end
--- 	--TODO: switch to solution
--- 	dt = math.min(dt, 1 / 30)
--- 	local acc = vector():set(raw_vec):mul(-spring):mul(dt)
--- 	vel_vec:add(dt)
--- 	local damping_factor = math.max(0, 1 - damping * dt)
--- 	-- vel_vec:mul(decay factor)
--- 	vel_vec:mul(damping_factor)
--- 	raw_vec:add(vector():set(vel_vec):mul(dt))
--- end
 function apply_recoil_forces(dt, control_strength, damping)
 	local base_feedback = (wpn_profile.shot_pitch / state.fire_interval) * control_strength
 	local feedback_strength = base_feedback * wpn_profile.pull_force

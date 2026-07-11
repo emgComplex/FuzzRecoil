@@ -25,45 +25,6 @@ local export_hint = "Export profile to your game's bin folder"
 --NOTE: we have to updadte all raw vector and nullable ref here
 --silly but work for debuging
 
-local LinePlot = {}
-LinePlot.__index = LinePlot
-function LinePlot.new(label, max_size, min_val, max_val, width, height)
-	local self = setmetatable({}, LinePlot)
-
-	self.label = label or "Plot"
-	self.max_size = max_size or 100
-	self.min_val = min_val or -1.0
-	self.max_val = max_val or 1.0
-	self.width = width or 300
-	self.height = height or 150
-
-	self.history_data = {}
-	for i = 1, self.max_size do
-		table.insert(self.history_data, 0)
-	end
-
-	return self
-end
-function LinePlot:draw(new_value)
-	table.remove(self.history_data, 1)
-	table.insert(self.history_data, new_value)
-
-	local min_y = self.min_val or nil
-	local max_y = self.max_val or nil
-
-	--NOTE: sadly no lua bindings for plot...
-	ImGui.PlotLines(
-		self.label,
-		self.history_data,
-		self.max_size,
-		0,
-		nil,
-		min_y,
-		max_y,
-		vector2():set(self.width, self.height)
-	)
-end
-
 local LinePlotHack = {}
 LinePlotHack.__index = LinePlotHack
 
@@ -550,27 +511,6 @@ function vector_imgui_text_drawer(vec, label, is_rot)
 	ImGui.TextColored(vector4():set(0, 1, 0.5, 1), label)
 	ImGui.Text(info)
 end
-function vector_imgui_slider_drawer(vec, label, is_rot)
-	local limit = is_rot and 3.2 or 5.2
-	ImGui.PushID(label)
-	if is_rot then
-		_, _ = ImGui.SliderFloat("Yaw", vec.x, -limit, limit, "%.5f")
-		_, _ = ImGui.SliderFloat("Pitch", vec.y, -limit, limit, "%.5f")
-		_, _ = ImGui.SliderFloat("Roll", vec.z, -limit, limit, "%.5f")
-	else
-		_, _ = ImGui.SliderFloat("X", vec.x, -limit, limit, "%.5f")
-		_, _ = ImGui.SliderFloat("Y", vec.y, -limit, limit, "%.5f")
-		_, _ = ImGui.SliderFloat("Z", vec.z, -limit, limit, "%.5f")
-	end
-	ImGui.PopID()
-end
-
-function indicator_drawer(val, label, min, max)
-	if type(val) == "number" then
-		_, _ = ImGui.SliderFloat(label, val, min, max, "%.5f")
-	end
-end
-
 function export_profile_to_ltx()
 	local profile = frm.wpn_profile
 	local wpn_name = tostring(utils.get_base_weapon(frm.cur_wpn:section()))

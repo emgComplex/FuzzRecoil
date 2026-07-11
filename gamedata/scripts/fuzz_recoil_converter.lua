@@ -1,40 +1,6 @@
 converter = {}
 local utils = fuzz_utils or fuzz_recoil_utils.fuzz_utils
 
-local wpn_profile_def = {
-	is_bolt_action = false,
-	cam_recoil_power = 4,
-	cam_return_speed = 1,
-	cam_max_angle = 0,
-	pitch_frac = 1,
-	zoom_ratio = 1,
-
-	shot_pitch = 15,
-	shot_pos_y = -0.04,
-	shot_yaw = 15,
-	shot_pos_x = 0.0006,
-
-	pull_force = 1.5,
-	firing_damping = 1.0,
-	shot_pos_z = 0.006,
-
-	handling_speed = 0.5,
-	increase_rate = 0,
-	-- mass_inertia = -1,
-}
-
-local wpn_info_def = {
-	cam_dispersion = 0,
-	cam_dispersion_inc = 0,
-	zoom_cam_dispersion = 0,
-	zoom_cam_dispersion_inc = 0,
-	cam_step_angle_horz = 0,
-	cam_relax_speed = 0,
-	addon_cam_k = 1,
-	addon_cam_inc_k = 1,
-	inv_weight = 0,
-	rpm = 600,
-}
 converter.rule = {
 	["cam_recoil_power"] = { offset = 1, from = { min = 0, max = 4 }, to = { min = 1, max = 5 } },
 	["cam_return_speed"] = { offset = 0, from = { min = 0, max = 10 }, to = { min = 0, max = 2 }, clamp = true },
