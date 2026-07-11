@@ -244,7 +244,7 @@ function update_sim_shooting(dt)
 end
 --TODO: we should desync it
 function pos_y_sync_with_cam()
-	if wpn_profile.shot_dealy_enable then
+	if settings.bolt_action_Y_lift and wpn_profile.shot_dealy_enable then
 		--PERF: should cached once code is stablelized
 		y_impulse = wpn_profile.is_bolt_action and math.abs(wpn_profile.shot_pos_y) * 2 or wpn_profile.shot_pos_y
 		state.hud_pos_raw.y = camrc.angle * y_impulse
