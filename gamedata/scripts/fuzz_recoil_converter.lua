@@ -1,5 +1,5 @@
 converter = {}
-local utils = fuzz_utils or fuzz_recoil_utils.fuzz_utils
+local utils = fuzz_recoil_utils
 
 local wpn_profile_def = {
 	is_bolt_action = false,

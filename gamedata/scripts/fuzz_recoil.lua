@@ -1,7 +1,7 @@
 fuzz_recoil = { version = "a4" }
 ---@diagnostic disable: lowercase-global
 ----Imports
-local utils = fuzz_utils or fuzz_recoil_utils.fuzz_utils
+local utils = fuzz_recoil_utils
 local cvter = converter or fuzz_recoil_converter.converter
 local logger = fuzz_recoil_logger
 ---
