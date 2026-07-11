@@ -2,84 +2,83 @@
 fuzz_utils = {}
 local logger = logger or fuzz_recoil_logger.logger
 local frm = fuzz_recoil
---TODO: this could slow down the whole game,i'll have to do the refator
---REFT: using luabind methods instead of operators overload
-function fuzz_utils.init_vector_extensions()
-	local temp_vec = vector()
-	local mt = getmetatable(temp_vec)
-	if mt then
-		local ori_add = mt.__add
-		local ori_sub = mt.__sub
-		local ori_div = mt.__div
-		local ori_unm = mt.__unm
-		local ori_mul = mt.__mul
+--NOTE: this could slow down the whole game,i'll have to do the refator
+--i just left a code here to remind me this is a bad idea
+-- function fuzz_utils.init_vector_extensions()
+-- 	local temp_vec = vector()
+-- 	local mt = getmetatable(temp_vec)
+-- 	if mt then
+-- 		local ori_add = mt.__add
+-- 		local ori_sub = mt.__sub
+-- 		local ori_div = mt.__div
+-- 		local ori_unm = mt.__unm
+-- 		local ori_mul = mt.__mul
+--
+-- 		local function is_vector(v)
+-- 			return type(v) == "userdata" and v.x ~= nil
+-- 		end
+--
+-- 		mt.__add = function(a, b)
+-- 			if is_vector(a) and is_vector(b) then
+-- 				return vector():set(a.x + b.x, a.y + b.y, a.z + b.z)
+-- 			elseif ori_add then
+-- 				return ori_add(a, b)
+-- 			else
+-- 				error(string.format("Unsupported operator(+) for %s and %s", tostring(a), tostring(b)))
+-- 			end
+-- 		end
+--
+-- 		mt.__sub = function(a, b)
+-- 			if is_vector(a) and is_vector(b) then
+-- 				return vector():set(a.x - b.x, a.y - b.y, a.z - b.z)
+-- 			elseif ori_sub then
+-- 				return ori_sub(a, b)
+-- 			else
+-- 				error(string.format("Unsupported operator(-) for %s and %s", tostring(a), tostring(b)))
+-- 			end
+-- 		end
+--
+-- 		mt.__mul = function(a, b)
+-- 			if type(a) == "number" and is_vector(b) then
+-- 				return vector():set(b.x * a, b.y * a, b.z * a)
+-- 			elseif is_vector(a) and type(b) == "number" then
+-- 				return vector():set(a.x * b, a.y * b, a.z * b)
+-- 			elseif is_vector(a) and is_vector(b) then
+-- 				return vector():set(a.x * b.x, a.y * b.y, a.z * b.z)
+-- 			elseif ori_mul then
+-- 				return ori_mul(a, b)
+-- 			else
+-- 				error(string.format("Unsupported operator(*) for %s and %s", tostring(a), tostring(b)))
+-- 			end
+-- 		end
+--
+-- 		mt.__div = function(a, b)
+-- 			if is_vector(a) and type(b) == "number" then
+-- 				if b == 0 then
+-- 					error("divided by 0!")
+-- 				end
+-- 				return vector():set(a.x / b, a.y / b, a.z / b)
+-- 			elseif ori_div then
+-- 				return ori_div(a, b)
+-- 			else
+-- 				error(string.format("Unsupported operator(/) for %s and %s", tostring(a), tostring(b)))
+-- 			end
+-- 		end
+--
+-- 		mt.__unm = function(a)
+-- 			if is_vector(a) then
+-- 				return vector():set(-a.x, -a.y, -a.z)
+-- 			elseif ori_unm then
+-- 				return ori_unm(a)
+-- 			else
+-- 				error("Unsupported type to negate: " .. tostring(a))
+-- 			end
+-- 		end
+-- 	else
+-- 		error("Can't find vector metatable")
+-- 	end
+-- end
 
-		local function is_vector(v)
-			return type(v) == "userdata" and v.x ~= nil
-		end
-
-		mt.__add = function(a, b)
-			if is_vector(a) and is_vector(b) then
-				return vector():set(a.x + b.x, a.y + b.y, a.z + b.z)
-			elseif ori_add then
-				return ori_add(a, b)
-			else
-				error(string.format("Unsupported operator(+) for %s and %s", tostring(a), tostring(b)))
-			end
-		end
-
-		mt.__sub = function(a, b)
-			if is_vector(a) and is_vector(b) then
-				return vector():set(a.x - b.x, a.y - b.y, a.z - b.z)
-			elseif ori_sub then
-				return ori_sub(a, b)
-			else
-				error(string.format("Unsupported operator(-) for %s and %s", tostring(a), tostring(b)))
-			end
-		end
-
-		mt.__mul = function(a, b)
-			if type(a) == "number" and is_vector(b) then
-				return vector():set(b.x * a, b.y * a, b.z * a)
-			elseif is_vector(a) and type(b) == "number" then
-				return vector():set(a.x * b, a.y * b, a.z * b)
-			elseif is_vector(a) and is_vector(b) then
-				return vector():set(a.x * b.x, a.y * b.y, a.z * b.z)
-			elseif ori_mul then
-				return ori_mul(a, b)
-			else
-				error(string.format("Unsupported operator(*) for %s and %s", tostring(a), tostring(b)))
-			end
-		end
-
-		mt.__div = function(a, b)
-			if is_vector(a) and type(b) == "number" then
-				if b == 0 then
-					error("divided by 0!")
-				end
-				return vector():set(a.x / b, a.y / b, a.z / b)
-			elseif ori_div then
-				return ori_div(a, b)
-			else
-				error(string.format("Unsupported operator(/) for %s and %s", tostring(a), tostring(b)))
-			end
-		end
-
-		mt.__unm = function(a)
-			if is_vector(a) then
-				return vector():set(-a.x, -a.y, -a.z)
-			elseif ori_unm then
-				return ori_unm(a)
-			else
-				error("Unsupported type to negate: " .. tostring(a))
-			end
-		end
-	else
-		error("Can't find vector metatable")
-	end
-end
-
---TODO: handle nil and other exceptions here maybbe?
 function fuzz_utils.get_string(sec, param, def)
 	return SYS_GetParam(0, sec, param, def ~= nil and def or "")
 end
@@ -136,17 +135,17 @@ function fuzz_utils.range_lerp(val, from, to, offset, clamp)
 	if clamp then
 		val = fuzz_utils.math_clamp(val, from.min, from.max)
 	end
-	logger.dbg(
-		string.format(
-			"val:%.2f,from_min:%.2f,from_max:%.2f,to_min:%.2f,to_max:%.2f,offset:%.2f",
-			val,
-			from.min,
-			from.max,
-			to.min,
-			to.max,
-			offset
-		)
-	)
+	-- logger.dbg(
+	-- 	string.format(
+	-- 		"val:%.2f,from_min:%.2f,from_max:%.2f,to_min:%.2f,to_max:%.2f,offset:%.2f",
+	-- 		val,
+	-- 		from.min,
+	-- 		from.max,
+	-- 		to.min,
+	-- 		to.max,
+	-- 		offset
+	-- 	)
+	-- )
 	local range = from.max - from.min
 	if range == 0 then
 		return to.min + offset
@@ -252,7 +251,7 @@ function iterator(section)
 		end
 	end
 end
---TODO: recusive needed?
+--NOTE: recusive needed?
 function fuzz_utils.get_base_weapon(wpn_sec)
 	local parent_section = ini_sys:r_string_ex(wpn_sec, "parent_section")
 	if parent_section and wpn_sec ~= parent_section then

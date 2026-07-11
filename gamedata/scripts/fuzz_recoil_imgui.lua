@@ -326,7 +326,6 @@ function renderConfig()
 		ImGui.Separator()
 		frm.config.firing_handling_ease:draw_imgui("Handling inc")
 		frm.config.idle_handling_ease:draw_imgui("Handling dec")
-		--FIXME: tree does not PushID?
 		_, frm.config.base_cam_return_speed =
 			ImGui.SliderFloat("Base Cam Return Speed", frm.config.base_cam_return_speed, 0.1, 10, "%.2frad")
 		_, frm.config.min_cam_return_step =

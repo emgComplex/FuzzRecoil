@@ -84,6 +84,8 @@ state = {
 	is_firing = false,
 	handling_power = 0.0,
 	--TODO: duration or ? we need a way to achieve recoil expansion
+	--i don't like duration at all,too "linear-like"
+	--maybe an  arm muscle (or aimming) stamina ,
 
 	is_cam_returned = false,
 	cam_angle = 0,
@@ -143,9 +145,7 @@ end
 function on_before_fire()
 	-- logger.dbg("Before Shot ")
 	if not state.active then
-		--PERF:NEED NEW ENTRY POINT
-		--init before fire is difinitely a bad practise,
-		--the best entry point is when switching weapon,which i can only hook to it through on_animation_paly
+		--TODO: this is fine,we need a hook when applying upgrades on cur_weapon,to refresh
 		state.active = get_current_weapon()
 		---check ammo
 		-- if cur_cast_wpn:GetAmmoElapsed() == 0 then
@@ -154,8 +154,11 @@ function on_before_fire()
 	end
 end
 function on_fire()
-	--FIXME: this is definately a lazy way
 	if not state.active then
+		--TODO:this is the major impact(0.26ms) on peformance, i mean 0.26ms is not that slow
+		--this is bad entry point i think ,but i got nothing better
+		--so find out who did the impact(i m guessing cam_effector or hud_adjust.enabled)
+		--no need to good deep for optimization ,leave it here for now.
 		init_recoil()
 	end
 	if state.should_shot_delay then
@@ -238,7 +241,6 @@ function on_fire_stop()
 	logger.dbg("Fire stopped")
 end
 
---FIXME: should we udpate handling power when system is inactive
 function update_handling_power(dt)
 	if state.is_firing then
 		state.handling_power = utils.math_clamp(config.firing_handling_ease:update(state.handling_power, dt), 0, 1)
@@ -328,7 +330,9 @@ function on_cam_update_spring(dt)
 	end
 end
 --NOTE: min_step is the best i can got...still can't get the final phase right.
---TODO: maybe try simple_ease and lerp the vel to a min value?,it could be more natrual when the angle is high.
+--TODO: --maybe try simple_ease and lerp the vel to a min value?,it could be more natrual when the angle is high.
+--i think it's fine for now, and maybe remove camera return in the future if we can get rid of cam_effector
+--leave it here
 function do_cam_return(dt)
 	-- logger.dbg("cam returning")
 	if state.cam_angle <= config.min_cam_return_step then
@@ -531,7 +535,10 @@ function reset_hud_hand()
 	apply_cur_hud_hand()
 end
 --=========Init Recoil and Info Collection============
---NOTE:this is safer,cause we are changing cam_recoil
+--FIXME: only cam_step_angle_horz update with upgrades
+--tested with wpn_m98b,there is an unpacked upgrades ltx in
+--configs/items/weapons/upgrades/w_m98b_up.ltx
+--it does reduce cam_dispersion
 --NOTE: engine getters return the live post-upgrade values in radians,
 --converter rules are tuned to ini degrees,so convert back with math.deg
 function collect_wpn_info(wpn_sec)
@@ -554,6 +561,7 @@ function collect_wpn_info(wpn_sec)
 		wpn_info.cam_relax_speed = utils.get_float(wpn_sec, "cam_relax_speed")
 		wpn_info.rpm = utils.get_float(wpn_sec, "rpm", 600)
 	end
+	--TODO: if we are considering mass effect,we should use engine-getter
 	wpn_info.inv_weight = utils.get_float(wpn_sec, "inv_weight", 3)
 	try_get_recoil_profile(wpn_sec)
 end
@@ -653,19 +661,18 @@ function init_hud_adjust(wpn_sec)
 	end
 	hud_adjust.enabled(false)
 end
-local function get_aim_state()
-	-- local is_gl = weapon:weapon_in_grenade_mode()
-	if not cur_cast_wpn:IsZoomed() then
-		state.cur_aim_state = 0
-		return
-	end
-	state.cur_aim_state = cur_cast_wpn:GetZoomType() + 1
-	-- --FIXME: out of bound check
-	if state.cur_aim_state > 3 then
-		logger.err("Unknown aim state(out of bound):" .. state.cur_aim_state)
-		state.cur_aim_state = 0
-	end
-end
+-- local function get_aim_state()
+-- 	-- local is_gl = weapon:weapon_in_grenade_mode()
+-- 	if not cur_cast_wpn:IsZoomed() then
+-- 		state.cur_aim_state = 0
+-- 		return
+-- 	end
+-- 	state.cur_aim_state = cur_cast_wpn:GetZoomType() + 1
+-- 	if state.cur_aim_state > 3 then
+-- 		logger.err("Unknown aim state(out of bound):" .. state.cur_aim_state)
+-- 		state.cur_aim_state = 0
+-- 	end
+-- end
 --================PHYSICS======================
 function apply_spring(raw_val, vel, dt, spring, damping)
 	if not damping then
