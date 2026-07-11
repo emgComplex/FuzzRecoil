@@ -69,6 +69,15 @@ config = {
 	v2_pos_scale = 0.02,
 	--fraction of the kick fed straight into the smoothed value, frame one snap
 	v2_kick_feedforward = 0.65,
+	--per shot kick variance, plateau jitter scales with handling so the peak needs work
+	v2_pitch_jitter = 0.12,
+	v2_plateau_jitter = 0.22,
+	--ads uses vanilla zoom ratio, hip fire kicks harder and wanders more
+	ads_kick_mul = 1.0,
+	hip_kick_mul = 1.3,
+	hip_spread_mul = 2.2,
+	hip_jitter_mul = 2.0,
+	hip_recover_mul = 0.85,
 	--recovery rate, base plus handling driven convergence
 	v2_recover_base = 1.2,
 	v2_recover_gain = 3.0,
@@ -101,8 +110,8 @@ wpn_profile = {
 	cam_max_angle = 0,
 	--1 means no per shot variance
 	pitch_frac = 1,
-	--TODO:
-	--zoom_scale_ratio
+	--ads kick relative to hip, from vanilla zoom_cam_dispersion/cam_dispersion
+	zoom_ratio = 1,
 
 	shot_pitch = 15,
 	shot_pos_y = -0.04,
@@ -149,6 +158,7 @@ state = {
 	shot_cam_impulse_factor = 0.2,
 	--addon koefs x ammo k_cam_dispersion, refreshed per shot
 	shot_cam_k = 1,
+	is_ads = false,
 }
 local shot_delay_table = {
 	w_sniper = { rpm = 60, cam_impulse = 1 },
@@ -238,19 +248,28 @@ function on_fire()
 		* expansion
 		* state.shot_cam_k
 		* settings.recoil_cam_scale
+		* (settings.hud_kick_v2 and get_mode_kick_mul() or 1)
 	state.cam_vel = state.cam_vel + cam_impulse
 end
 --v2, instant displacement per shot, recovery eases it back (snap out ease back)
 function on_fire_phys_v2()
-	local v_scale = state.shot_cam_k * settings.recoil_v_scale
-	local h_scale = settings.recoil_h_scale
-	local d_pitch = wpn_profile.shot_pitch * config.v2_pitch_scale * v_scale
+	local mode_mul = get_mode_kick_mul()
+	local jitter_mul = state.is_ads and 1 or config.hip_jitter_mul
+	local spread_mul = state.is_ads and 1 or config.hip_spread_mul
+	local v_scale = state.shot_cam_k * settings.recoil_v_scale * mode_mul
+	local h_scale = settings.recoil_h_scale * spread_mul
+
+	--kick variance always, plateau jitter grows with handling so the peak stays alive
+	local jitter = 1 + (math.random() * 2 - 1) * config.v2_pitch_jitter * jitter_mul
+	local plateau = (math.random() * 2 - 1) * config.v2_plateau_jitter * state.handling_power * jitter_mul
+
+	local d_pitch = wpn_profile.shot_pitch * config.v2_pitch_scale * v_scale * jitter + plateau
 	local d_pos_y = wpn_profile.shot_pos_y * config.v2_pos_scale * v_scale
 	--bounded horizontal walk, small random steps instead of full size flips
 	local d_yaw = (math.random() * 2 - 1) * wpn_profile.shot_yaw * config.v2_yaw_scale * h_scale
 	local d_pos_x = (math.random() * 2 - 1) * wpn_profile.shot_pos_x * h_scale
 	--shoulder push
-	local d_pos_z = -wpn_profile.shot_pos_z * v_scale
+	local d_pos_z = -wpn_profile.shot_pos_z * state.shot_cam_k * settings.recoil_v_scale
 
 	state.hud_rot_raw.y = state.hud_rot_raw.y + d_pitch
 	state.hud_rot_raw.x = state.hud_rot_raw.x + d_yaw
@@ -366,6 +385,9 @@ end
 --v2 recovery, exponential pull toward aim, rate grows with handling for climb then plateau
 function apply_recover_v2(dt)
 	local r = (config.v2_recover_base + config.v2_recover_gain * state.handling_power) * wpn_profile.pull_force
+	if not state.is_ads then
+		r = r * config.hip_recover_mul
+	end
 	local d_v = math.exp(-r * dt)
 	local d_h = math.exp(-r * config.v2_h_recover_mul * dt)
 	state.hud_rot_raw.y = state.hud_rot_raw.y * d_v
@@ -696,14 +718,22 @@ function get_ammo_cam_k()
 	end)
 	return ammo_k
 end
---refresh per shot so addon attach and ammo switch apply without a weapon re draw
+--refresh per shot so addon attach, ammo switch and ads state apply without a weapon re draw
 function update_shot_cam_k()
+	state.is_ads = (cur_cast_wpn and cur_cast_wpn:IsZoomed()) and true or false
 	if not cur_cast_wpn or not settings.use_addon_ammo_koefs then
 		state.shot_cam_k = 1
 		return
 	end
 	collect_addon_koefs()
 	state.shot_cam_k = wpn_info.addon_cam_k * get_ammo_cam_k()
+end
+--ads scales by the vanilla zoom ratio, hip fire kicks harder
+function get_mode_kick_mul()
+	if state.is_ads then
+		return wpn_profile.zoom_ratio * config.ads_kick_mul
+	end
+	return config.hip_kick_mul
 end
 function collect_wpn_info(wpn_sec)
 	wpn_info.kind = utils.get_string(wpn_sec, "kind")
@@ -757,6 +787,7 @@ function try_get_recoil_profile(wpn_sec)
 		wpn_profile.cam_return_speed = utils.get_float(profile, "cam_return_speed", 1)
 		wpn_profile.cam_max_angle = utils.get_float(profile, "cam_max_angle", 0)
 		wpn_profile.pitch_frac = utils.math_clamp(utils.get_float(profile, "pitch_frac", 1), 0, 1)
+		wpn_profile.zoom_ratio = utils.math_clamp(utils.get_float(profile, "zoom_ratio", 1), 0.25, 2)
 
 		wpn_profile.shot_pitch = utils.get_float(profile, "shot_pitch", 15)
 		wpn_profile.shot_pos_y = utils.get_float(profile, "shot_pos_y", -0.04)

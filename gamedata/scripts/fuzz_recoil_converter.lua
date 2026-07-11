@@ -7,6 +7,7 @@ local wpn_profile_def = {
 	cam_return_speed = 1,
 	cam_max_angle = 0,
 	pitch_frac = 1,
+	zoom_ratio = 1,
 
 	shot_pitch = 15,
 	shot_pos_y = -0.04,
@@ -77,6 +78,10 @@ converter.convert = function(op, np)
 	np.pitch_frac = utils.math_clamp(op.cam_dispersion_frac or 1, 0, 1)
 	--engine growth ratio, per shot kick = base*(1 + (inc/base)*n)
 	np.increase_rate = op.cam_dispersion > 0 and op.cam_dispersion_inc / op.cam_dispersion or 0
+	--vanilla ads to hip recoil ratio, defaults to 1 when the ini omits zoom keys
+	np.zoom_ratio = op.cam_dispersion > 0
+			and utils.math_clamp(op.zoom_cam_dispersion / op.cam_dispersion, 0.25, 2)
+		or 1
 
 	np.shot_yaw = np.shot_pitch + np.shot_yaw
 

@@ -368,6 +368,21 @@ function renderConfig()
 			_, frm.config.v2_z_recover = ImGui.SliderFloat("Z Pop Recover", frm.config.v2_z_recover, 2.0, 20.0, "%.2f")
 			_, frm.config.smooth_firing_v2 =
 				ImGui.SliderFloat("Smooth Firing V2", frm.config.smooth_firing_v2, 5.0, 60.0, "%.1f")
+			_, frm.config.v2_pitch_jitter =
+				ImGui.SliderFloat("Pitch Jitter", frm.config.v2_pitch_jitter, 0.0, 0.5, "%.2f")
+			_, frm.config.v2_plateau_jitter =
+				ImGui.SliderFloat("Plateau Jitter", frm.config.v2_plateau_jitter, 0.0, 0.8, "%.2f")
+			if ImGui.TreeNode("ADS / Hip") then
+				_, frm.config.ads_kick_mul = ImGui.SliderFloat("ADS Kick", frm.config.ads_kick_mul, 0.5, 1.5, "%.2f")
+				_, frm.config.hip_kick_mul = ImGui.SliderFloat("Hip Kick", frm.config.hip_kick_mul, 0.8, 2.5, "%.2f")
+				_, frm.config.hip_spread_mul =
+					ImGui.SliderFloat("Hip Spread", frm.config.hip_spread_mul, 1.0, 5.0, "%.2f")
+				_, frm.config.hip_jitter_mul =
+					ImGui.SliderFloat("Hip Jitter", frm.config.hip_jitter_mul, 1.0, 5.0, "%.2f")
+				_, frm.config.hip_recover_mul =
+					ImGui.SliderFloat("Hip Recover", frm.config.hip_recover_mul, 0.4, 1.2, "%.2f")
+				ImGui.TreePop()
+			end
 			ImGui.TreePop()
 		end
 		_, frm.settings.cam_drag = ImGui.SliderFloat("Cam Drag", frm.settings.cam_drag, 5.0, 20.0, "%.2f")
