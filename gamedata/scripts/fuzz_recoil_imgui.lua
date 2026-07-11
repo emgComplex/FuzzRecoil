@@ -3,6 +3,7 @@ local frm = fuzz_recoil -- or require("scripts.fuzz_recoil")
 local utils = fuzz_utils or fuzz_recoil_utils.fuzz_utils
 local logger = logger or fuzz_recoil_logger.logger
 local cvter = converter or fuzz_recoil_converter.converter
+local camrc = fuzz_recoil_cam.instance
 --stylua: ignore start
 --stylua: ignore end
 -- local log_text = frm.log_text
@@ -202,7 +203,7 @@ function plot_overlay()
 	ImGui.SetNextWindowSize(vector2():set(300, 600), ImGuiCond.FirstUseEver)
 	if expanded and frm.cur_wpn then
 		if ImGui.TreeNode("cam_angle") then
-			local new_val = frm.state.active and frm.state.cam_angle or nil
+			local new_val = frm.state.active and camrc.angle or nil
 			cam_angle_plot:draw(new_val)
 			ImGui.TreePop()
 		end
@@ -261,7 +262,7 @@ function info_overlay()
 				level.check_cam_effector(frm.CAM_FX_ID)
 			)
 		)
-		ImGui.Text(string.format("CamRetrun:%s,HudReturn:%s", frm.state.is_cam_returned, frm.state.is_hud_returned))
+		ImGui.Text(string.format("CamRetrun:%s,HudReturn:%s", camrc.is_returned, frm.state.is_hud_returned))
 
 		ImGui.ProgressBar(
 			frm.state.handling_power,
@@ -287,8 +288,8 @@ function info_overlay()
 
 		ImGui.Separator()
 		ImGui.TextColored(vector4():set(0, 1, 0.5, 1), "Camera recoil")
-		ImGui.Text(string.format("Cam pitch: %.3f", frm.state.cam_angle))
-		ImGui.Text(string.format("Cam velocity: %.3f", frm.state.cam_vel))
+		ImGui.Text(string.format("Cam pitch: %.3f", camrc.angle))
+		ImGui.Text(string.format("Cam velocity: %.3f", camrc.vel))
 		-- cam_total_up
 	end
 	ImGui.End()
