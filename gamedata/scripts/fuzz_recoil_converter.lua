@@ -15,6 +15,7 @@ local wpn_profile_def = {
 
 	pull_force = 1.5,
 	firing_damping = 1.0,
+	shot_pos_z = 0.006,
 
 	handling_speed = 0.5,
 	increase_rate = 0,
@@ -39,6 +40,7 @@ converter.rule = {
 
 	["shot_pitch"] = { offset = 0, from = { min = 0, max = 4 }, to = { min = 3, max = 16 }, clamp = true },
 	["shot_pos_y"] = { offset = 0, from = { min = 0, max = 4 }, to = { min = 0, max = -0.08 }, clamp = true },
+	["shot_pos_z"] = { offset = 0, from = { min = 0, max = 4 }, to = { min = 0.003, max = 0.012 }, clamp = true },
 	["shot_yaw"] = { offset = 0, from = { min = 0, max = 2 }, to = { min = 0, max = 1 }, clamp = true },
 	["shot_pos_x"] = { offset = 0, from = { min = 0, max = 2 }, to = { min = 0, max = 0.001 }, clamp = true },
 
@@ -60,6 +62,7 @@ converter.convert = function(op, np)
 
 	np.shot_pitch = op.cam_dispersion
 	np.shot_pos_y = op.cam_dispersion
+	np.shot_pos_z = op.cam_dispersion
 	np.shot_yaw = op.cam_step_angle_horz
 	np.shot_pos_x = op.cam_step_angle_horz
 

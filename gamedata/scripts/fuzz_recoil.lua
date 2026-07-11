@@ -48,6 +48,8 @@ settings = {
 	--The higher the sharper, the lower the smoother (and softer)
 	cam_drag = 12,
 	bolt_action_Y_lift = true,
+	--tarkov style hud kick, instant displacement with eased recovery
+	hud_kick_v2 = true,
 
 	--vanilla data extras, off keeps stock feel
 	use_pitch_frac = false,
@@ -57,9 +59,23 @@ settings = {
 }
 config = {
 	max_hud_rot = vector():set(3, 3, 0),
-	max_hud_pos = vector():set(0.0025, 0.0035, 0),
+	max_hud_pos = vector():set(0.0025, 0.0035, 0.02),
 	base_cam_return_speed = 4.0,
 	min_cam_return_step = 0.0045,
+
+	--v2 kick, profile impulses rescaled into instant hud displacement
+	v2_pitch_scale = 0.1,
+	v2_yaw_scale = 0.035,
+	v2_pos_scale = 0.02,
+	--fraction of the kick fed straight into the smoothed value, frame one snap
+	v2_kick_feedforward = 0.65,
+	--recovery rate, base plus handling driven convergence
+	v2_recover_base = 1.2,
+	v2_recover_gain = 3.0,
+	--horizontal recovers slower like tarkov, z shoulder pop recovers fast
+	v2_h_recover_mul = 0.4,
+	v2_z_recover = 9.0,
+	smooth_firing_v2 = 25,
 
 	return_spring = 150,
 	return_damping = 15.0,
@@ -95,6 +111,8 @@ wpn_profile = {
 
 	pull_force = 1.5,
 	firing_damping = 1.0,
+	--shoulder push, z pop per shot
+	shot_pos_z = 0.006,
 	-- hud_return_speed = 1,
 
 	handling_speed = 0.5,
@@ -222,7 +240,37 @@ function on_fire()
 		* settings.recoil_cam_scale
 	state.cam_vel = state.cam_vel + cam_impulse
 end
+--v2, instant displacement per shot, recovery eases it back (snap out ease back)
+function on_fire_phys_v2()
+	local v_scale = state.shot_cam_k * settings.recoil_v_scale
+	local h_scale = settings.recoil_h_scale
+	local d_pitch = wpn_profile.shot_pitch * config.v2_pitch_scale * v_scale
+	local d_pos_y = wpn_profile.shot_pos_y * config.v2_pos_scale * v_scale
+	--bounded horizontal walk, small random steps instead of full size flips
+	local d_yaw = (math.random() * 2 - 1) * wpn_profile.shot_yaw * config.v2_yaw_scale * h_scale
+	local d_pos_x = (math.random() * 2 - 1) * wpn_profile.shot_pos_x * h_scale
+	--shoulder push
+	local d_pos_z = -wpn_profile.shot_pos_z * v_scale
+
+	state.hud_rot_raw.y = state.hud_rot_raw.y + d_pitch
+	state.hud_rot_raw.x = state.hud_rot_raw.x + d_yaw
+	state.hud_pos_raw.y = state.hud_pos_raw.y + d_pos_y
+	state.hud_pos_raw.x = state.hud_pos_raw.x + d_pos_x
+	state.hud_pos_raw.z = state.hud_pos_raw.z + d_pos_z
+
+	--feed part of the kick straight into the smoothed value, the ema only shapes recovery
+	local ff = config.v2_kick_feedforward
+	state.hud_rot_smooth.y = state.hud_rot_smooth.y + d_pitch * ff
+	state.hud_rot_smooth.x = state.hud_rot_smooth.x + d_yaw * ff
+	state.hud_pos_smooth.y = state.hud_pos_smooth.y + d_pos_y * ff
+	state.hud_pos_smooth.x = state.hud_pos_smooth.x + d_pos_x * ff
+	state.hud_pos_smooth.z = state.hud_pos_smooth.z + d_pos_z * ff
+end
 function on_fire_phys()
+	if settings.hud_kick_v2 then
+		on_fire_phys_v2()
+		return
+	end
 	--shot_cam_k scales the cam_dispersion derived axes only
 	local v_scale = state.shot_cam_k * settings.recoil_v_scale
 	state.vel_hud_rot.y = state.vel_hud_rot.y + wpn_profile.shot_pitch * v_scale
@@ -315,17 +363,31 @@ function pos_y_sync_with_cam()
 		state.hud_pos_raw.y = state.cam_angle * y_impulse
 	end
 end
+--v2 recovery, exponential pull toward aim, rate grows with handling for climb then plateau
+function apply_recover_v2(dt)
+	local r = (config.v2_recover_base + config.v2_recover_gain * state.handling_power) * wpn_profile.pull_force
+	local d_v = math.exp(-r * dt)
+	local d_h = math.exp(-r * config.v2_h_recover_mul * dt)
+	state.hud_rot_raw.y = state.hud_rot_raw.y * d_v
+	state.hud_pos_raw.y = state.hud_pos_raw.y * d_v
+	state.hud_rot_raw.x = state.hud_rot_raw.x * d_h
+	state.hud_pos_raw.x = state.hud_pos_raw.x * d_h
+	state.hud_pos_raw.z = state.hud_pos_raw.z * math.exp(-config.v2_z_recover * dt)
+end
 function on_hud_update_phys(dt)
-	local pull_strength = wpn_profile.pull_force * state.handling_power
-
-	apply_recoil_forces(dt, pull_strength, wpn_profile.firing_damping)
+	if settings.hud_kick_v2 then
+		apply_recover_v2(dt)
+	else
+		local pull_strength = wpn_profile.pull_force * state.handling_power
+		apply_recoil_forces(dt, pull_strength, wpn_profile.firing_damping)
+	end
 
 	-- limit before smooth
 	state.hud_rot_raw:clamp(config.max_hud_rot)
 	state.hud_pos_raw:clamp(config.max_hud_pos)
 
 	pos_y_sync_with_cam()
-	apply_simple_smooth(dt, config.smooth_firing)
+	apply_simple_smooth(dt, settings.hud_kick_v2 and config.smooth_firing_v2 or config.smooth_firing)
 
 	set_hud_offset(state.hud_pos_smooth, state.hud_rot_smooth)
 end
@@ -703,6 +765,7 @@ function try_get_recoil_profile(wpn_sec)
 
 		wpn_profile.pull_force = utils.get_float(profile, "pull_force", 1.5)
 		wpn_profile.firing_damping = utils.get_float(profile, "firing_damping", 1)
+		wpn_profile.shot_pos_z = utils.get_float(profile, "shot_pos_z", 0.006)
 		-- wpn_profile.hud_return_speed = utils.get_float(profile, "hud_return_speed", 1)
 
 		wpn_profile.handling_speed = utils.get_float(profile, "handling_speed", 0.5)

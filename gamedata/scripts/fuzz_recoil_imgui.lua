@@ -301,6 +301,8 @@ function renderProfile()
 		frm.wpn_profile.shot_pos_y = frm.wpn_profile.shot_pos_y
 		_, frm.wpn_profile.shot_yaw = ImGui.SliderFloat("Yaw", frm.wpn_profile.shot_yaw, 0, 60, "%.2f")
 		_, frm.wpn_profile.shot_pos_x = ImGui.SliderFloat("PosX", frm.wpn_profile.shot_pos_x, 0.0001, 0.0025, "%.4f")
+		_, frm.wpn_profile.shot_pos_z =
+			ImGui.SliderFloat("PosZ (shoulder)", frm.wpn_profile.shot_pos_z, 0.0, 0.02, "%.4f")
 		frm.wpn_profile.shot_pos_x = frm.wpn_profile.shot_pos_x
 		_, frm.wpn_profile.pull_force = ImGui.SliderFloat("Pull Force", frm.wpn_profile.pull_force, 0.1, 4.0, "%.2f")
 		_, frm.wpn_profile.firing_damping =
@@ -351,6 +353,23 @@ function renderConfig()
 		_, frm.config.return_spring = ImGui.SliderFloat("Return Spring", frm.config.return_spring, 0.1, 30.0, "%.2f")
 		_, frm.config.return_damping = ImGui.SliderFloat("Return Damping", frm.config.return_damping, 0.1, 16.0, "%.2f")
 		ImGui.Text("Settings")
+		_, frm.settings.hud_kick_v2 = ImGui.Checkbox("Tarkov HUD kick (v2)", frm.settings.hud_kick_v2)
+		if frm.settings.hud_kick_v2 and ImGui.TreeNode("V2 Kick Tuning") then
+			_, frm.config.v2_pitch_scale =
+				ImGui.SliderFloat("Pitch Scale", frm.config.v2_pitch_scale, 0.01, 0.3, "%.3f")
+			_, frm.config.v2_yaw_scale = ImGui.SliderFloat("Yaw Scale", frm.config.v2_yaw_scale, 0.005, 0.15, "%.3f")
+			_, frm.config.v2_pos_scale = ImGui.SliderFloat("Pos Scale", frm.config.v2_pos_scale, 0.005, 0.1, "%.3f")
+			_, frm.config.v2_recover_base =
+				ImGui.SliderFloat("Recover Base", frm.config.v2_recover_base, 0.2, 6.0, "%.2f")
+			_, frm.config.v2_recover_gain =
+				ImGui.SliderFloat("Recover Gain", frm.config.v2_recover_gain, 0.0, 10.0, "%.2f")
+			_, frm.config.v2_h_recover_mul =
+				ImGui.SliderFloat("Horiz Recover Mul", frm.config.v2_h_recover_mul, 0.1, 1.0, "%.2f")
+			_, frm.config.v2_z_recover = ImGui.SliderFloat("Z Pop Recover", frm.config.v2_z_recover, 2.0, 20.0, "%.2f")
+			_, frm.config.smooth_firing_v2 =
+				ImGui.SliderFloat("Smooth Firing V2", frm.config.smooth_firing_v2, 5.0, 60.0, "%.1f")
+			ImGui.TreePop()
+		end
 		_, frm.settings.cam_drag = ImGui.SliderFloat("Cam Drag", frm.settings.cam_drag, 5.0, 20.0, "%.2f")
 		ImGui.Text("Vanilla data extras (default off)")
 		_, frm.settings.use_pitch_frac =
