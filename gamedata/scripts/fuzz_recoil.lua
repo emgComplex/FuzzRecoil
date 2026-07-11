@@ -75,6 +75,12 @@ wpn_profile = {
 	-- hud_return_speed = 1,
 
 	handling_speed = 0.5,
+
+	-- shot_delay
+	should_shot_delay = false,
+	shot_delay_time = 0.4,
+	shot_cam_impulse_factor = 0.2,
+
 	--TODO:NOT IMPLEMENTED
 	increase_rate = 0,
 	-- mass_inertia = -1,
@@ -102,10 +108,6 @@ state = {
 	--no need to reset
 	cur_wpn_id = 0,
 	fire_interval = 0.1,
-	-- shot_delay
-	should_shot_delay = false,
-	shot_delay_time = 0.4,
-	shot_cam_impulse_factor = 0.2,
 }
 local shot_delay_table = {
 	w_sniper = { rpm = 60, cam_impulse = 1 },
@@ -161,8 +163,8 @@ function on_fire()
 		--no need to good deep for optimization ,leave it here for now.
 		init_recoil()
 	end
-	if state.should_shot_delay then
-		CreateTimeEvent("fuzz_recoil", "bolt_delay_stop", state.shot_delay_time, function()
+	if wpn_profile.shot_dealy_enable then
+		CreateTimeEvent("fuzz_recoil", "bolt_delay_stop", wpn_profile.shot_delay_time, function()
 			on_fire_stop()
 			return true
 		end)
@@ -178,7 +180,7 @@ function on_fire()
 	on_fire_phys()
 
 	local cam_handle_factor = math.pow(1.0 - state.handling_power, 2)
-	local cam_impulse = wpn_profile.cam_recoil_power * cam_handle_factor * state.shot_cam_impulse_factor
+	local cam_impulse = wpn_profile.cam_recoil_power * cam_handle_factor * wpn_profile.shot_cam_impulse_factor
 	state.cam_vel = state.cam_vel + cam_impulse
 end
 function on_fire_phys()
@@ -205,7 +207,7 @@ function on_update(dt)
 
 	update_handling_power(dt)
 	if state.is_firing then
-		if state.should_shot_delay then
+		if wpn_profile.shot_dealy_enable then
 			on_cam_update_cubic(dt)
 		else
 			on_cam_update(dt)
@@ -263,7 +265,7 @@ function update_sim_shooting(dt)
 end
 --TODO: we should desync it
 function pos_y_sync_with_cam()
-	if state.should_shot_delay then
+	if wpn_profile.shot_dealy_enable then
 		--PERF: should cached once code is stablelized
 		y_impulse = wpn_profile.is_bolt_action and math.abs(wpn_profile.shot_pos_y) * 2 or wpn_profile.shot_pos_y
 		state.hud_pos_raw.y = state.cam_angle * y_impulse
@@ -372,15 +374,15 @@ function init_weapon(wpn_sec)
 	end
 
 	-- NOTE: or we can just check available firemodes?
-	-- REFT: look at this mess...
-	state.should_shot_delay = false
-	state.shot_cam_impulse_factor = 0.2
+	-- REFT: look at this mess...move this to converter
+	wpn_profile.shot_dealy_enable = false
+	wpn_profile.shot_cam_impulse_factor = 0.2
 
 	local skind = shot_delay_table[wpn_info.kind]
 	if skind and wpn_info.rpm <= skind.rpm then
-		state.should_shot_delay = true
-		state.shot_delay_time = utils.math_clamp(state.fire_interval, 0.1, 0.5)
-		state.shot_cam_impulse_factor = skind.cam_impulse
+		wpn_profile.shot_dealy_enable = true
+		wpn_profile.shot_delay_time = utils.math_clamp(state.fire_interval, 0.1, 0.5)
+		wpn_profile.shot_cam_impulse_factor = skind.cam_impulse
 	end
 
 	logger.dbg("Initialize weapon")
