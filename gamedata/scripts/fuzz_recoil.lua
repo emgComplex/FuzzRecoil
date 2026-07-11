@@ -70,14 +70,27 @@ config = {
 	--fraction of the kick fed straight into the smoothed value, frame one snap
 	v2_kick_feedforward = 0.65,
 	--per shot kick variance, plateau jitter scales with handling so the peak needs work
-	v2_pitch_jitter = 0.12,
-	v2_plateau_jitter = 0.22,
+	v2_pitch_jitter = 0.16,
+	v2_plateau_jitter = 0.35,
+	--aim point wander with momentum, the recovery does NOT pull it back
+	--each burst rolls its own travel direction, velocity capped so its trackable
+	v2_wander = 0.22,
+	v2_wander_vel = 0.42,
+	v2_burst_kick = 0.26,
+	v2_wander_damp = 0.9,
+	v2_wander_max = 1.9,
+	v2_wander_decay = 0.25,
 	--ads uses vanilla zoom ratio, hip fire kicks harder and wanders more
 	ads_kick_mul = 1.0,
+	--ads walk speed and dwell, shift far then settle a few shots then shift again
+	ads_wander_mul = 1.15,
+	ads_dwell_shots = 3,
 	hip_kick_mul = 1.3,
 	hip_spread_mul = 2.2,
 	hip_jitter_mul = 2.0,
-	hip_recover_mul = 0.85,
+	hip_recover_mul = 0.72,
+	--hip wander roams a wider box than ads
+	hip_wander_box = 1.55,
 	--recovery rate, base plus handling driven convergence
 	v2_recover_base = 1.2,
 	v2_recover_gain = 3.0,
@@ -159,6 +172,14 @@ state = {
 	--addon koefs x ammo k_cam_dispersion, refreshed per shot
 	shot_cam_k = 1,
 	is_ads = false,
+	--wandering aim point, momentum walk per shot
+	drift_pitch = 0,
+	drift_yaw = 0,
+	drift_vel_pitch = 0,
+	drift_vel_yaw = 0,
+	yaw_target = 0,
+	shots_since_target = 0,
+	dwell_shots = 0,
 }
 local shot_delay_table = {
 	w_sniper = { rpm = 60, cam_impulse = 1 },
@@ -259,9 +280,59 @@ function on_fire_phys_v2()
 	local v_scale = state.shot_cam_k * settings.recoil_v_scale * mode_mul
 	local h_scale = settings.recoil_h_scale * spread_mul
 
-	--kick variance always, plateau jitter grows with handling so the peak stays alive
+	--kick variance floored, starved kicks would let the recovery sink the baseline
 	local jitter = 1 + (math.random() * 2 - 1) * config.v2_pitch_jitter * jitter_mul
-	local plateau = (math.random() * 2 - 1) * config.v2_plateau_jitter * state.handling_power * jitter_mul
+	if jitter < 0.6 then
+		jitter = 0.6
+	end
+	--plateau jitter only adds on top, the ride height never dips
+	local plateau = math.random() * config.v2_plateau_jitter * state.handling_power * jitter_mul
+
+	local wander_mul = state.is_ads and config.ads_wander_mul or config.hip_jitter_mul
+	local vmax = config.v2_wander_vel * wander_mul
+	local wmax = config.v2_wander_max * (state.is_ads and 1 or config.hip_wander_box)
+	local accel = config.v2_wander * state.handling_power * wander_mul
+
+	--pitch rides above the plateau, surges up freely, sags down only gently, never dives
+	local pmax = wmax * 0.7
+	if state.burst_shots == 0 then
+		state.drift_vel_pitch = math.random() * config.v2_burst_kick * jitter_mul
+	else
+		state.drift_vel_pitch = state.drift_vel_pitch * config.v2_wander_damp + (math.random() * 2 - 1) * accel
+	end
+	state.drift_vel_pitch = utils.math_clamp(state.drift_vel_pitch, -0.22 * vmax, vmax)
+	state.drift_pitch = utils.math_clamp(state.drift_pitch + state.drift_vel_pitch, 0, pmax)
+	if state.drift_pitch >= pmax then
+		state.drift_vel_pitch = -0.18 * vmax
+	elseif state.drift_pitch <= 0 then
+		state.drift_vel_pitch = (0.4 + math.random() * 0.5) * vmax
+	end
+
+	--lateral wander walks waypoint to waypoint, traversal is guaranteed, camping impossible
+	--ads settles a few shots at each stop, spread comes from dwelling at varied spots
+	local hop_limit = state.is_ads and 10 or 8
+	local dwell_limit = state.is_ads and config.ads_dwell_shots or 0
+	local arrived = math.abs(state.yaw_target - state.drift_yaw) < 0.15 * wmax
+	if
+		state.burst_shots == 0
+		or state.shots_since_target >= hop_limit
+		or (arrived and state.dwell_shots >= dwell_limit)
+	then
+		--next stop is always on the other side of here
+		local dir = state.drift_yaw >= 0 and -1 or 1
+		state.yaw_target = dir * (0.2 + math.random() * 0.8) * wmax
+		state.shots_since_target = 0
+		state.dwell_shots = 0
+	elseif arrived then
+		state.dwell_shots = state.dwell_shots + 1
+	end
+	state.shots_since_target = state.shots_since_target + 1
+	--steering ramps in with handling so the first shots keep a clean climb
+	local steer = utils.math_clamp((state.yaw_target - state.drift_yaw) * 0.6, -vmax, vmax)
+		* (0.3 + 0.7 * state.handling_power)
+	state.drift_vel_yaw = state.drift_vel_yaw * 0.55 + steer * 0.45 + (math.random() * 2 - 1) * accel
+	state.drift_vel_yaw = utils.math_clamp(state.drift_vel_yaw, -vmax, vmax)
+	state.drift_yaw = utils.math_clamp(state.drift_yaw + state.drift_vel_yaw, -wmax, wmax)
 
 	local d_pitch = wpn_profile.shot_pitch * config.v2_pitch_scale * v_scale * jitter + plateau
 	local d_pos_y = wpn_profile.shot_pos_y * config.v2_pos_scale * v_scale
@@ -395,6 +466,10 @@ function apply_recover_v2(dt)
 	state.hud_rot_raw.x = state.hud_rot_raw.x * d_h
 	state.hud_pos_raw.x = state.hud_pos_raw.x * d_h
 	state.hud_pos_raw.z = state.hud_pos_raw.z * math.exp(-config.v2_z_recover * dt)
+	--drift barely reverts while firing, that is the point
+	local wd = math.exp(-config.v2_wander_decay * dt)
+	state.drift_pitch = state.drift_pitch * wd
+	state.drift_yaw = state.drift_yaw * wd
 end
 function on_hud_update_phys(dt)
 	if settings.hud_kick_v2 then
@@ -411,7 +486,15 @@ function on_hud_update_phys(dt)
 	pos_y_sync_with_cam()
 	apply_simple_smooth(dt, settings.hud_kick_v2 and config.smooth_firing_v2 or config.smooth_firing)
 
-	set_hud_offset(state.hud_pos_smooth, state.hud_rot_smooth)
+	set_hud_offset(state.hud_pos_smooth, rot_with_drift())
+end
+--displayed rotation = smoothed offset plus the wandering aim point
+function rot_with_drift()
+	local rot = vector():set(state.hud_rot_smooth)
+	rot.y = rot.y + state.drift_pitch
+	rot.x = rot.x + state.drift_yaw
+	rot:clamp(config.max_hud_rot)
+	return rot
 end
 function do_hud_return_phys(dt)
 	local spring = config.return_spring
@@ -428,8 +511,13 @@ function do_hud_return_phys(dt)
 
 	pos_y_sync_with_cam()
 
+	--drift comes home fast once firing stops
+	local wd = math.exp(-6 * dt)
+	state.drift_pitch = state.drift_pitch * wd
+	state.drift_yaw = state.drift_yaw * wd
+
 	apply_simple_smooth(dt, config.smooth_return)
-	set_hud_offset(state.hud_pos_smooth, state.hud_rot_smooth)
+	set_hud_offset(state.hud_pos_smooth, rot_with_drift())
 end
 
 function on_cam_update(dt)
@@ -549,6 +637,10 @@ function reset_hud_recoil()
 	state.hud_pos_smooth = vector():set(0, 0, 0)
 	state.hud_rot_raw = vector():set(0, 0, 0)
 	state.hud_rot_smooth = vector():set(0, 0, 0)
+	state.drift_pitch = 0
+	state.drift_yaw = 0
+	state.drift_vel_pitch = 0
+	state.drift_vel_yaw = 0
 
 	reset_hud_hand()
 end

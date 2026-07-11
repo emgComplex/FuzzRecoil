@@ -372,8 +372,19 @@ function renderConfig()
 				ImGui.SliderFloat("Pitch Jitter", frm.config.v2_pitch_jitter, 0.0, 0.5, "%.2f")
 			_, frm.config.v2_plateau_jitter =
 				ImGui.SliderFloat("Plateau Jitter", frm.config.v2_plateau_jitter, 0.0, 0.8, "%.2f")
+			_, frm.config.v2_wander = ImGui.SliderFloat("Wander Accel", frm.config.v2_wander, 0.0, 0.5, "%.2f")
+			_, frm.config.v2_wander_vel =
+				ImGui.SliderFloat("Wander Max Vel", frm.config.v2_wander_vel, 0.05, 0.6, "%.2f")
+			_, frm.config.v2_burst_kick =
+				ImGui.SliderFloat("Burst Direction Kick", frm.config.v2_burst_kick, 0.0, 0.5, "%.2f")
+			_, frm.config.v2_wander_damp =
+				ImGui.SliderFloat("Wander Momentum", frm.config.v2_wander_damp, 0.5, 0.98, "%.2f")
+			_, frm.config.v2_wander_max =
+				ImGui.SliderFloat("Wander Max", frm.config.v2_wander_max, 0.2, 2.0, "%.2f")
 			if ImGui.TreeNode("ADS / Hip") then
 				_, frm.config.ads_kick_mul = ImGui.SliderFloat("ADS Kick", frm.config.ads_kick_mul, 0.5, 1.5, "%.2f")
+				_, frm.config.ads_wander_mul =
+					ImGui.SliderFloat("ADS Wander", frm.config.ads_wander_mul, 0.8, 2.0, "%.2f")
 				_, frm.config.hip_kick_mul = ImGui.SliderFloat("Hip Kick", frm.config.hip_kick_mul, 0.8, 2.5, "%.2f")
 				_, frm.config.hip_spread_mul =
 					ImGui.SliderFloat("Hip Spread", frm.config.hip_spread_mul, 1.0, 5.0, "%.2f")
@@ -381,6 +392,8 @@ function renderConfig()
 					ImGui.SliderFloat("Hip Jitter", frm.config.hip_jitter_mul, 1.0, 5.0, "%.2f")
 				_, frm.config.hip_recover_mul =
 					ImGui.SliderFloat("Hip Recover", frm.config.hip_recover_mul, 0.4, 1.2, "%.2f")
+				_, frm.config.hip_wander_box =
+					ImGui.SliderFloat("Hip Wander Box", frm.config.hip_wander_box, 1.0, 2.2, "%.2f")
 				ImGui.TreePop()
 			end
 			ImGui.TreePop()
