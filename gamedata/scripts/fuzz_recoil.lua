@@ -35,6 +35,7 @@ wpn_info = {
 	addon_cam_k = 1,
 	addon_cam_inc_k = 1,
 	inv_weight = 0,
+	mag_size = 30,
 	rpm = 600,
 }
 settings = {
@@ -91,6 +92,15 @@ config = {
 	hip_recover_mul = 0.72,
 	--hip wander roams a wider box than ads
 	hip_wander_box = 1.55,
+	--burst heat, sustained fire grows the variance, short bursts stay clean
+	--grace is the free shot budget, rate is escalation per shot past it
+	v2_heat = {
+		smg = { grace = 8, rate = 0.06 },
+		ar = { grace = 6, rate = 0.09 },
+		lmg = { grace = 12, rate = 0.05 },
+		other = { grace = 6, rate = 0.06 },
+	},
+	v2_heat_max = 2.2,
 	--recovery rate, base plus handling driven convergence
 	v2_recover_base = 1.2,
 	v2_recover_gain = 3.0,
@@ -280,18 +290,27 @@ function on_fire_phys_v2()
 	local v_scale = state.shot_cam_k * settings.recoil_v_scale * mode_mul
 	local h_scale = settings.recoil_h_scale * spread_mul
 
+	--burst heat, every shot past the class grace budget grows the variance
+	local hc = config.v2_heat[wpn_info.burst_class] or config.v2_heat.other
+	local heat = 1 + hc.rate * math.max(0, state.burst_shots - hc.grace)
+	if heat > config.v2_heat_max then
+		heat = config.v2_heat_max
+	end
+
 	--kick variance floored, starved kicks would let the recovery sink the baseline
 	local jitter = 1 + (math.random() * 2 - 1) * config.v2_pitch_jitter * jitter_mul
 	if jitter < 0.6 then
 		jitter = 0.6
 	end
 	--plateau jitter only adds on top, the ride height never dips
-	local plateau = math.random() * config.v2_plateau_jitter * state.handling_power * jitter_mul
+	local plateau = math.random() * config.v2_plateau_jitter * state.handling_power * jitter_mul * heat
 
+	--heat widens the roam box and speeds the stride just enough to keep legs completable
+	--dwell spots land farther apart, that is where the sustained fire spread comes from
 	local wander_mul = state.is_ads and config.ads_wander_mul or config.hip_jitter_mul
-	local vmax = config.v2_wander_vel * wander_mul
-	local wmax = config.v2_wander_max * (state.is_ads and 1 or config.hip_wander_box)
-	local accel = config.v2_wander * state.handling_power * wander_mul
+	local vmax = config.v2_wander_vel * wander_mul * math.min(heat, 1.6)
+	local wmax = config.v2_wander_max * (state.is_ads and 1 or config.hip_wander_box) * heat
+	local accel = config.v2_wander * state.handling_power * wander_mul * heat
 
 	--pitch rides above the plateau, surges up freely, sags down only gently, never dives
 	local pmax = wmax * 0.7
@@ -318,8 +337,13 @@ function on_fire_phys_v2()
 		or state.shots_since_target >= hop_limit
 		or (arrived and state.dwell_shots >= dwell_limit)
 	then
-		--next stop is always on the other side of here
-		local dir = state.drift_yaw >= 0 and -1 or 1
+		--next stop is on the other side of here, coin flip when we sit at center
+		local dir
+		if math.abs(state.drift_yaw) < 0.05 * wmax then
+			dir = math.random() < 0.5 and -1 or 1
+		else
+			dir = state.drift_yaw >= 0 and -1 or 1
+		end
 		state.yaw_target = dir * (0.2 + math.random() * 0.8) * wmax
 		state.shots_since_target = 0
 		state.dwell_shots = 0
@@ -846,6 +870,7 @@ function collect_wpn_info(wpn_sec)
 		wpn_info.zoom_cam_step_angle_horz = math.deg(cur_cast_wpn:GetZoomCamStepAngleHorz())
 		wpn_info.zoom_cam_relax_speed = math.deg(cur_cast_wpn:GetZoomCamRelaxSpeed())
 		wpn_info.rpm = cur_cast_wpn:RealRPM()
+		wpn_info.mag_size = cur_cast_wpn:GetAmmoMagSize()
 		collect_addon_koefs()
 	else
 		--fallback: base section values, no upgrades
@@ -865,11 +890,23 @@ function collect_wpn_info(wpn_sec)
 		wpn_info.zoom_cam_step_angle_horz = utils.get_float(wpn_sec, "zoom_cam_step_angle_horz", wpn_info.cam_step_angle_horz)
 		wpn_info.zoom_cam_relax_speed = utils.get_float(wpn_sec, "zoom_cam_relax_speed", wpn_info.cam_relax_speed)
 		wpn_info.rpm = utils.get_float(wpn_sec, "rpm", 600)
+		wpn_info.mag_size = utils.get_float(wpn_sec, "ammo_mag_size", 30)
 		wpn_info.addon_cam_k = 1
 		wpn_info.addon_cam_inc_k = 1
 	end
 	wpn_info.inv_weight = utils.get_float(wpn_sec, "inv_weight", 3)
+	wpn_info.burst_class = classify_burst_class(wpn_info.kind, wpn_info.mag_size)
 	try_get_recoil_profile(wpn_sec)
+end
+--deterministic weapon class from data, belt or drum feed is the lmg tell
+function classify_burst_class(kind, mag_size)
+	if kind == "w_smg" then
+		return "smg"
+	end
+	if kind == "w_rifle" then
+		return (mag_size or 30) >= 50 and "lmg" or "ar"
+	end
+	return "other"
 end
 function try_get_recoil_profile(wpn_sec)
 	local profile = ini_sys:r_string_ex(wpn_sec, "fuzz_recoil", nil)

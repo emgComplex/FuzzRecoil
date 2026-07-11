@@ -381,6 +381,20 @@ function renderConfig()
 				ImGui.SliderFloat("Wander Momentum", frm.config.v2_wander_damp, 0.5, 0.98, "%.2f")
 			_, frm.config.v2_wander_max =
 				ImGui.SliderFloat("Wander Max", frm.config.v2_wander_max, 0.2, 2.0, "%.2f")
+			if ImGui.TreeNode("Burst Heat") then
+				_, frm.config.v2_heat_max = ImGui.SliderFloat("Heat Max", frm.config.v2_heat_max, 1.0, 4.0, "%.2f")
+				for _, cls in ipairs({ "smg", "ar", "lmg", "other" }) do
+					local hc = frm.config.v2_heat[cls]
+					ImGui.PushID(cls)
+					ImGui.Text(cls)
+					ImGui.SameLine()
+					_, hc.grace = ImGui.SliderFloat("grace", hc.grace, 0, 20, "%.0f")
+					ImGui.SameLine()
+					_, hc.rate = ImGui.SliderFloat("rate", hc.rate, 0.0, 0.3, "%.2f")
+					ImGui.PopID()
+				end
+				ImGui.TreePop()
+			end
 			if ImGui.TreeNode("ADS / Hip") then
 				_, frm.config.ads_kick_mul = ImGui.SliderFloat("ADS Kick", frm.config.ads_kick_mul, 0.5, 1.5, "%.2f")
 				_, frm.config.ads_wander_mul =
