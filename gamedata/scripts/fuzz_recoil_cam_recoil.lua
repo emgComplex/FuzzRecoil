@@ -30,6 +30,12 @@ _G.fuzz_recoil_cam_recoil = M
 
 local bonus_return_speed = 0
 
+function M.remove_cam_fx()
+	if level.check_cam_effector(CAM_FX_ID) then
+		level.remove_cam_effector(CAM_FX_ID)
+	end
+end
+
 function M:new()
 	self.is_returned = false
 	self.angle = 0
@@ -49,9 +55,8 @@ function M:start()
 	self.is_returned = false
 end
 function M:stop()
-	if level.check_cam_effector(CAM_FX_ID) then
-		level.remove_cam_effector(CAM_FX_ID)
-	end
+	-- NOTE: what if we don't remove cam effector at all?
+	-- M.remove_cam_fx()
 	self.is_returned = true
 	self.angle = 0
 	self.vel = 0

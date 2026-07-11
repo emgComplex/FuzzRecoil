@@ -348,6 +348,7 @@ function reset_recoil()
 
 	disable_hud_adjust()
 	RemoveTimeEvent("fuzz_recoil", "bolt_delay")
+	camrc.remove_cam_fx()
 
 	logger.dbg("reset recoil")
 end
