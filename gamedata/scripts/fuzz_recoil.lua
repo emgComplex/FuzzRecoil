@@ -501,7 +501,9 @@ end
 
 function set_player_angle(angle)
 	if not player then
-		logger.err("player not found")
+		-- NOTE:this cause log spamming ,since we call it before getting player
+		-- diable for now
+		-- logger.err("player not found")
 		return
 	end
 	level.set_cam_effector_factor(7897, math.max(0.0001, math.min(angle, 0.999)))
