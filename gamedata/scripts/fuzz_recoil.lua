@@ -314,7 +314,7 @@ function init_weapon(wpn_sec)
 		wpn_profile.shot_cam_impulse_factor = skind.cam_impulse
 	end
 
-	camrc:init(wpn_profile.cam_return_speed, wpn_profile.shot_delay_time and "cubic" or "exp")
+	camrc:init(wpn_profile.cam_return_speed, wpn_profile.shot_dealy_enable and "cubic" or "exp")
 
 	logger.dbg("Initialize weapon")
 end
