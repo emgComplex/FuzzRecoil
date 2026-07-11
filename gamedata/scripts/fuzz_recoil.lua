@@ -2,7 +2,7 @@ fuzz_recoil = { version = "a4" }
 ---@diagnostic disable: lowercase-global
 ----Imports
 local utils = fuzz_recoil_utils
-local cvter = converter or fuzz_recoil_converter.converter
+local cvter = fuzz_recoil_converter
 local logger = fuzz_recoil_logger
 ---
 CAM_FX_ID = 7897
