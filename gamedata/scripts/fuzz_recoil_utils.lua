@@ -147,8 +147,11 @@ function fuzz_utils.range_lerp(val, from, to, offset, clamp)
 			offset
 		)
 	)
-	--FIXME:ZERO CHECK?
-	return (val - from.min) / (from.max - from.min) * (to.max - to.min) + to.min + offset
+	local range = from.max - from.min
+	if range == 0 then
+		return to.min + offset
+	end
+	return (val - from.min) / range * (to.max - to.min) + to.min + offset
 end
 function fuzz_utils.vector_clamp_with_sign(val, min)
 	local flag = val < 0

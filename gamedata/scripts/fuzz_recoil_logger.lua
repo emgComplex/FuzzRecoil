@@ -10,7 +10,8 @@ function m_log(msg, ...)
 		log(debug.traceback())
 		return
 	end
-	--FIXME: figure out why printf doesn't format
+	--NOTE: engine log() is LuaLog1(LPCSTR),a single string with no vararg formatting
+	--(script_engine_script.cpp),so formatting in lua then passing one string is correct
 	msg = string.format(msg, ...)
 	log("[FuzzRecoil]:" .. msg)
 	if enable_internal_log then

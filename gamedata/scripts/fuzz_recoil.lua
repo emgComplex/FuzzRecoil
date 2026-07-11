@@ -447,6 +447,9 @@ function get_current_weapon()
 	if state.cur_wpn_id == new_id then
 		return state.active
 	end
+	--NOTE: give the previous weapon its vanilla cam recoil back,
+	--otherwise re-equipping it would collect our zeroed values
+	restore_vanilla_cam_recoil()
 	state.cur_wpn_id = new_id
 	local wpn_sec = cur_wpn:section()
 	local flag, kind = should_active(wpn_sec)
@@ -476,12 +479,13 @@ function restore_vanilla_cam_recoil()
 	if not cur_cast_wpn then
 		return
 	end
+	--NOTE: setters take raw radians,wpn_info is kept in ini degrees
 	set_vanilla_cam_recoil(
 		cur_cast_wpn,
-		wpn_info.cam_dispersion,
-		wpn_info.cam_dispersion_inc,
-		wpn_info.zoom_cam_dispersion,
-		wpn_info.zoom_cam_dispersion_inc
+		math.rad(wpn_info.cam_dispersion),
+		math.rad(wpn_info.cam_dispersion_inc),
+		math.rad(wpn_info.zoom_cam_dispersion),
+		math.rad(wpn_info.zoom_cam_dispersion_inc)
 	)
 end
 function set_vanilla_cam_recoil(cast_wpn, cam_disp, cam_disp_inc, zoom_cam_disp, zoom_cam_dis_inc)
@@ -528,17 +532,29 @@ function reset_hud_hand()
 end
 --=========Init Recoil and Info Collection============
 --NOTE:this is safer,cause we are changing cam_recoil
---FIXME: this doesn't respect upgrades!
+--NOTE: engine getters return the live post-upgrade values in radians,
+--converter rules are tuned to ini degrees,so convert back with math.deg
 function collect_wpn_info(wpn_sec)
 	wpn_info.kind = utils.get_string(wpn_sec, "kind")
-	wpn_info.cam_dispersion = utils.get_float(wpn_sec, "cam_dispersion")
-	wpn_info.cam_dispersion_inc = utils.get_float(wpn_sec, "cam_dispersion_inc")
-	wpn_info.zoom_cam_dispersion = utils.get_float(wpn_sec, "zoom_cam_dispersion")
-	wpn_info.zoom_cam_dispersion_inc = utils.get_float(wpn_sec, "zoom_cam_dispersion_inc")
-	wpn_info.cam_step_angle_horz = utils.get_float(wpn_sec, "cam_step_angle_horz")
-	wpn_info.cam_relax_speed = utils.get_float(wpn_sec, "cam_relax_speed")
+	if cur_cast_wpn then
+		wpn_info.cam_dispersion = math.deg(cur_cast_wpn:GetCamDispersion())
+		wpn_info.cam_dispersion_inc = math.deg(cur_cast_wpn:GetCamDispersionInc())
+		wpn_info.zoom_cam_dispersion = math.deg(cur_cast_wpn:GetZoomCamDispersion())
+		wpn_info.zoom_cam_dispersion_inc = math.deg(cur_cast_wpn:GetZoomCamDispersionInc())
+		wpn_info.cam_step_angle_horz = math.deg(cur_cast_wpn:GetCamStepAngleHorz())
+		wpn_info.cam_relax_speed = math.deg(cur_cast_wpn:GetCamRelaxSpeed())
+		wpn_info.rpm = cur_cast_wpn:RealRPM()
+	else
+		--fallback: base section values,no upgrades
+		wpn_info.cam_dispersion = utils.get_float(wpn_sec, "cam_dispersion")
+		wpn_info.cam_dispersion_inc = utils.get_float(wpn_sec, "cam_dispersion_inc")
+		wpn_info.zoom_cam_dispersion = utils.get_float(wpn_sec, "zoom_cam_dispersion")
+		wpn_info.zoom_cam_dispersion_inc = utils.get_float(wpn_sec, "zoom_cam_dispersion_inc")
+		wpn_info.cam_step_angle_horz = utils.get_float(wpn_sec, "cam_step_angle_horz")
+		wpn_info.cam_relax_speed = utils.get_float(wpn_sec, "cam_relax_speed")
+		wpn_info.rpm = utils.get_float(wpn_sec, "rpm", 600)
+	end
 	wpn_info.inv_weight = utils.get_float(wpn_sec, "inv_weight", 3)
-	wpn_info.rpm = utils.get_float(wpn_sec, "rpm", 600)
 	try_get_recoil_profile(wpn_sec)
 end
 function try_get_recoil_profile(wpn_sec)

@@ -72,12 +72,12 @@ function apply_rules(np, rule)
 	end
 end
 function is_bolt_action(op)
-	if not op.kind == "w_sniper" then
+	if op.kind ~= "w_sniper" then
 		return false
 	end
-	--TODO: refactor this and check real rpm using cast_wpn
+	--NOTE: rpm now comes from cast_wpn:RealRPM() (60/fOneShotTime)
 	--thx to @Gabriell
 	return op.rpm <= 60
-	--TODO: check firing animation length
+	--NOTE: no lua api exposes hud motion length,animation check not feasible
 	-- credite @verdatim
 end
