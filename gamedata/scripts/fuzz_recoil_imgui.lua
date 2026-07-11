@@ -2,7 +2,7 @@
 local frm = fuzz_recoil -- or require("scripts.fuzz_recoil")
 local utils = fuzz_recoil_utils
 local logger = fuzz_recoil_logger
-local cvter = converter or fuzz_recoil_converter.converter
+local cvter = fuzz_recoil_converter
 local camrc = fuzz_recoil_cam.instance
 --stylua: ignore start
 --stylua: ignore end
