@@ -553,6 +553,7 @@ function collect_wpn_info(wpn_sec)
 		wpn_info.cam_step_angle_horz = math.deg(cur_cast_wpn:GetCamStepAngleHorz())
 		wpn_info.cam_relax_speed = math.deg(cur_cast_wpn:GetCamRelaxSpeed())
 		wpn_info.rpm = cur_cast_wpn:RealRPM()
+		wpn_info.inv_weight = cur_cast_wpn:Weight()
 	else
 		--fallback: base section values,no upgrades
 		wpn_info.cam_dispersion = utils.get_float(wpn_sec, "cam_dispersion")
@@ -562,10 +563,13 @@ function collect_wpn_info(wpn_sec)
 		wpn_info.cam_step_angle_horz = utils.get_float(wpn_sec, "cam_step_angle_horz")
 		wpn_info.cam_relax_speed = utils.get_float(wpn_sec, "cam_relax_speed")
 		wpn_info.rpm = utils.get_float(wpn_sec, "rpm", 600)
+		--NOTE: if we are considering mass effect,we should use engine-getter
+		wpn_info.inv_weight = utils.get_float(wpn_sec, "inv_weight", 3)
 	end
-	--TODO: if we are considering mass effect,we should use engine-getter
-	wpn_info.inv_weight = utils.get_float(wpn_sec, "inv_weight", 3)
 	try_get_recoil_profile(wpn_sec)
+end
+for k, v in pairs(wpn_info) do
+	logger.dbg("%s:%.6f", k, v)
 end
 function try_get_recoil_profile(wpn_sec)
 	local profile = ini_sys:r_string_ex(wpn_sec, "fuzz_recoil", nil)
