@@ -175,6 +175,8 @@ state = {
 	-- cur_aim_state = 0
 	--no need to reset
 	cur_wpn_id = 0,
+	addon_sig = "",
+	next_addon_check = 0,
 	fire_interval = 0.1,
 	-- shot_delay
 	should_shot_delay = false,
@@ -404,6 +406,15 @@ function on_update(dt)
 		return
 	end
 	-- logger.dbg("Update")
+	--addon swap while adjust mode is on sticks the hands, reset and reinit instead
+	if time_global() >= state.next_addon_check then
+		state.next_addon_check = time_global() + 250
+		if get_addon_sig() ~= state.addon_sig then
+			force_reset_recoil()
+			state.cur_wpn_id = 0
+			return
+		end
+	end
 	if state.is_firing and cur_wpn:get_state() ~= 5 then
 		on_fire_stop()
 	end
@@ -897,7 +908,19 @@ function collect_wpn_info(wpn_sec)
 	end
 	wpn_info.inv_weight = utils.get_float(wpn_sec, "inv_weight", 3)
 	wpn_info.burst_class = classify_burst_class(wpn_info.kind, wpn_info.mag_size)
+	state.addon_sig = get_addon_sig()
 	try_get_recoil_profile(wpn_sec)
+end
+--attached addon fingerprint, a change means the engine reloaded hud measures
+function get_addon_sig()
+	if not cur_cast_wpn then
+		return ""
+	end
+	return (cur_cast_wpn:IsScopeAttached() and "s" or "")
+		.. tostring(cur_cast_wpn:GetScopeName())
+		.. (cur_cast_wpn:IsSilencerAttached() and "m" or "")
+		.. tostring(cur_cast_wpn:GetSilencerName())
+		.. (cur_cast_wpn:IsGrenadeLauncherAttached() and "g" or "")
 end
 --deterministic weapon class from data, belt or drum feed is the lmg tell
 function classify_burst_class(kind, mag_size)
