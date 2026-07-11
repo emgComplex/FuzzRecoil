@@ -26,7 +26,7 @@ function cam_fx_id()
 end
 
 local M = {}
-_G.fuzz_recoil_cam = M
+_G.fuzz_recoil_cam_recoil = M
 
 local bonus_return_speed = 0
 
@@ -49,8 +49,9 @@ function M:start()
 	self.is_returned = false
 end
 function M:stop()
-	--NOTE: seems like we don't have to remove it...
-	-- level.remove_cam_effector(CAM_FX_ID)
+	if level.check_cam_effector(CAM_FX_ID) then
+		level.remove_cam_effector(CAM_FX_ID)
+	end
 	self.is_returned = true
 	self.angle = 0
 	self.vel = 0
@@ -63,6 +64,7 @@ function M:on_fire(handle, wforce, ammo_scale, scale)
 end
 
 function M:update_cubic(dt)
+	logger.dbg(m_settings.cam_drag)
 	local drag = m_settings.cam_drag * math.sqrt(math.abs(self.vel))
 	self.vel = self.vel * math.exp(-drag * dt)
 	self.angle = self.angle + self.vel * dt
@@ -70,7 +72,7 @@ function M:update_cubic(dt)
 end
 function M:update_exp(dt)
 	-- self.cam_vel = self.cam_vel * (1.0 - dt * debug_var.float_x2)
-	local decay = math.exp(-dt * 15)
+	local decay = math.exp(-dt * 12)
 	local step = self.vel * (1 - decay) / 15
 	self.vel = self.vel * decay
 	self.angle = self.angle + step

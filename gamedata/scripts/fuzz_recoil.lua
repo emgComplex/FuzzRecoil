@@ -5,7 +5,6 @@ local utils = fuzz_recoil_utils
 local cvter = fuzz_recoil_converter
 local logger = fuzz_recoil_logger
 ---
-CAM_FX_ID = 7897
 cur_wpn = nil
 cur_cast_wpn = nil
 local player = nil
@@ -127,7 +126,7 @@ debug_var = {
 	float_x2 = 0,
 }
 
-local camrc = fuzz_recoil_cam:new()
+local camrc = fuzz_recoil_cam_recoil:new()
 
 function on_game_start()
 	RegisterScriptCallback("actor_on_update", actor_on_update)
@@ -348,9 +347,6 @@ function reset_recoil()
 	state.handling_power = 0
 
 	disable_hud_adjust()
-	if level.check_cam_effector(CAM_FX_ID) then
-		level.remove_cam_effector(7897)
-	end
 	RemoveTimeEvent("fuzz_recoil", "bolt_delay")
 
 	logger.dbg("reset recoil")
