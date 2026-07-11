@@ -211,7 +211,7 @@ function on_update(dt)
 			-- reset_hud_recoil()
 		end
 		local cam_returned = camrc:update(dt, state.is_firing)
-		if state.handling_power and state.is_hud_returned and cam_returned then
+		if state.handling_power <= 0 and state.is_hud_returned and cam_returned then
 			reset_recoil()
 		end
 	end
