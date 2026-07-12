@@ -159,7 +159,7 @@ local function init_offset(wpn_sec)
 			value = utils.get_string(hud_sec, key)
 		end
 		if value == "" then
-			return v.def or VEC_ZERO
+			return v.def or vector():set(0,0,0)
 		end
 		return utils_data.string_to_vector(value)
 	end
@@ -168,8 +168,8 @@ local function init_offset(wpn_sec)
 		hud_adjust.set_vector(v.idxa, v.idxb, _vec.x, _vec.y, _vec.z)
 	end
 	ori_hand_trs = {
-		get_hud_vector(hud, "hands_position", { def = VEC_ZERO }),
-		get_hud_vector(hud, "hands_orientation", { def = VEC_ZERO }),
+		get_hud_vector(hud, "hands_position", { def = vector():set(0,0,0) }),
+		get_hud_vector(hud, "hands_orientation", { def = vector():set(0,0,0) }),
 	}
 	--credit:@demonized's weapon tilt cover
 	local offset_key_list = {
