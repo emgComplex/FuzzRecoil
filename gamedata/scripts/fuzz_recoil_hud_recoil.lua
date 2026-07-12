@@ -76,8 +76,8 @@ M.cfg = {
 	smooth_return = 10,
 
 	--v2 kick, profile impulses rescaled into instant hud displacement
-	v2_pitch_scale = 0.03,
-	v2_yaw_scale = 0.035,
+	v2_pitch_scale = 0.022,
+	v2_yaw_scale = 0.025,
 	v2_pos_scale = 0.02,
 	--fraction of the kick fed straight into the smoothed value, frame one snap
 	v2_kick_feedforward = 0.65,
@@ -114,10 +114,10 @@ M.cfg = {
 	},
 	v2_heat_max = 1.6,
 	--recovery rate, base plus handling driven convergence
-	v2_recover_base = 2.4,
+	v2_recover_base = 3.0,
 	v2_recover_gain = 3.0,
 	--horizontal recovers slower like tarkov, z shoulder pop recovers fast
-	v2_h_recover_mul = 0.4,
+	v2_h_recover_mul = 0.65,
 	v2_z_recover = 9.0,
 	smooth_firing_v2 = 25,
 }
@@ -438,7 +438,7 @@ local function on_fire_instant(handling_power, ads, cam_k, burst_shots)
 	local accel = cfg.v2_wander * handling_power * wander_mul * heat
 
 	--pitch rides above the plateau, surges up freely, sags down only gently, never dives
-	local pmax = wmax * 0.3
+	local pmax = wmax * 0.12
 	if burst_shots == 0 then
 		drift_vel_pitch = math.random() * cfg.v2_burst_kick * jitter_mul
 	else

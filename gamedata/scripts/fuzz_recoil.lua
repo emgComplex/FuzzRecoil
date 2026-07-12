@@ -62,13 +62,13 @@ M.settings = {
 --base is the flat hip penalty, rate grows per shot, heat caps at max
 M.bloom = {
 	decay = 1.2,
-	ads_mul = 0.45,
+	ads_mul = 0.75,
 	classes = {
-		pistol = { base = 0.9, rate = 0.15, max = 2.5 },
-		smg = { base = 0.3, rate = 0.08, max = 1.8 },
-		ar = { base = 0.35, rate = 0.1, max = 2.0 },
-		lmg = { base = 0.7, rate = 0.12, max = 3.0 },
-		other = { base = 0.5, rate = 0.1, max = 2.2 },
+		pistol = { base = 1.1, rate = 0.18, max = 3.0 },
+		smg = { base = 0.4, rate = 0.11, max = 2.4 },
+		ar = { base = 0.45, rate = 0.13, max = 2.6 },
+		lmg = { base = 0.9, rate = 0.16, max = 4.0 },
+		other = { base = 0.6, rate = 0.13, max = 2.8 },
 	},
 }
 --TODO:MCM
