@@ -46,3 +46,19 @@ function M.export_internal_log()
 	file:write(log_text)
 	file:close()
 end
+
+function M.print_table(t, indent)
+	if not indent then
+		indent = ""
+	end
+	M.dbg("%s%s", indent, t)
+	M.dbg("%s-----start------", indent)
+	for k, v in pairs(t) do
+		if type(v) == "table" then
+			M.print_table(v, indent .. ">>")
+		else
+			M.dbg("%s:%s", k, v)
+		end
+	end
+	M.dbg("%s-----end------", indent)
+end
