@@ -40,9 +40,6 @@ settings = {
 	bolt_action_Y_lift = true,
 }
 config = {
-	base_cam_return_speed = 4.0,
-	min_cam_return_step = 0.0045,
-
 	firing_handling_ease = utils.simple_ease:new(1, 1, 0.2, 4),
 	idle_handling_ease = utils.simple_ease:new(-1, -1, 0.2, 6),
 
@@ -109,8 +106,11 @@ debug_var = {
 
 local camrc = fuzz_recoil_cam_recoil.load()
 local hudrc = fuzz_recoil_hud_recoil.load()
-
-hudrc.load_settings(settings)
+--TODO:MCM
+function settings.apply()
+	hudrc.load_settings(settings)
+	camrc.load_settings(settings)
+end
 
 function on_game_start()
 	RegisterScriptCallback("actor_on_update", actor_on_update)

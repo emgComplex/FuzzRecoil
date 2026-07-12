@@ -140,7 +140,7 @@ local function apply_simple_smooth(dt, smooth)
 end
 --TODO: we should desync it
 local function pos_y_sync_with_cam()
-	if m_settings.bolt_action_Y_lift and shot_dealy_enabled then
+	if bolt_action_Y_lift and shot_dealy_enabled then
 		--PERF: should cached once code is stablelized
 		y_impulse = is_bolt_action and math.abs(force_y) * 2 or force_y
 		pos_raw.y = camrc.get_angle() * y_impulse

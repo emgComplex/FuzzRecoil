@@ -324,14 +324,15 @@ function renderConfig()
 		ImGui.Separator()
 		frm.config.firing_handling_ease:draw_imgui("Handling inc")
 		frm.config.idle_handling_ease:draw_imgui("Handling dec")
-		_, frm.config.base_cam_return_speed =
-			ImGui.SliderFloat("Base Cam Return Speed", frm.config.base_cam_return_speed, 0.1, 10, "%.2frad")
-		_, frm.config.min_cam_return_step =
-			ImGui.SliderFloat("Min Cam Return step", frm.config.min_cam_return_step, 0.001, 0.01, "%.4frad")
-
+		camrc.imgui_config_drawer()
+		ImGui.Separator()
 		hudrc.imgui_config_drawer()
+		if ImGui.Button("Dump All Weapon datas(need json.lua)", vector2():set(-1, 25)) then
+			utils.get_all_weapon_sections()
+		end
 		ImGui.Separator()
 		ImGui.Text("Settings")
+		_, frm.settings.bolt_action_Y_lift = ImGui.Checkbox("Bolt-Action Lift", frm.settings.bolt_action_Y_lift)
 		_, frm.settings.cam_drag = ImGui.SliderFloat("Cam Drag", frm.settings.cam_drag, 5.0, 20.0, "%.2f")
 		ImGui.TextColored(vector4():set(1, 0, 0, 1), "NOT IMPLEMENTED YET")
 		_, frm.settings.recoil_v_scale =
@@ -344,10 +345,10 @@ function renderConfig()
 			ImGui.SliderFloat("Increase Rate", frm.settings.increase_rate_scale, 0.1, 2.0, "%.2f")
 		_, frm.settings.handling_speed_scale =
 			ImGui.SliderFloat("Handling Speed", frm.settings.handling_speed_scale, 0.1, 2.0, "%.2f")
-		if ImGui.Button("Dump All Weapon datas(need json.lua)", vector2():set(-1, 25)) then
-			utils.get_all_weapon_sections()
-		end
 		ImGui.TreePop()
+		if ImGui.Button("Apply Settings", vector2():set(-1, 25)) then
+			frm.settings.apply()
+		end
 	end
 	--TODO:refactor this to base
 	ImGui.Separator()

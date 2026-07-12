@@ -1,5 +1,3 @@
-local m_settings = settings or fuzz_recoil.settings
-local m_cfg = config or fuzz_recoil.config
 local utils = fuzz_recoil_utils
 local logger = fuzz_recoil_logger
 
@@ -52,6 +50,17 @@ function M.is_returned()
 	return is_returned
 end
 ----------
+---Configs
+----------
+local base_cam_return_speed = 4.0
+local min_cam_return_step = 0.0045
+----------
+---Settings
+----------
+local cam_drag = 12
+function M.load_settings(settings)
+	cam_drag = settings.cam_drag
+end
 ----------
 ---Module
 ----------
@@ -92,7 +101,7 @@ function M.on_fire(handle, wforce, ammo_scale, scale)
 end
 
 function M.update_cubic(dt)
-	local drag = m_settings.cam_drag * math.sqrt(math.abs(m_vel))
+	local drag = cam_drag * math.sqrt(math.abs(m_vel))
 	m_vel = m_vel * math.exp(-drag * dt)
 	m_angle = m_angle + m_vel * dt
 	set_player_angle(m_angle)
@@ -135,15 +144,15 @@ end
 --leave it here
 function M.do_return(dt)
 	--TODO:remove config and cache this when init
-	if m_angle <= m_cfg.min_cam_return_step then
+	if m_angle <= min_cam_return_step then
 		M.stop()
 		return
 	end
-	local speed_factor = m_cfg.base_cam_return_speed + bonus_return_speed
+	local speed_factor = base_cam_return_speed + bonus_return_speed
 	local lerp_factor = 1.0 - math.exp(-speed_factor * dt)
 
 	local step = m_angle * lerp_factor
-	local min_step = m_cfg.min_cam_return_step
+	local min_step = min_cam_return_step
 	local final_step = math.max(step, min_step)
 	--NOTE:vel is actually step when returning ,im just lazy ,its easy to debug
 	m_vel = final_step
@@ -169,4 +178,9 @@ function M.imgui_info_drawer()
 	ImGui.TextColored(vector4():set(0, 1, 0.5, 1), "Camera recoil")
 	ImGui.Text(string.format("Cam angle: %.3frad,%.2fdeg", m_angle, math.deg(m_angle)))
 	ImGui.Text(string.format("Cam velocity: %.3f", m_vel))
+end
+function M.imgui_config_drawer()
+	ImGui.Text("Cam Recoil Config")
+	_, base_cam_return_speed = ImGui.SliderFloat("Base Cam Return Speed", base_cam_return_speed, 0.1, 10, "%.2frad")
+	_, min_cam_return_step = ImGui.SliderFloat("Min Cam Return step", min_cam_return_step, 0.001, 0.01, "%.4frad")
 end
