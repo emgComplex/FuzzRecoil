@@ -279,6 +279,9 @@ end
 
 --TODO: this is shit ,use deleate instead
 function M.update(dt, handling_power)
+	if is_returned then
+		return true
+	end
 	if handling_power then
 		M.update_on_firing(dt, handling_power)
 	else

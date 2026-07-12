@@ -178,7 +178,7 @@ function on_update(dt)
 	-- update_sim_shooting(dt)
 
 	update_handling_power(dt)
-	local hud_returned = hudrc.update(dt, state.is_firing and state.handling_power or 0)
+	local hud_returned = hudrc.update(dt, state.is_firing and state.handling_power or nil)
 	local cam_returned = camrc:update(dt, state.is_firing)
 	if state.handling_power <= 0 and hud_returned and cam_returned then
 		reset_recoil()
