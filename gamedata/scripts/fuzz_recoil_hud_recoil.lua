@@ -228,13 +228,13 @@ function M.stop()
 	logger.dbg("reset hud recoil")
 	is_returned = true
 
-	vel_rot = VEC_ZERO
-	vel_pos = VEC_ZERO
+	vel_rot = vector():set(0, 0, 0)
+	vel_pos = vector():set(0, 0, 0)
 
-	pos_raw = VEC_ZERO
-	pos_smooth = VEC_ZERO
-	rot_raw = VEC_ZERO
-	rot_smooth = VEC_ZERO
+	pos_raw = vector():set(0, 0, 0)
+	pos_smooth = vector():set(0, 0, 0)
+	rot_raw = vector():set(0, 0, 0)
+	rot_smooth = vector():set(0, 0, 0)
 
 	M.reset_hud_hand()
 end
