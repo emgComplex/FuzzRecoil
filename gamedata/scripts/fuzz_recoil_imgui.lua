@@ -1,5 +1,4 @@
---FIXME: this namesacpe is bad for refactor
-local frm = fuzz_recoil -- or require("scripts.fuzz_recoil")
+local frm = fuzz_recoil
 local utils = fuzz_recoil_utils
 local logger = fuzz_recoil_logger
 local cvter = fuzz_recoil_converter
@@ -116,8 +115,8 @@ function renderImguiTab()
 	_, showInfo = ImGui.Checkbox("Info", showInfo)
 	ImGui.SameLine()
 	if ImGui.Button("Load Weapon", vector2():set(100, 25)) then
-		if frm.get_current_weapon() then
-			debug_text1 = frm.cur_wpn:section() .. ":" .. frm.state.cur_wpn_id
+		if frm.check_current_weapon() then
+			debug_text1 = frm.get_cur_wpn():section() .. ":" .. frm.get_cur_wpn_id()
 		else
 			debug_text1 = "Failed to load weapon"
 		end
@@ -139,8 +138,10 @@ function renderImguiTab()
 	end
 	----------------
 	----------------
-	if frm.cur_wpn then
-		ImGui.TextColored(vector4():set(0, 1, 0, 1), "Weapon: " .. frm.cur_wpn:section())
+	--TODO: pass wpn,id,sec to render funcs
+	local cur_wpn = frm.get_cur_wpn()
+	if cur_wpn then
+		ImGui.TextColored(vector4():set(0, 1, 0, 1), "Weapon: " .. cur_wpn:section())
 		ImGui.Separator()
 		if ImGui.Button("ResetHand") then
 			frm.reset_hud_hand()
@@ -180,7 +181,7 @@ function log_overlay()
 		return
 	end
 	expanded, _ = ImGui.Begin("Recoil Log", true)
-	if expanded and frm.cur_wpn then
+	if expanded and frm.get_cur_wpn() then
 		-- Force scroll if the user was already at the bottom, or if a new item triggered a scroll
 		ImGui.Text(logger.get_log_text())
 		if auto_scroll_logs and ImGui.GetScrollY() >= ImGui.GetScrollMaxY() then
@@ -199,14 +200,14 @@ function plot_overlay()
 	end
 	expanded, _ = ImGui.Begin("Histogram", true)
 	ImGui.SetNextWindowSize(vector2():set(300, 600), ImGuiCond.FirstUseEver)
-	if expanded and frm.cur_wpn then
+	if expanded and frm.get_cur_wpn() then
 		if ImGui.TreeNode("cam_angle") then
-			local new_val = frm.state.active and camrc.get_angle() or nil
+			local new_val = frm.is_active() and camrc.get_angle() or nil
 			cam_angle_plot:draw(new_val)
 			ImGui.TreePop()
 		end
 		if ImGui.TreeNode("handling_power") then
-			new_val = frm.state.active and frm.state.handling_power or nil
+			new_val = frm.is_active() and frm.get_handling_power() or nil
 			handling_power_plot:draw(new_val)
 			ImGui.TreePop()
 		end
@@ -228,8 +229,9 @@ function profile_overlay()
 		end
 	end
 	expanded, _ = ImGui.Begin("Weapon Profile", true)
-	if expanded and frm.cur_wpn then
-		ImGui.Text(frm.cur_wpn:section() .. ":" .. frm.state.cur_wpn_id)
+	local cur_wpn = frm.get_cur_wpn()
+	if expanded and cur_wpn then
+		ImGui.Text(cur_wpn:section() .. ":" .. frm.get_cur_wpn_id())
 		local wpn_info = frm.get_wpn_info()
 		for k, v in pairs(wpn_info) do
 			text_drawer(k, v)
@@ -250,24 +252,21 @@ function info_overlay()
 		return
 	end
 	expanded, _ = ImGui.Begin("Recoil Info", true)
-	if expanded and frm.cur_wpn then
+	if expanded and frm.get_cur_wpn() then
 		ImGui.Separator()
 
 		ImGui.Text(
 			string.format(
 				"Active:%s,Firing:%s,Cam_FX:%s",
-				frm.state.active,
-				frm.state.is_firing,
+				frm.is_active(),
+				frm.is_firing(),
 				camrc.has_camera_effector()
 			)
 		)
 		ImGui.Text(string.format("CamRetrun:%s,HudReturn:%s", camrc.is_returned(), hudrc.is_returned()))
 
-		ImGui.ProgressBar(
-			frm.state.handling_power,
-			vector2():set(-1, 0),
-			string.format("Handling power: %.1f%%", frm.state.handling_power * 100)
-		)
+		local hdl_power = frm.get_handling_power()
+		ImGui.ProgressBar(hdl_power, vector2():set(-1, 0), string.format("Handling power: %.1f%%", hdl_power * 100))
 		ImGui.Separator()
 		hudrc.imgui_info_drawer()
 		ImGui.Separator()
@@ -282,6 +281,7 @@ AddUniqueCall(info_overlay)
 function renderProfile()
 	if ImGui.TreeNode("Weapon profile") then
 		local prf = frm.get_recoil_profile()
+		local wpn_sec = frm.get_cur_wpn():section()
 		ImGui.Text("To input a value directly,You can crlt+click on the slider")
 		prf:imgui_editor_drawer()
 		ImGui.Text(export_hint)
@@ -289,11 +289,10 @@ function renderProfile()
 			hudrc.load_profile(prf)
 		end
 		if ImGui.Button("Export to LTX", vector2():set(-1, 25)) then
-			export_profile_to_ltx(prf)
+			export_profile_to_ltx(prf, wpn_sec)
 		end
 		if ImGui.Button("Reload Profile", vector2():set(-1, 25)) then
-			-- TODO: ! call should be in fuzz_recoil
-			-- cvter.convert(frm.get_wpn_info(), self)
+			frm.init_weapon(wpn_sec)
 		end
 		ImGui.TreePop()
 	end
@@ -302,9 +301,7 @@ function renderConfig()
 	ImGui.TextColored(vector4():set(1, 0, 0, 1), "vvvvv DO NOT TOUCH THIS vvvvv")
 	if ImGui.TreeNode("Config") then
 		ImGui.TextColored(vector4():set(1, 1, 0, 1), "UNLESS YOU KNOW WHAT YOU ARE DOING")
-		ImGui.Separator()
-		frm.config.firing_handling_ease:draw_imgui("Handling inc")
-		frm.config.idle_handling_ease:draw_imgui("Handling dec")
+		frm.imgui_config_drawer()
 		camrc.imgui_config_drawer()
 		ImGui.Separator()
 		hudrc.imgui_config_drawer()
@@ -328,7 +325,7 @@ function renderConfig()
 			ImGui.SliderFloat("Handling Speed", frm.settings.handling_speed_scale, 0.1, 2.0, "%.2f")
 		ImGui.TreePop()
 		if ImGui.Button("Apply Settings", vector2():set(-1, 25)) then
-			frm.settings.apply()
+			frm.apply_settings()
 		end
 	end
 	--TODO:refactor this to base
@@ -396,9 +393,9 @@ function indicator_drawer(val, label, min, max)
 	end
 end
 
-function export_profile_to_ltx(input_profile)
+function export_profile_to_ltx(input_profile, wpn_sec)
 	local profile = input_profile.raw_profile
-	local wpn_name = tostring(utils.get_base_weapon(frm.cur_wpn:section()))
+	local wpn_name = tostring(utils.get_base_weapon(wpn_sec))
 
 	local filename = string.format("mod_system_z_fuzz_recoil_%s.ltx", wpn_name)
 	local file = io.open(filename, "w")

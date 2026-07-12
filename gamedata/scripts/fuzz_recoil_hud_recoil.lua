@@ -241,7 +241,7 @@ end
 --------------
 --TODO: is this bad? but loading order is a little messy, some null error occurs
 --if it's bad we can set reference when on_game_start
-function M.load()
+function M.awake()
 	M.instance = M
 	return M
 end
@@ -337,7 +337,6 @@ function M.imgui_info_drawer()
 	iui.vector_imgui_text_drawer(rot_smooth, "Smoothed Rot", true)
 	ImGui.Text(string.format("Raw Pitch: %.2f", math.deg(rot_raw.y)))
 	ImGui.Text(string.format("Raw Target:Y%.2f|P %.2f", rot_raw.x, rot_raw.y))
-	-- ImGui.Text(string.format("EMA Smooth Y:%.2f P: %.2f", state.hud_rot_smooth.x, state.hud_rot_smooth.y))
 
 	local v_cap_ratio = math.abs(rot_smooth.y) / max_hud_rot.y
 	ImGui.ProgressBar(v_cap_ratio, vector2():set(-1, 0), string.format("Pitch %.1f%%", v_cap_ratio * 100))

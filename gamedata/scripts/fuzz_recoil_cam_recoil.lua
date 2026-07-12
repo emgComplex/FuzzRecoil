@@ -71,7 +71,7 @@ function M.remove_cam_fx()
 	end
 end
 
-function M.load()
+function M.awake()
 	M.instance = M
 	return M
 end
