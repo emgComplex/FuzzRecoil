@@ -3,6 +3,9 @@ local m_cfg = config or fuzz_recoil.config
 local utils = fuzz_recoil_utils
 local logger = fuzz_recoil_logger
 
+----------
+---CAM_FX
+----------
 local CAM_FX_ID = 7897
 local function create_cam_effector()
 	if not level.check_cam_effector(CAM_FX_ID) then
@@ -25,6 +28,15 @@ function cam_fx_id()
 	return CAM_FX_ID
 end
 
+----------
+---Local Vars
+----------
+local is_returned = false
+local m_vel = 0
+local m_angle = 0
+---Module
+----------
+----------
 local M = {}
 _G.fuzz_recoil_cam_recoil = M
 
@@ -69,7 +81,6 @@ function M:on_fire(handle, wforce, ammo_scale, scale)
 end
 
 function M:update_cubic(dt)
-	logger.dbg(m_settings.cam_drag)
 	local drag = m_settings.cam_drag * math.sqrt(math.abs(self.vel))
 	self.vel = self.vel * math.exp(-drag * dt)
 	self.angle = self.angle + self.vel * dt
