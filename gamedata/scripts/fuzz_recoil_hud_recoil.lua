@@ -315,13 +315,15 @@ function M.imgui_info_drawer()
 	local _, _ = ImGui.SliderFloat("##yaw_slider", yaw_display, -0.5, 0.5, string.format("Yaw: %.4f", yaw_value))
 end
 ---------------
+---HUD controls
+---------------
 local test_cur_pos_inc = vector():set(0, 0, 0)
 local test_cur_rot_inc = vector():set(0, 0, 0)
 function M.renderHudControls()
 	ImGui.Text("Original Hand Pos:" .. utils.vector_to_string(ori_hand_trs[1]))
 	ImGui.Text("Original Hand Rot:" .. utils.vector_to_string(ori_hand_trs[2]))
 	ImGui.Text(string.format("Current HUD Pos: X:%.3f, Y:%.3f, Z:%.3f", cur_pos.x, cur_pos.y, cur_pos.z))
-	ImGui.Text(string.format("Current HUD Rot: X:%.3f, Y:%.3f, Z:%.3f", cur_hud_rot.x, cur_hud_rot.y, cur_hud_rot.z))
+	ImGui.Text(string.format("Current HUD Rot: X:%.3f, Y:%.3f, Z:%.3f", cur_rot.x, cur_rot.y, cur_rot.z))
 	ImGui.Separator()
 
 	ImGui.Text("Direct")
