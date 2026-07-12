@@ -40,15 +40,8 @@ settings = {
 	bolt_action_Y_lift = true,
 }
 config = {
-	max_hud_rot = vector():set(3, 3, 0),
-	max_hud_pos = vector():set(0.0025, 0.0035, 0),
 	base_cam_return_speed = 4.0,
 	min_cam_return_step = 0.0045,
-
-	return_spring = 150,
-	return_damping = 15.0,
-	smooth_firing = 4.5,
-	smooth_return = 10,
 
 	firing_handling_ease = utils.simple_ease:new(1, 1, 0.2, 4),
 	idle_handling_ease = utils.simple_ease:new(-1, -1, 0.2, 6),

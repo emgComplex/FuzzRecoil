@@ -1,5 +1,4 @@
 local m_settings = settings or fuzz_recoil.settings
-local m_cfg = config or fuzz_recoil.config
 local utils = fuzz_recoil_utils
 local logger = fuzz_recoil_logger
 local iui = fuzz_recoil_imgui
@@ -7,12 +6,9 @@ local iui = fuzz_recoil_imgui
 local M = {}
 _G.fuzz_recoil_hud_recoil = M
 
---NOTE:fixed by Lost In Place
-local ori_hand_trs = {
-	vector():set(0, 0, 0),
-	vector():set(0, 0, 0),
-}
-
+--------------
+--internal state
+--------------
 local cur_pos = vector():set(0, 0, 0)
 local cur_rot = vector():set(0, 0, 0)
 
@@ -28,6 +24,12 @@ local rot_smooth = vector():set(0, 0, 0)
 --------------
 --Cahced variables
 --------------
+--NOTE:fixed by Lost In Place
+local ori_hand_trs = {
+	vector():set(0, 0, 0),
+	vector():set(0, 0, 0),
+}
+
 local camrc = fuzz_recoil_cam_recoil.instance
 local fire_interval = 0.1
 local pull_force = 1.5
@@ -38,6 +40,19 @@ local force_yaw = 15
 local force_x = 0.0006
 local shot_dealy_enabled = false
 local is_bolt_action = false
+
+--------------
+--Cahced configs
+--------------
+--TODO:should be constant
+local max_hud_rot = vector():set(3, 3, 0)
+local max_hud_pos = vector():set(0.0025, 0.0035, 0)
+
+local return_spring = 150
+local return_damping = 15.0
+local smooth_firing = 4.5
+local smooth_return = 10
+
 --------
 ---public getters
 --------
@@ -266,13 +281,13 @@ function M.update_on_firing(dt, handling_power)
 	apply_recoil_forces(dt, pull_strength, firing_damping)
 
 	-- limit before smooth
-	rot_raw:clamp(m_cfg.max_hud_rot)
-	pos_raw:clamp(m_cfg.max_hud_pos)
+	rot_raw:clamp(max_hud_rot)
+	pos_raw:clamp(max_hud_pos)
 end
 
 function M.update_on_return(dt)
-	local spring = m_cfg.return_spring
-	local damping = m_cfg.return_damping
+	local spring = return_spring
+	local damping = return_damping
 
 	apply_spring_vec(pos_raw, vel_pos, dt, spring, damping)
 	apply_spring_vec(rot_raw, vel_rot, dt, spring, damping)
@@ -296,7 +311,7 @@ function M.update(dt, handling_power)
 	end
 	pos_y_sync_with_cam()
 
-	apply_simple_smooth(dt, handling_power and m_cfg.smooth_firing or m_cfg.smooth_return)
+	apply_simple_smooth(dt, handling_power and smooth_firing or smooth_return)
 	M.set_hud_offset(pos_smooth, rot_smooth)
 	return false
 end
@@ -314,7 +329,7 @@ function M.imgui_info_drawer()
 	ImGui.Text(string.format("Raw Target:Y%.2f|P %.2f", rot_raw.x, rot_raw.y))
 	-- ImGui.Text(string.format("EMA Smooth Y:%.2f P: %.2f", state.hud_rot_smooth.x, state.hud_rot_smooth.y))
 
-	local v_cap_ratio = math.abs(rot_smooth.y) / m_cfg.max_hud_rot.y
+	local v_cap_ratio = math.abs(rot_smooth.y) / max_hud_rot.y
 	ImGui.ProgressBar(v_cap_ratio, vector2():set(-1, 0), string.format("Pitch %.1f%%", v_cap_ratio * 100))
 
 	local yaw_value = rot_smooth.x
