@@ -110,6 +110,8 @@ debug_var = {
 local camrc = fuzz_recoil_cam_recoil.load()
 local hudrc = fuzz_recoil_hud_recoil.load()
 
+hudrc.load_settings(settings)
+
 function on_game_start()
 	RegisterScriptCallback("actor_on_update", actor_on_update)
 	RegisterScriptCallback("actor_on_weapon_before_fire", on_before_fire)

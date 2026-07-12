@@ -1,4 +1,3 @@
-local m_settings = settings or fuzz_recoil.settings
 local utils = fuzz_recoil_utils
 local logger = fuzz_recoil_logger
 local iui = fuzz_recoil_imgui
@@ -53,6 +52,14 @@ local return_damping = 15.0
 local smooth_firing = 4.5
 local smooth_return = 10
 
+--------------
+--Cahced settings
+--------------
+local bolt_action_Y_lift = true
+
+function M.load_settings(settings)
+	bolt_action_Y_lift = settings.bolt_action_Y_lift
+end
 --------
 ---public getters
 --------
