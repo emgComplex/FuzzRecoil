@@ -237,6 +237,79 @@ function M.load_profile(profile)
 	shot_delay_enabled = profile.shot_delay_enabled
 end
 --------------
+--Spring Mode
+--------------
+local function on_fire_spring()
+	vel_rot.y = vel_rot.y + force_pitch --/ mass_factor
+	vel_pos.y = vel_pos.y + force_y --/mass_factor
+
+	local yaw_impulse = (math.random() * 2 - 1) * force_yaw
+	vel_rot.x = vel_rot.x + yaw_impulse
+
+	--NOTE:count_ratio = 1/20
+	local pos_x_impulse = (math.random() * 2 - 1) * force_x
+	vel_pos.x = vel_pos.x + pos_x_impulse
+
+	is_returned = false
+end
+local function update_on_firing(dt, handling_power)
+	local pull_strength = pull_force * handling_power
+
+	apply_recoil_forces(dt, pull_strength, firing_damping)
+
+	-- limit before smooth
+	rot_raw:clamp(max_hud_rot)
+	pos_raw:clamp(max_hud_pos)
+end
+local function update_on_return(dt)
+	local spring = return_spring
+	local damping = return_damping
+
+	apply_spring_vec(pos_raw, vel_pos, dt, spring, damping)
+	apply_spring_vec(rot_raw, vel_rot, dt, spring, damping)
+
+	local threshold_return = 0.001
+	if rot_raw:magnitude() < threshold_return and pos_raw:magnitude() < threshold_return then
+		M.stop()
+		return
+	end
+end
+--TODO: conditional switch is shit ,use deleate instead
+local function update_spring(dt, handling_power)
+	if is_returned then
+		return true
+	end
+	if handling_power then
+		update_on_firing(dt, handling_power)
+	else
+		update_on_return(dt)
+	end
+	pos_y_sync_with_cam()
+
+	apply_simple_smooth(dt, handling_power and smooth_firing or smooth_return)
+	M.set_hud_offset(pos_smooth, rot_smooth)
+	return false
+end
+
+--------------
+--Mode Switching
+--------------
+M.MODE = {
+	SPRING = 0,
+	INSTANT = 1,
+}
+local _update_fn = update_spring
+local _on_fire_fn = on_fire_spring
+function M.switch_mode(mode)
+	if mode == M.MODE.SPRING then
+		_update_fn = update_spring
+		_on_fire_fn = on_fire_spring
+	elseif mode == M.MODE.INSTANT then
+		-- TODO: implement by LIP
+		-- _update_fn = update_instant
+	end
+end
+--------------
 ---Public functions
 --------------
 --TODO: is this bad? but loading order is a little messy, some null error occurs
@@ -250,7 +323,6 @@ function M.init(wpn_sec, profile)
 	init_offset(wpn_sec)
 	M.load_profile(profile)
 end
-
 function M.start()
 	M.reset_hud_hand()
 	M.enable_hud_adjust()
@@ -271,58 +343,10 @@ function M.stop()
 end
 
 function M.on_fire()
-	vel_rot.y = vel_rot.y + force_pitch --/ mass_factor
-	vel_pos.y = vel_pos.y + force_y --/mass_factor
-
-	local yaw_impulse = (math.random() * 2 - 1) * force_yaw
-	vel_rot.x = vel_rot.x + yaw_impulse
-
-	--NOTE:count_ratio = 1/20
-	local pos_x_impulse = (math.random() * 2 - 1) * force_x
-	vel_pos.x = vel_pos.x + pos_x_impulse
-
-	is_returned = false
+	_on_fire_fn()
 end
-
-function M.update_on_firing(dt, handling_power)
-	local pull_strength = pull_force * handling_power
-
-	apply_recoil_forces(dt, pull_strength, firing_damping)
-
-	-- limit before smooth
-	rot_raw:clamp(max_hud_rot)
-	pos_raw:clamp(max_hud_pos)
-end
-
-function M.update_on_return(dt)
-	local spring = return_spring
-	local damping = return_damping
-
-	apply_spring_vec(pos_raw, vel_pos, dt, spring, damping)
-	apply_spring_vec(rot_raw, vel_rot, dt, spring, damping)
-
-	local threshold_return = 0.001
-	if rot_raw:magnitude() < threshold_return and pos_raw:magnitude() < threshold_return then
-		M.stop()
-		return
-	end
-end
-
---TODO: this is shit ,use deleate instead
 function M.update(dt, handling_power)
-	if is_returned then
-		return true
-	end
-	if handling_power then
-		M.update_on_firing(dt, handling_power)
-	else
-		M.update_on_return(dt)
-	end
-	pos_y_sync_with_cam()
-
-	apply_simple_smooth(dt, handling_power and smooth_firing or smooth_return)
-	M.set_hud_offset(pos_smooth, rot_smooth)
-	return false
+	return _update_fn(dt, handling_power)
 end
 
 ------------------------------------
