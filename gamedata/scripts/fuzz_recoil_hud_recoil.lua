@@ -286,6 +286,75 @@ function M.update(dt, handling_power)
 	return false
 end
 
+------------------------------------
+---IMGUI
+------------------------------------
+local test_cur_pos_inc = vector():set(0, 0, 0)
+local test_cur_rot_inc = vector():set(0, 0, 0)
+function M.renderHudControls()
+	ImGui.Text("Original Hand Pos:" .. utils.vector_to_string(ori_hand_trs[1]))
+	ImGui.Text("Original Hand Rot:" .. utils.vector_to_string(ori_hand_trs[2]))
+	ImGui.Text(string.format("Current HUD Pos: X:%.3f, Y:%.3f, Z:%.3f", cur_pos.x, cur_pos.y, cur_pos.z))
+	ImGui.Text(string.format("Current HUD Rot: X:%.3f, Y:%.3f, Z:%.3f", cur_hud_rot.x, cur_hud_rot.y, cur_hud_rot.z))
+	ImGui.Separator()
+
+	ImGui.Text("Direct")
+
+	local changed_px, n_px = ImGui.SliderFloat("Pos X", cur_pos.x, -5.2, 5.2, "%.6f")
+	local changed_py, n_py = ImGui.SliderFloat("Pos Y", cur_pos.y, -5.2, 5.2, "%.6f")
+	local changed_pz, n_pz = ImGui.SliderFloat("Pos Z", cur_pos.z, -5.2, 5.2, "%.6f")
+
+	local changed_rx, n_rx = ImGui.SliderFloat("Yaw", cur_rot.x, -3.2, 3.2, "%.6f")
+	local changed_ry, n_ry = ImGui.SliderFloat("Pitch", cur_rot.y, -3.2, 3.2, "%.6f")
+	local changed_rz, n_rz = ImGui.SliderFloat("Roll", cur_rot.z, -3.2, 3.2, "%.6f")
+
+	if changed_px or changed_py or changed_pz or changed_rx or changed_ry or changed_rz then
+		M.enable_hud_adjust()
+		cur_pos = vector():set(n_px or cur_pos.x, n_py or cur_pos.y, n_pz or cur_pos.z)
+		cur_rot = vector():set(n_rx or cur_rot.x, n_ry or cur_rot.y, n_rz or cur_rot.z)
+		apply_cur_hud_hand()
+	end
+
+	if ImGui.Button("Reset HUD to Default") then
+		M.reset_hud_hand()
+		M.disable_hud_adjust()
+	end
+	ImGui.Separator()
+
+	ImGui.Text("Impulse Delta")
+
+	_, test_cur_pos_inc.x = ImGui.SliderFloat("Delta PosX", test_cur_pos_inc.x, -0.01, 0.01, "%.6f")
+	_, test_cur_pos_inc.y = ImGui.SliderFloat("Delta PosY", test_cur_pos_inc.y, -0.01, 0.01, "%.6f")
+	_, test_cur_pos_inc.z = ImGui.SliderFloat("Delta PosZ", test_cur_pos_inc.z, -0.01, 0.01, "%.6f")
+
+	_, test_cur_rot_inc.x = ImGui.SliderFloat("Delta Yaw", test_cur_rot_inc.x, -0.5, 0.5, "%.6f")
+	_, test_cur_rot_inc.y = ImGui.SliderFloat("Delta Pitch", test_cur_rot_inc.y, -0.5, 0.5, "%.6f")
+	_, test_cur_rot_inc.z = ImGui.SliderFloat("Delta Roll", test_cur_rot_inc.z, -0.5, 0.5, "%.6f")
+	--TODO: messy...
+	if ImGui.Button("UseOffset") then
+		M.enable_hud_adjust()
+		cur_pos = vector():set(ori_hand_trs[1]):add(test_cur_pos_inc)
+		cur_rot = vector():set(ori_hand_trs[2]):add(test_cur_rot_inc)
+		apply_cur_hud_hand()
+	end
+	ImGui.SameLine()
+	if ImGui.Button("GetOffset") then
+		test_cur_pos_inc = vector():set(cur_pos):sub(ori_hand_trs[1])
+		test_cur_rot_inc = vector():set(cur_rot):sub(ori_hand_trs[2])
+	end
+	ImGui.SameLine()
+	if ImGui.Button("ResetInc") then
+		test_cur_pos_inc = vector():set(0, 0, 0)
+		test_cur_rot_inc = vector():set(0, 0, 0)
+	end
+	ImGui.SameLine()
+	if ImGui.Button("Shot") then
+		M.enable_hud_adjust()
+		M.update_cur_hud_hand_by(test_cur_pos_inc, test_cur_rot_inc)
+		apply_cur_hud_hand()
+	end
+end
+---
 -----------------
 ---toilet
 -----------------

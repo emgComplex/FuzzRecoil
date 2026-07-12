@@ -10,9 +10,6 @@ local hudrc = fuzz_recoil_hud_recoil
 -- local log_text = frm.log_text
 -- l
 
-local test_cur_pos_inc = VEC_ZERO
-local test_cur_rot_inc = VEC_ZERO
-
 local showImguiWin = fuzz_dev and true or false
 local overlay_toggle = fuzz_dev and true or false
 local showProfile = fuzz_dev and true or false
@@ -158,7 +155,7 @@ function renderImguiTab()
 			ImGui.TreePop()
 		end
 		if ImGui.TreeNode("HUD Control") then
-			renderHudControls()
+			hudrc.renderHudControls()
 			ImGui.TreePop()
 		end
 		if ImGui.TreeNode("Debug Vars") then
@@ -403,84 +400,6 @@ function renderDebugVars()
 	_, vars.float_s2 = ImGui.SliderFloat("float_s2", vars.float_s2, 0, 1, "%.4f")
 	_, vars.float_x1 = ImGui.SliderFloat("float_x1", vars.float_x1, 0, 50, "%.2f")
 	_, vars.float_x2 = ImGui.SliderFloat("float_x2", vars.float_x2, 0, 50, "%.2f")
-end
-
-function renderHudControls()
-	ImGui.Text("Original Hand Pos:" .. utils.vector_to_string(frm.ori_hand_trs[1]))
-	ImGui.Text("Original Hand Rot:" .. utils.vector_to_string(frm.ori_hand_trs[2]))
-	ImGui.Text(
-		string.format(
-			"Current HUD Pos: X:%.3f, Y:%.3f, Z:%.3f",
-			frm.cur_hud_pos.x,
-			frm.cur_hud_pos.y,
-			frm.cur_hud_pos.z
-		)
-	)
-	ImGui.Text(
-		string.format(
-			"Current HUD Rot: X:%.3f, Y:%.3f, Z:%.3f",
-			frm.cur_hud_rot.x,
-			frm.cur_hud_rot.y,
-			frm.cur_hud_rot.z
-		)
-	)
-	ImGui.Separator()
-
-	ImGui.Text("Direct")
-
-	local changed_px, n_px = ImGui.SliderFloat("Pos X", frm.cur_hud_pos.x, -5.2, 5.2, "%.6f")
-	local changed_py, n_py = ImGui.SliderFloat("Pos Y", frm.cur_hud_pos.y, -5.2, 5.2, "%.6f")
-	local changed_pz, n_pz = ImGui.SliderFloat("Pos Z", frm.cur_hud_pos.z, -5.2, 5.2, "%.6f")
-
-	local changed_rx, n_rx = ImGui.SliderFloat("Yaw", frm.cur_hud_rot.x, -3.2, 3.2, "%.6f")
-	local changed_ry, n_ry = ImGui.SliderFloat("Pitch", frm.cur_hud_rot.y, -3.2, 3.2, "%.6f")
-	local changed_rz, n_rz = ImGui.SliderFloat("Roll", frm.cur_hud_rot.z, -3.2, 3.2, "%.6f")
-
-	if changed_px or changed_py or changed_pz or changed_rx or changed_ry or changed_rz then
-		frm.enable_hud_adjust()
-		frm.cur_hud_pos = vector():set(n_px or frm.cur_hud_pos.x, n_py or frm.cur_hud_pos.y, n_pz or frm.cur_hud_pos.z)
-		frm.cur_hud_rot = vector():set(n_rx or frm.cur_hud_rot.x, n_ry or frm.cur_hud_rot.y, n_rz or frm.cur_hud_rot.z)
-		frm.apply_cur_hud_hand()
-	end
-
-	if ImGui.Button("Reset HUD to Default") then
-		frm.reset_hud_hand()
-		frm.disable_hud_adjust()
-	end
-	ImGui.Separator()
-
-	ImGui.Text("Impulse Delta")
-
-	_, test_cur_pos_inc.x = ImGui.SliderFloat("Delta PosX", test_cur_pos_inc.x, -0.01, 0.01, "%.6f")
-	_, test_cur_pos_inc.y = ImGui.SliderFloat("Delta PosY", test_cur_pos_inc.y, -0.01, 0.01, "%.6f")
-	_, test_cur_pos_inc.z = ImGui.SliderFloat("Delta PosZ", test_cur_pos_inc.z, -0.01, 0.01, "%.6f")
-
-	_, test_cur_rot_inc.x = ImGui.SliderFloat("Delta Yaw", test_cur_rot_inc.x, -0.5, 0.5, "%.6f")
-	_, test_cur_rot_inc.y = ImGui.SliderFloat("Delta Pitch", test_cur_rot_inc.y, -0.5, 0.5, "%.6f")
-	_, test_cur_rot_inc.z = ImGui.SliderFloat("Delta Roll", test_cur_rot_inc.z, -0.5, 0.5, "%.6f")
-	--TODO: messy...
-	if ImGui.Button("UseOffset") then
-		frm.enable_hud_adjust()
-		frm.cur_hud_pos = vector():set(frm.ori_hand_trs[1]):add(test_cur_pos_inc)
-		frm.cur_hud_rot = vector():set(frm.ori_hand_trs[2]):add(test_cur_rot_inc)
-		frm.apply_cur_hud_hand()
-	end
-	ImGui.SameLine()
-	if ImGui.Button("GetOffset") then
-		test_cur_pos_inc = vector():set(frm.cur_hud_pos):sub(frm.ori_hand_trs[1])
-		test_cur_rot_inc = vector():set(frm.cur_hud_rot):sub(frm.ori_hand_trs[2])
-	end
-	ImGui.SameLine()
-	if ImGui.Button("ResetInc") then
-		test_cur_pos_inc = vector():set(0, 0, 0)
-		test_cur_rot_inc = vector():set(0, 0, 0)
-	end
-	ImGui.SameLine()
-	if ImGui.Button("Shot") then
-		frm.enable_hud_adjust()
-		frm.update_cur_hud_hand_by(test_cur_pos_inc, test_cur_rot_inc)
-		frm.apply_cur_hud_hand()
-	end
 end
 
 function vector_imgui_text_drawer(vec, label, is_rot)
