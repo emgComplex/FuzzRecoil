@@ -1,10 +1,13 @@
-logger = {}
+local M = {}
+_G.fuzz_recoil_logger = M
+
 local log_text = "FuzzRecoilLog"
-enable_internal_log = false
-function on_game_start()
+local enable_internal_log = false
+
+function M.on_game_start()
 	enable_internal_log = fuzz_recoil_imgui and true or false
 end
-function m_log(msg, ...)
+local function m_log(msg, ...)
 	if msg == nil then
 		log("[FuzzRecoil]: nil msg")
 		log(debug.traceback())
@@ -18,28 +21,44 @@ function m_log(msg, ...)
 		log_text = log_text .. "\n" .. string.format("[%s]", time_global()) .. msg
 	end
 end
-function logger.dbg(msg, ...)
+function M.dbg(msg, ...)
 	if not fuzz_recoil.settings.debug_mode then
 		return
 	end
 	m_log(msg, ...)
 end
-function logger.err(msg, ...)
+function M.err(msg, ...)
 	m_log("[ERROR]" .. msg, ...)
 	m_log(debug.traceback())
 end
-function logger.get_log_text()
+function M.get_log_text()
 	return log_text
 end
-function logger.clear_internal_log()
+function M.clear_internal_log()
 	log_text = ""
 end
-function logger.export_internal_log()
+function M.export_internal_log()
 	local filename = string.format("../appdata/logs/fuzz_recoil_%s.log", os.time())
 	local file = io.open(filename, "w")
 	if not file then
-		logger.err("Failed to open file when exporting logs")
+		M.err("Failed to open file when exporting logs")
 	end
 	file:write(log_text)
 	file:close()
+end
+
+function M.print_table(t, indent)
+	if not indent then
+		indent = ""
+	end
+	M.dbg("%s%s", indent, t)
+	M.dbg("%s-----start------", indent)
+	for k, v in pairs(t) do
+		if type(v) == "table" then
+			M.print_table(v, indent .. ">>")
+		else
+			M.dbg("%s:%s", k, v)
+		end
+	end
+	M.dbg("%s-----end------", indent)
 end
