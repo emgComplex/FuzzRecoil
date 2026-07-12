@@ -61,6 +61,8 @@ M.settings = {
 --condition koefs stack on top like vanilla (WeaponDispersion.cpp)
 --base is the flat hip penalty, rate grows per shot, heat caps at max
 M.bloom = {
+	--master variance, scales the whole extra cone, 0 is vanilla dispersion
+	variance = 1.0,
 	decay = 1.2,
 	--heat grows at full rate scoped, stance only changes the base share
 	ads_mul = 1.0,
@@ -315,7 +317,7 @@ function update_bloom(dt)
 		bloom_heat = bloom_heat * math.exp(-M.bloom.decay * dt)
 	end
 	local bc = M.bloom.classes[m_profile.burst_class] or M.bloom.classes.other
-	local mul = 1 + bc.base * (is_ads and M.bloom.ads_base or 1) + bloom_heat
+	local mul = 1 + (bc.base * (is_ads and M.bloom.ads_base or 1) + bloom_heat) * M.bloom.variance
 	if math.abs(mul - bloom_applied) > 0.01 then
 		cur_cast_wpn:SetFireDispersion(orig_fire_disp * mul)
 		bloom_applied = mul
@@ -577,6 +579,7 @@ function M.imgui_config_drawer()
 	idle_handling_ease:draw_imgui("Handling dec")
 	if ImGui.TreeNode("Fire Bloom") then
 		ImGui.Text(string.format("heat %.2f, applied x%.2f, base %.4frad", bloom_heat, bloom_applied, orig_fire_disp))
+		_, M.bloom.variance = ImGui.SliderFloat("Variance", M.bloom.variance, 0.0, 3.0, "%.2f")
 		_, M.bloom.decay = ImGui.SliderFloat("Decay", M.bloom.decay, 0.2, 5.0, "%.2f")
 		_, M.bloom.ads_mul = ImGui.SliderFloat("ADS Mul", M.bloom.ads_mul, 0.0, 1.0, "%.2f")
 		_, M.bloom.ads_base = ImGui.SliderFloat("ADS Base Share", M.bloom.ads_base, 0.0, 1.0, "%.2f")
