@@ -118,6 +118,9 @@ end
 function M.get_shot_cam_k()
 	return shot_cam_k
 end
+function M.get_handling_eases()
+	return firing_handling_ease, idle_handling_ease
+end
 --------------------
 ---Public Setter
 --------------------
