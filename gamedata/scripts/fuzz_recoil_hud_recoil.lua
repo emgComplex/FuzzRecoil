@@ -202,8 +202,15 @@ local function init_offset(wpn_sec)
 	hud_adjust.enabled(false)
 end
 --------------
----Methods
+---Public functions
 --------------
+--TODO: is this bad? but loading order is a little messy, some null error occurs
+--if it's bad we can set reference when on_game_start
+function M.load()
+	M.instance = M
+	return M
+end
+
 function M.init(wpn_sec, profile)
 	init_offset(wpn_sec)
 
