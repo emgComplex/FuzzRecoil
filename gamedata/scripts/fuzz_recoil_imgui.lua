@@ -201,7 +201,7 @@ function plot_overlay()
 	ImGui.SetNextWindowSize(vector2():set(300, 600), ImGuiCond.FirstUseEver)
 	if expanded and frm.cur_wpn then
 		if ImGui.TreeNode("cam_angle") then
-			local new_val = frm.state.active and camrc.angle or nil
+			local new_val = frm.state.active and camrc.get_angle() or nil
 			cam_angle_plot:draw(new_val)
 			ImGui.TreePop()
 		end
@@ -252,14 +252,15 @@ function info_overlay()
 	if expanded and frm.cur_wpn then
 		ImGui.Separator()
 
-		ImGui.Text(string.format(
-			"Active:%s,Firing:%s,Cam_FX:%s",
-			frm.state.active,
-			frm.state.is_firing,
-			--TODO:! use camrc
-			level.check_cam_effector(frm.CAM_FX_ID)
-		))
-		ImGui.Text(string.format("CamRetrun:%s,HudReturn:%s", camrc.is_returned, hudrc.is_returned()))
+		ImGui.Text(
+			string.format(
+				"Active:%s,Firing:%s,Cam_FX:%s",
+				frm.state.active,
+				frm.state.is_firing,
+				camrc.has_camera_effector()
+			)
+		)
+		ImGui.Text(string.format("CamRetrun:%s,HudReturn:%s", camrc.is_returned(), hudrc.is_returned()))
 
 		ImGui.ProgressBar(
 			frm.state.handling_power,
@@ -269,11 +270,7 @@ function info_overlay()
 		ImGui.Separator()
 		hudrc.imgui_info_drawer()
 		ImGui.Separator()
-		--TODO:! use camrc
-		ImGui.TextColored(vector4():set(0, 1, 0.5, 1), "Camera recoil")
-		ImGui.Text(string.format("Cam pitch: %.3f", camrc.angle))
-		ImGui.Text(string.format("Cam velocity: %.3f", camrc.vel))
-		-- cam_total_up
+		camrc.imgui_info_drawer()
 	end
 	ImGui.End()
 end
