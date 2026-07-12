@@ -116,7 +116,7 @@ function on_fire()
 		--no need to good deep for optimization ,leave it here for now.
 		start_recoil()
 	end
-	if m_profile.shot_dealy_enabled then
+	if m_profile.shot_delay_enabled then
 		CreateTimeEvent("fuzz_recoil", "bolt_delay_stop", m_profile.shot_delay_time, function()
 			on_fire_stop()
 			return true
@@ -254,7 +254,7 @@ function init_weapon(wpn_sec)
 		config.idle_handling_ease:reset()
 	end
 
-	camrc.init(m_profile.cam_return_speed, m_profile.shot_dealy_enabled and "cubic" or "exp")
+	camrc.init(m_profile.cam_return_speed, m_profile.shot_delay_enabled and "cubic" or "exp")
 	hudrc.init(wpn_sec, m_profile)
 
 	logger.dbg("Initialize weapon")

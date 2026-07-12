@@ -36,6 +36,7 @@ local default_profile = {
 
 	handling_speed = 0.5,
 
+	-- TODO: need a better name for shot_delay
 	-- shot_delay
 	should_shot_delay = false,
 	shot_delay_time = 0.4,
@@ -110,7 +111,7 @@ function M:process_shot_delay(wpn_info)
 	-- NOTE: or we can just check available firemodes?
 	local skind = shot_delay_table[wpn_info.kind]
 	if skind and wpn_info.rpm <= skind.rpm then
-		self.shot_dealy_enabled = true
+		self.shot_delay_enabled = true
 		self.shot_delay_time = utils.math_clamp(self.fire_interval, 0.1, 0.5)
 		self.shot_cam_impulse_factor = skind.cam_impulse
 	end
