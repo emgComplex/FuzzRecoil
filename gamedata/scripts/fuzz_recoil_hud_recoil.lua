@@ -240,10 +240,10 @@ function M.init(wpn_sec, profile)
 	firing_damping = profile.firing_damping
 	pull_force = profile.pull_force
 
-	force_pitch = profile.shot_pitch
-	force_y = profile.shot_pos_y
-	force_yaw = profile.shot_yaw
-	force_x = profile.shot_pos_x
+	force_pitch = profile.force_pitch
+	force_y = profile.force_y
+	force_yaw = profile.force_yaw
+	force_x = profile.force_x
 
 	is_bolt_action = profile.is_bolt_action
 	shot_dealy_enabled = profile.shot_dealy_enabled
