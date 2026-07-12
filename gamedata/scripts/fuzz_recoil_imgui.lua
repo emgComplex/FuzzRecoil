@@ -324,18 +324,15 @@ function renderConfig()
 		ImGui.Separator()
 		frm.config.firing_handling_ease:draw_imgui("Handling inc")
 		frm.config.idle_handling_ease:draw_imgui("Handling dec")
-		_, frm.config.base_cam_return_speed =
-			ImGui.SliderFloat("Base Cam Return Speed", frm.config.base_cam_return_speed, 0.1, 10, "%.2frad")
-		_, frm.config.min_cam_return_step =
-			ImGui.SliderFloat("Min Cam Return step", frm.config.min_cam_return_step, 0.001, 0.01, "%.4frad")
-
+		camrc.imgui_config_drawer()
 		ImGui.Separator()
-		ImGui.TextColored(vector4():set(0.3, 0.8, 1, 1), "Physics")
-		_, frm.config.smooth_firing = ImGui.SliderFloat("Smooth Firing", frm.config.smooth_firing, 0.0, 10.0, "%.2f")
-		_, frm.config.smooth_return = ImGui.SliderFloat("Smooth Return", frm.config.smooth_return, 5.0, 15.0, "%.2f")
-		_, frm.config.return_spring = ImGui.SliderFloat("Return Spring", frm.config.return_spring, 0.1, 30.0, "%.2f")
-		_, frm.config.return_damping = ImGui.SliderFloat("Return Damping", frm.config.return_damping, 0.1, 16.0, "%.2f")
+		hudrc.imgui_config_drawer()
+		if ImGui.Button("Dump All Weapon datas(need json.lua)", vector2():set(-1, 25)) then
+			utils.get_all_weapon_sections()
+		end
+		ImGui.Separator()
 		ImGui.Text("Settings")
+		_, frm.settings.bolt_action_Y_lift = ImGui.Checkbox("Bolt-Action Lift", frm.settings.bolt_action_Y_lift)
 		_, frm.settings.cam_drag = ImGui.SliderFloat("Cam Drag", frm.settings.cam_drag, 5.0, 20.0, "%.2f")
 		ImGui.TextColored(vector4():set(1, 0, 0, 1), "NOT IMPLEMENTED YET")
 		_, frm.settings.recoil_v_scale =
@@ -348,10 +345,10 @@ function renderConfig()
 			ImGui.SliderFloat("Increase Rate", frm.settings.increase_rate_scale, 0.1, 2.0, "%.2f")
 		_, frm.settings.handling_speed_scale =
 			ImGui.SliderFloat("Handling Speed", frm.settings.handling_speed_scale, 0.1, 2.0, "%.2f")
-		if ImGui.Button("Dump All Weapon datas(need json.lua)", vector2():set(-1, 25)) then
-			utils.get_all_weapon_sections()
-		end
 		ImGui.TreePop()
+		if ImGui.Button("Apply Settings", vector2():set(-1, 25)) then
+			frm.settings.apply()
+		end
 	end
 	--TODO:refactor this to base
 	ImGui.Separator()
@@ -390,17 +387,24 @@ function M.vector_imgui_text_drawer(vec, label, is_rot)
 	ImGui.TextColored(vector4():set(0, 1, 0.5, 1), label)
 	ImGui.Text(info)
 end
-function M.vector_imgui_slider_drawer(vec, label, is_rot)
-	local limit = is_rot and 3.2 or 5.2
+function M.vector_imgui_slider_drawer(vec, label, limit, is_rot, is_info)
+	limit = limit or 1
+	ImGui.Text(label)
 	ImGui.PushID(label)
+	if is_info then
+		ImGui.BeginDisabled(true)
+	end
 	if is_rot then
-		_, _ = ImGui.SliderFloat("Yaw", vec.x, -limit, limit, "%.5f")
-		_, _ = ImGui.SliderFloat("Pitch", vec.y, -limit, limit, "%.5f")
-		_, _ = ImGui.SliderFloat("Roll", vec.z, -limit, limit, "%.5f")
+		_, vec.x = ImGui.SliderFloat("Yaw", vec.x, -limit, limit, "%.5f")
+		_, vec.y = ImGui.SliderFloat("Pitch", vec.y, -limit, limit, "%.5f")
+		_, vec.z = ImGui.SliderFloat("Roll", vec.z, -limit, limit, "%.5f")
 	else
-		_, _ = ImGui.SliderFloat("X", vec.x, -limit, limit, "%.5f")
-		_, _ = ImGui.SliderFloat("Y", vec.y, -limit, limit, "%.5f")
-		_, _ = ImGui.SliderFloat("Z", vec.z, -limit, limit, "%.5f")
+		_, vec.x = ImGui.SliderFloat("X", vec.x, -limit, limit, "%.5f")
+		_, vec.y = ImGui.SliderFloat("Y", vec.y, -limit, limit, "%.5f")
+		_, vec.z = ImGui.SliderFloat("Z", vec.z, -limit, limit, "%.5f")
+	end
+	if is_info then
+		ImGui.EndDisabled()
 	end
 	ImGui.PopID()
 end
