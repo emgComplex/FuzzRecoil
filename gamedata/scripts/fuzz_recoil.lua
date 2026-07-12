@@ -151,7 +151,7 @@ function on_fire()
 		--no need to good deep for optimization ,leave it here for now.
 		start_recoil()
 	end
-	if wpn_profile.shot_dealy_enable then
+	if wpn_profile.shot_dealy_enabled then
 		CreateTimeEvent("fuzz_recoil", "bolt_delay_stop", wpn_profile.shot_delay_time, function()
 			on_fire_stop()
 			return true
@@ -231,17 +231,17 @@ function init_weapon(wpn_sec)
 
 	-- NOTE: or we can just check available firemodes?
 	-- REFT: look at this mess...move this to converter
-	wpn_profile.shot_dealy_enable = false
+	wpn_profile.shot_dealy_enabled = false
 	wpn_profile.shot_cam_impulse_factor = 0.2
 
 	local skind = shot_delay_table[wpn_info.kind]
 	if skind and wpn_info.rpm <= skind.rpm then
-		wpn_profile.shot_dealy_enable = true
+		wpn_profile.shot_dealy_enabled = true
 		wpn_profile.shot_delay_time = utils.math_clamp(wpn_profile.fire_interval, 0.1, 0.5)
 		wpn_profile.shot_cam_impulse_factor = skind.cam_impulse
 	end
 
-	camrc:init(wpn_profile.cam_return_speed, wpn_profile.shot_dealy_enable and "cubic" or "exp")
+	camrc:init(wpn_profile.cam_return_speed, wpn_profile.shot_dealy_enabled and "cubic" or "exp")
 	hudrc.init(wpn_sec, wpn_profile)
 
 	logger.dbg("Initialize weapon")
