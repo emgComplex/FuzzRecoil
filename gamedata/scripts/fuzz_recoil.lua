@@ -54,10 +54,10 @@ wpn_profile = {
 	--TODO:
 	--zoom_scale_ratio
 
-	shot_pitch = 15,
-	shot_pos_y = -0.04,
-	shot_yaw = 15,
-	shot_pos_x = 0.0006,
+	force_pitch = 15,
+	force_y = -0.04,
+	force_yaw = 15,
+	force_x = 0.0006,
 
 	pull_force = 1.5,
 	firing_damping = 1.0,
@@ -71,7 +71,7 @@ wpn_profile = {
 	shot_cam_impulse_factor = 0.2,
 
 	--TODO:NOT IMPLEMENTED
-	increase_rate = 0,
+	stamina_factor = 1,
 	-- mass_inertia = -1,
 	-- hidden vars
 	fire_interval = 0.1,
@@ -372,17 +372,17 @@ function try_get_recoil_profile(wpn_sec)
 		wpn_profile.cam_recoil_power = utils.get_float(profile, "cam_recoil_power", 4)
 		wpn_profile.cam_return_speed = utils.get_float(profile, "cam_return_speed", 1)
 
-		wpn_profile.shot_pitch = utils.get_float(profile, "shot_pitch", 15)
-		wpn_profile.shot_pos_y = utils.get_float(profile, "shot_pos_y", -0.04)
-		wpn_profile.shot_yaw = utils.get_float(profile, "shot_yaw", 15)
-		wpn_profile.shot_pos_x = utils.get_float(profile, "shot_pos_x", 0)
+		wpn_profile.force_pitch = utils.get_float(profile, "force_pitch", 15)
+		wpn_profile.force_y = utils.get_float(profile, "force_y", -0.04)
+		wpn_profile.force_yaw = utils.get_float(profile, "force_yaw", 15)
+		wpn_profile.force_x = utils.get_float(profile, "force_x", 0)
 
 		wpn_profile.pull_force = utils.get_float(profile, "pull_force", 1.5)
 		wpn_profile.firing_damping = utils.get_float(profile, "firing_damping", 1)
 		-- wpn_profile.hud_return_speed = utils.get_float(profile, "hud_return_speed", 1)
 
 		wpn_profile.handling_speed = utils.get_float(profile, "handling_speed", 0.5)
-		wpn_profile.increase_rate = utils.get_float(profile, "increase_rate", 0)
+		wpn_profile.stamina_factor = utils.get_float(profile, "increase_rate", 0)
 	else
 		cvter.convert(wpn_info, wpn_profile)
 	end

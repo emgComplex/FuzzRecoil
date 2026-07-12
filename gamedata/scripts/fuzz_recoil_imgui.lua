@@ -285,13 +285,13 @@ function renderProfile()
 		_, frm.wpn_profile.cam_return_speed =
 			ImGui.SliderFloat("Cam Return Speed", frm.wpn_profile.cam_return_speed, 0.5, 2, "%.2f")
 
-		ImGui.Text("Shot Impact")
-		_, frm.wpn_profile.shot_pitch = ImGui.SliderFloat("Pitch", frm.wpn_profile.shot_pitch, 0, 60, "%.2f")
-		_, frm.wpn_profile.shot_pos_y = ImGui.SliderFloat("PosY", frm.wpn_profile.shot_pos_y, -0.06, 0.06, "%.4f")
-		frm.wpn_profile.shot_pos_y = frm.wpn_profile.shot_pos_y
-		_, frm.wpn_profile.shot_yaw = ImGui.SliderFloat("Yaw", frm.wpn_profile.shot_yaw, 0, 60, "%.2f")
-		_, frm.wpn_profile.shot_pos_x = ImGui.SliderFloat("PosX", frm.wpn_profile.shot_pos_x, 0.0001, 0.0025, "%.4f")
-		frm.wpn_profile.shot_pos_x = frm.wpn_profile.shot_pos_x
+		ImGui.Text("Shot Impact Force")
+		_, frm.wpn_profile.force_pitch = ImGui.SliderFloat("Pitch", frm.wpn_profile.force_pitch, 0, 60, "%.2f")
+		_, frm.wpn_profile.force_y = ImGui.SliderFloat("PosY", frm.wpn_profile.force_y, -0.06, 0.06, "%.4f")
+		frm.wpn_profile.force_y = frm.wpn_profile.force_y
+		_, frm.wpn_profile.force_yaw = ImGui.SliderFloat("Yaw", frm.wpn_profile.force_yaw, 0, 60, "%.2f")
+		_, frm.wpn_profile.force_x = ImGui.SliderFloat("PosX", frm.wpn_profile.force_x, 0.0001, 0.0025, "%.4f")
+		frm.wpn_profile.force_x = frm.wpn_profile.force_x
 		_, frm.wpn_profile.pull_force = ImGui.SliderFloat("Pull Force", frm.wpn_profile.pull_force, 0.1, 4.0, "%.2f")
 		_, frm.wpn_profile.firing_damping =
 			ImGui.SliderFloat("Spring Damping", frm.wpn_profile.firing_damping, 0.1, 4.0, "%.2f")
