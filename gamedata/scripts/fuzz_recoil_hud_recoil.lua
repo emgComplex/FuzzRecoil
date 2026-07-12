@@ -322,6 +322,7 @@ end
 function M.imgui_info_drawer()
 	ImGui.TextColored(vector4():set(0, 1, 0.5, 1), "Hud Trans offset")
 	iui.vector_imgui_text_drawer(pos_raw, "Pos")
+	-- iui.vector_imgui_slider_drawer(pos_raw, "POS", 0.006, false, true)
 	iui.vector_imgui_text_drawer(rot_raw, "Rot", true)
 	iui.vector_imgui_text_drawer(vel_rot, "Vel Rot", true)
 	iui.vector_imgui_text_drawer(rot_smooth, "Smoothed Rot", true)
@@ -335,6 +336,16 @@ function M.imgui_info_drawer()
 	local yaw_value = rot_smooth.x
 	local yaw_display = yaw_value
 	local _, _ = ImGui.SliderFloat("##yaw_slider", yaw_display, -0.5, 0.5, string.format("Yaw: %.4f", yaw_value))
+end
+function M.imgui_config_drawer()
+	ImGui.Text("Hud Recoil Config")
+	ImGui.TextColored(vector4():set(0.3, 0.8, 1, 1), "Physics")
+	_, smooth_firing = ImGui.SliderFloat("Smooth Firing", smooth_firing, 0.0, 10.0, "%.2f")
+	_, smooth_return = ImGui.SliderFloat("Smooth Return", smooth_return, 5.0, 15.0, "%.2f")
+	_, return_spring = ImGui.SliderFloat("Return Spring", return_spring, 0.1, 30.0, "%.2f")
+	_, return_damping = ImGui.SliderFloat("Return Damping", return_damping, 0.1, 16.0, "%.2f")
+	iui.vector_imgui_slider_drawer(max_hud_rot, "Max Hud Rot", 5, true, true)
+	iui.vector_imgui_slider_drawer(max_hud_pos, "Max Hud Pos", 0.004, false, true)
 end
 ---------------
 ---HUD controls
