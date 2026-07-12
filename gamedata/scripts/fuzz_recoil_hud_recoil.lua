@@ -223,6 +223,19 @@ local function init_offset(wpn_sec)
 	end
 	hud_adjust.enabled(false)
 end
+function M.load_profile(profile)
+	fire_interval = profile.fire_interval
+	firing_damping = profile.firing_damping
+	pull_force = profile.pull_force
+
+	force_pitch = profile.force_pitch
+	force_y = profile.force_y
+	force_yaw = profile.force_yaw
+	force_x = profile.force_x
+
+	is_bolt_action = profile.is_bolt_action
+	shot_dealy_enabled = profile.shot_dealy_enabled
+end
 --------------
 ---Public functions
 --------------
@@ -235,18 +248,7 @@ end
 
 function M.init(wpn_sec, profile)
 	init_offset(wpn_sec)
-
-	fire_interval = profile.fire_interval
-	firing_damping = profile.firing_damping
-	pull_force = profile.pull_force
-
-	force_pitch = profile.force_pitch
-	force_y = profile.force_y
-	force_yaw = profile.force_yaw
-	force_x = profile.force_x
-
-	is_bolt_action = profile.is_bolt_action
-	shot_dealy_enabled = profile.shot_dealy_enabled
+	M.load_profile(profile)
 end
 
 function M.start()

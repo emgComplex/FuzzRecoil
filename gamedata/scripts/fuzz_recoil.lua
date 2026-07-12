@@ -9,23 +9,25 @@ local logger = fuzz_recoil_logger
 cur_wpn = nil
 cur_cast_wpn = nil
 local player = nil
+
+state = {
+	active = false,
+	is_firing = false,
+	handling_power = 0.0,
+	--TODO: duration or ? we need a way to achieve recoil expansion
+	--i don't like duration at all,too "linear-like"
+	--maybe an  arm muscle (or aimming) stamina ,
+	-- cur_aim_state = 0
+	--no need to reset
+	cur_wpn_id = 0,
+}
+
 local allowed_kinds = {
 	w_pistol = true,
 	w_rifle = true,
 	w_shotgun = true,
 	w_sniper = true,
 	w_smg = true,
-}
-
-local wpn_info = {
-	cam_dispersion = 0,
-	cam_dispersion_inc = 0,
-	zoom_cam_dispersion = 0,
-	zoom_cam_dispersion_inc = 0,
-	cam_step_angle_horz = 0,
-	cam_relax_speed = 0,
-	inv_weight = 0,
-	rpm = 600,
 }
 settings = {
 	debug_mode = fuzz_dev and true or false,
@@ -48,18 +50,17 @@ config = {
 	sniper_idle_handling = { offset = 0.2, intensity = 0.8 },
 	pitch_expansion = 1.5,
 }
-local m_profile = Profile:new()
 
-state = {
-	active = false,
-	is_firing = false,
-	handling_power = 0.0,
-	--TODO: duration or ? we need a way to achieve recoil expansion
-	--i don't like duration at all,too "linear-like"
-	--maybe an  arm muscle (or aimming) stamina ,
-	-- cur_aim_state = 0
-	--no need to reset
-	cur_wpn_id = 0,
+local m_profile = Profile:new()
+local wpn_info = {
+	cam_dispersion = 0,
+	cam_dispersion_inc = 0,
+	zoom_cam_dispersion = 0,
+	zoom_cam_dispersion_inc = 0,
+	cam_step_angle_horz = 0,
+	cam_relax_speed = 0,
+	inv_weight = 0,
+	rpm = 600,
 }
 
 sim_firing = false
@@ -125,8 +126,6 @@ function on_fire()
 
 	state.is_firing = true
 
-	-- local inertia_modifier = 1.0 / (1.0 + (wpn_profile.mass_inertia * 0.1))
-
 	hudrc.on_fire()
 	camrc.on_fire(state.handling_power, m_profile.cam_recoil_power, m_profile.shot_cam_impulse_factor)
 end
@@ -178,27 +177,6 @@ end
 --TODO: fallback to vanilla if something went wrong
 --PERF:smart_cast everytime or cached table?
 --i think cached table is better ,but we still have to update the profile evertime
-function init_weapon(wpn_sec)
-	collect_wpn_info(wpn_sec)
-	m_profile = fuzz_recoil_profile:new():load(wpn_sec, wpn_info)
-	remove_vanilla_cam_recoil()
-
-	-- inil some recoil paramete from here
-	config.firing_handling_ease:set_speed(m_profile.handling_speed)
-	config.idle_handling_ease:set_speed(m_profile.handling_speed)
-
-	if m_profile.is_bolt_action then
-		config.idle_handling_ease.intensity = config.sniper_idle_handling.intensity
-		config.idle_handling_ease.offset = config.sniper_idle_handling.offset
-	else
-		config.idle_handling_ease:reset()
-	end
-
-	camrc.init(m_profile.cam_return_speed, m_profile.shot_dealy_enabled and "cubic" or "exp")
-	hudrc.init(wpn_sec, m_profile)
-
-	logger.dbg("Initialize weapon")
-end
 function start_recoil()
 	state.active = true
 	camrc.start()
@@ -206,7 +184,6 @@ function start_recoil()
 	RemoveTimeEvent("fuzz_recoil", "bolt_delay")
 	logger.dbg("Initialize Recoil")
 end
-
 function reset_recoil()
 	state.active = false
 	state.is_firing = false
@@ -261,12 +238,34 @@ function get_current_weapon()
 	init_weapon(wpn_sec)
 	return true
 end
+function init_weapon(wpn_sec)
+	collect_wpn_info(wpn_sec)
+	m_profile = fuzz_recoil_profile:new():load(wpn_sec, wpn_info)
+	remove_vanilla_cam_recoil()
+
+	-- inil some recoil paramete from here
+	config.firing_handling_ease:set_speed(m_profile.handling_speed)
+	config.idle_handling_ease:set_speed(m_profile.handling_speed)
+
+	if m_profile.is_bolt_action then
+		config.idle_handling_ease.intensity = config.sniper_idle_handling.intensity
+		config.idle_handling_ease.offset = config.sniper_idle_handling.offset
+	else
+		config.idle_handling_ease:reset()
+	end
+
+	camrc.init(m_profile.cam_return_speed, m_profile.shot_dealy_enabled and "cubic" or "exp")
+	hudrc.init(wpn_sec, m_profile)
+
+	logger.dbg("Initialize weapon")
+end
 --TODO: use vannilla recoil for grende launcher
 function should_active(wpn_sec)
 	local kind = utils.get_string(wpn_sec, "kind")
 	return allowed_kinds[kind], kind
 end
 
+--=========Vannilla recoil handler============
 function remove_vanilla_cam_recoil()
 	set_vanilla_cam_recoil(cur_cast_wpn, 0, 0, 0, 0)
 end
@@ -323,6 +322,15 @@ function collect_wpn_info(wpn_sec)
 	for k, v in pairs(wpn_info) do
 		logger.dbg(type(v) == "number" and "%s:%.6f" or "%s:%s", k, v)
 	end
+end
+--------------------
+---Public Getter
+--------------------
+function get_wpn_info()
+	return wpn_info
+end
+function get_recoil_profile()
+	return m_profile
 end
 
 -- local function get_aim_state()
