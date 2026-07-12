@@ -114,7 +114,7 @@ debug_var = {
 	float_x2 = 0,
 }
 
-local camrc = fuzz_recoil_cam_recoil:new()
+local camrc = fuzz_recoil_cam_recoil.load()
 local hudrc = fuzz_recoil_hud_recoil
 
 function on_game_start()
@@ -164,7 +164,7 @@ function on_fire()
 	-- local inertia_modifier = 1.0 / (1.0 + (wpn_profile.mass_inertia * 0.1))
 
 	hudrc.on_fire()
-	camrc:on_fire(state.handling_power, wpn_profile.cam_recoil_power, wpn_profile.shot_cam_impulse_factor)
+	camrc.on_fire(state.handling_power, wpn_profile.cam_recoil_power, wpn_profile.shot_cam_impulse_factor)
 end
 
 function on_update(dt)
@@ -179,7 +179,7 @@ function on_update(dt)
 
 	update_handling_power(dt)
 	local hud_returned = hudrc.update(dt, state.is_firing and state.handling_power or nil)
-	local cam_returned = camrc:update(dt, state.is_firing)
+	local cam_returned = camrc.update(dt, state.is_firing)
 	if state.handling_power <= 0 and hud_returned and cam_returned then
 		reset_recoil()
 	end
@@ -241,14 +241,14 @@ function init_weapon(wpn_sec)
 		wpn_profile.shot_cam_impulse_factor = skind.cam_impulse
 	end
 
-	camrc:init(wpn_profile.cam_return_speed, wpn_profile.shot_dealy_enabled and "cubic" or "exp")
+	camrc.init(wpn_profile.cam_return_speed, wpn_profile.shot_dealy_enabled and "cubic" or "exp")
 	hudrc.init(wpn_sec, wpn_profile)
 
 	logger.dbg("Initialize weapon")
 end
 function start_recoil()
 	state.active = true
-	camrc:start()
+	camrc.start()
 	hudrc.start()
 	RemoveTimeEvent("fuzz_recoil", "bolt_delay")
 	logger.dbg("Initialize Recoil")
@@ -266,7 +266,7 @@ function reset_recoil()
 	logger.dbg("reset recoil")
 end
 function force_reset_recoil()
-	camrc:stop()
+	camrc.stop()
 	hudrc.stop()
 	reset_recoil()
 end
