@@ -4,7 +4,7 @@ local utils = fuzz_recoil_utils
 local logger = fuzz_recoil_logger
 local cvter = fuzz_recoil_converter
 local camrc = fuzz_recoil_cam_recoil.instance
-local hudrc = fuzz_recoil_hud_recoil or {}
+local hudrc = fuzz_recoil_hud_recoil.instance
 --stylua: ignore start
 --stylua: ignore end
 -- local log_text = frm.log_text
