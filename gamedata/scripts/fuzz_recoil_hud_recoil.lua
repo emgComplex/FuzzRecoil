@@ -2,8 +2,10 @@ local m_settings = settings or fuzz_recoil.settings
 local m_cfg = config or fuzz_recoil.config
 local utils = fuzz_recoil_utils
 local logger = fuzz_recoil_logger
+local iui = fuzz_recoil_imgui
 
 local M = {}
+_G.fuzz_recoil_hud_recoil = M
 
 --NOTE:fixed by Lost In Place
 local ori_hand_trs = {
@@ -19,7 +21,7 @@ local is_returned = false
 local vel_pos = vector():set(0, 0, 0)
 local vel_rot = vector():set(0, 0, 0)
 
-local hud_raw = vector():set(0, 0, 0)
+local pos_raw = vector():set(0, 0, 0)
 local rot_raw = vector():set(0, 0, 0)
 local pos_smooth = vector():set(0, 0, 0)
 local rot_smooth = vector():set(0, 0, 0)
@@ -36,6 +38,12 @@ local force_yaw = 15
 local force_x = 0.0006
 local shot_dealy_enable = false
 local is_bolt_action = false
+--------
+---public getters
+--------
+function M.is_returned()
+	return is_returned
+end
 
 --------------
 ---HUD Adujst
@@ -96,16 +104,16 @@ local function apply_recoil_forces(dt, control_strength, damping)
 	local strength_vec = vector():set(feedback_strength * 1.5, feedback_strength, 0)
 
 	apply_spring_vec_with_decay(rot_raw, vel_rot, dt, strength_vec, damping)
-	apply_spring_vec_with_decay(hud_raw, vel_pos, dt, strength_vec, damping)
+	apply_spring_vec_with_decay(pos_raw, vel_pos, dt, strength_vec, damping)
 end
 local function apply_simple_smooth(dt, smooth)
 	if smooth <= 0.001 then
 		rot_smooth = vector():set(rot_raw)
-		pos_smooth = vector():set(hud_raw)
+		pos_smooth = vector():set(pos_raw)
 	else
 		local smooth_factor = utils.math_clamp(smooth * dt, 0, 1)
 		rot_smooth = utils.vector_lerp(rot_smooth, rot_raw, smooth_factor)
-		pos_smooth = utils.vector_lerp(pos_smooth, hud_raw, smooth_factor)
+		pos_smooth = utils.vector_lerp(pos_smooth, pos_raw, smooth_factor)
 	end
 end
 --TODO: we should desync it
@@ -113,7 +121,7 @@ local function pos_y_sync_with_cam()
 	if m_settings.bolt_action_Y_lift and shot_dealy_enable then
 		--PERF: should cached once code is stablelized
 		y_impulse = is_bolt_action and math.abs(force_y) * 2 or force_y
-		hud_raw.y = camrc.angle * y_impulse
+		pos_raw.y = camrc.angle * y_impulse
 	end
 end
 ------------------------------------------
@@ -223,7 +231,7 @@ function M.stop()
 	vel_rot = VEC_ZERO
 	vel_pos = VEC_ZERO
 
-	hud_raw = VEC_ZERO
+	pos_raw = VEC_ZERO
 	pos_smooth = VEC_ZERO
 	rot_raw = VEC_ZERO
 	rot_smooth = VEC_ZERO
@@ -252,18 +260,18 @@ function M.update_on_firing(dt, handling_power)
 
 	-- limit before smooth
 	rot_raw:clamp(m_cfg.max_hud_rot)
-	hud_raw:clamp(m_cfg.max_hud_pos)
+	pos_raw:clamp(m_cfg.max_hud_pos)
 end
 
 function M.update_on_return(dt)
 	local spring = m_cfg.return_spring
 	local damping = m_cfg.return_damping
 
-	apply_spring_vec(hud_raw, vel_pos, dt, spring, damping)
+	apply_spring_vec(pos_raw, vel_pos, dt, spring, damping)
 	apply_spring_vec(rot_raw, vel_rot, dt, spring, damping)
 
 	local threshold_return = 0.001
-	if rot_raw:magnitude() < threshold_return and hud_raw:magnitude() < threshold_return then
+	if rot_raw:magnitude() < threshold_return and pos_raw:magnitude() < threshold_return then
 		M.stop()
 		return
 	end
@@ -271,9 +279,6 @@ end
 
 --TODO: this is shit ,use deleate instead
 function M.update(dt, handling_power)
-	if is_returned then
-		return true
-	end
 	if handling_power then
 		M.update_on_firing(dt, handling_power)
 	else
@@ -289,6 +294,24 @@ end
 ------------------------------------
 ---IMGUI
 ------------------------------------
+function M.imgui_info_drawer()
+	ImGui.TextColored(vector4():set(0, 1, 0.5, 1), "Hud Trans offset")
+	iui.vector_imgui_text_drawer(pos_raw, "Pos")
+	iui.vector_imgui_text_drawer(rot_raw, "Rot", true)
+	iui.vector_imgui_text_drawer(vel_rot, "Vel Rot", true)
+	iui.vector_imgui_text_drawer(rot_smooth, "Smoothed Rot", true)
+	ImGui.Text(string.format("Raw Pitch: %.2f", math.deg(rot_raw.y)))
+	ImGui.Text(string.format("Raw Target:Y%.2f|P %.2f", rot_raw.x, rot_raw.y))
+	-- ImGui.Text(string.format("EMA Smooth Y:%.2f P: %.2f", state.hud_rot_smooth.x, state.hud_rot_smooth.y))
+
+	local v_cap_ratio = math.abs(rot_smooth.y) / m_cfg.max_hud_rot.y
+	ImGui.ProgressBar(v_cap_ratio, vector2():set(-1, 0), string.format("Pitch %.1f%%", v_cap_ratio * 100))
+
+	local yaw_value = rot_smooth.x
+	local yaw_display = yaw_value
+	local _, _ = ImGui.SliderFloat("##yaw_slider", yaw_display, -0.5, 0.5, string.format("Yaw: %.4f", yaw_value))
+end
+---------------
 local test_cur_pos_inc = vector():set(0, 0, 0)
 local test_cur_rot_inc = vector():set(0, 0, 0)
 function M.renderHudControls()
@@ -379,4 +402,3 @@ end
 -- 	vel_vec:mul(damping_factor)
 -- 	raw_vec:add(vector():set(vel_vec):mul(dt))
 -- end
-_G.fuzz_recoil_hud_recoil = M

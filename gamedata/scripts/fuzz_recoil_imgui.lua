@@ -4,7 +4,7 @@ local utils = fuzz_recoil_utils
 local logger = fuzz_recoil_logger
 local cvter = fuzz_recoil_converter
 local camrc = fuzz_recoil_cam_recoil.instance
-local hudrc = fuzz_recoil_hud_recoil
+local hudrc = fuzz_recoil_hud_recoil or {}
 --stylua: ignore start
 --stylua: ignore end
 -- local log_text = frm.log_text
@@ -252,15 +252,14 @@ function info_overlay()
 	if expanded and frm.cur_wpn then
 		ImGui.Separator()
 
-		ImGui.Text(
-			string.format(
-				"Active:%s,Firing:%s,Cam_FX:%s",
-				frm.state.active,
-				frm.state.is_firing,
-				level.check_cam_effector(frm.CAM_FX_ID)
-			)
-		)
-		ImGui.Text(string.format("CamRetrun:%s,HudReturn:%s", camrc.is_returned, frm.state.is_hud_returned))
+		ImGui.Text(string.format(
+			"Active:%s,Firing:%s,Cam_FX:%s",
+			frm.state.active,
+			frm.state.is_firing,
+			--TODO:! use camrc
+			level.check_cam_effector(frm.CAM_FX_ID)
+		))
+		ImGui.Text(string.format("CamRetrun:%s,HudReturn:%s", camrc.is_returned, hudrc.is_returned()))
 
 		ImGui.ProgressBar(
 			frm.state.handling_power,
@@ -268,23 +267,9 @@ function info_overlay()
 			string.format("Handling power: %.1f%%", frm.state.handling_power * 100)
 		)
 		ImGui.Separator()
-		ImGui.TextColored(vector4():set(0, 1, 0.5, 1), "Hud Trans offset")
-		vector_imgui_text_drawer(frm.state.hud_pos_raw, "Pos")
-		vector_imgui_text_drawer(frm.state.hud_rot_raw, "Rot", true)
-		vector_imgui_text_drawer(frm.state.vel_hud_rot, "Vel Rot", true)
-		vector_imgui_text_drawer(frm.state.hud_rot_smooth, "Smoothed Rot", true)
-		ImGui.Text(string.format("Raw Pitch: %.2f", math.deg(frm.state.hud_rot_raw.y)))
-		ImGui.Text(string.format("Raw Target:Y%.2f|P %.2f", frm.state.hud_rot_raw.x, frm.state.hud_rot_raw.y))
-		-- ImGui.Text(string.format("EMA Smooth Y:%.2f P: %.2f", state.hud_rot_smooth.x, state.hud_rot_smooth.y))
-
-		local v_cap_ratio = math.abs(frm.state.hud_rot_smooth.y) / frm.config.max_hud_rot.y
-		ImGui.ProgressBar(v_cap_ratio, vector2():set(-1, 0), string.format("Pitch %.1f%%", v_cap_ratio * 100))
-
-		local yaw_value = frm.state.hud_rot_smooth.x
-		local yaw_display = yaw_value
-		local _, _ = ImGui.SliderFloat("##yaw_slider", yaw_display, -0.5, 0.5, string.format("Yaw: %.4f", yaw_value))
-
+		hudrc.imgui_info_drawer()
 		ImGui.Separator()
+		--TODO:! use camrc
 		ImGui.TextColored(vector4():set(0, 1, 0.5, 1), "Camera recoil")
 		ImGui.Text(string.format("Cam pitch: %.3f", camrc.angle))
 		ImGui.Text(string.format("Cam velocity: %.3f", camrc.vel))
@@ -313,8 +298,6 @@ function renderProfile()
 		_, frm.wpn_profile.pull_force = ImGui.SliderFloat("Pull Force", frm.wpn_profile.pull_force, 0.1, 4.0, "%.2f")
 		_, frm.wpn_profile.firing_damping =
 			ImGui.SliderFloat("Spring Damping", frm.wpn_profile.firing_damping, 0.1, 4.0, "%.2f")
-		-- _, wpn_profile.hud_return_speed =
-		-- 	ImGui.SliderFloat("Hud Return Speed", config.hud_return_speed, 0.5, 2, "%.2frad")
 
 		ImGui.Text("Handling")
 		handle_speed_change, frm.wpn_profile.handling_speed =
@@ -368,9 +351,6 @@ function renderConfig()
 			ImGui.SliderFloat("Increase Rate", frm.settings.increase_rate_scale, 0.1, 2.0, "%.2f")
 		_, frm.settings.handling_speed_scale =
 			ImGui.SliderFloat("Handling Speed", frm.settings.handling_speed_scale, 0.1, 2.0, "%.2f")
-		-- ImGui.TextColored(vector4():set(0.2, 0.9, 0.4, 1), "=== HUD EMA FILTER CONTROLS ===")
-		-- _, config.hud_fire_step = ImGui.SliderFloat("Fire Smooth Steps", config.hud_fire_step, 1, 12)
-		-- _, config.hud_return_step = ImGui.SliderFloat("Return Smooth Steps", config.hud_return_step, 2, 25)
 		if ImGui.Button("Dump All Weapon datas(need json.lua)", vector2():set(-1, 25)) then
 			utils.get_all_weapon_sections()
 		end
@@ -402,13 +382,18 @@ function renderDebugVars()
 	_, vars.float_x2 = ImGui.SliderFloat("float_x2", vars.float_x2, 0, 50, "%.2f")
 end
 
-function vector_imgui_text_drawer(vec, label, is_rot)
+local M = {}
+_G.fuzz_recoil_imgui = M
+function M.on_game_start()
+	hudrc = fuzz_recoil_hud_recoil
+end
+function M.vector_imgui_text_drawer(vec, label, is_rot)
 	local formater = is_rot and "Y: %.5f | P: %.5f | R: %.5f" or "X: %.5f | Y: %.5f | Z: %.5f"
 	local info = string.format(formater, vec.x, vec.y, vec.z)
 	ImGui.TextColored(vector4():set(0, 1, 0.5, 1), label)
 	ImGui.Text(info)
 end
-function vector_imgui_slider_drawer(vec, label, is_rot)
+function M.vector_imgui_slider_drawer(vec, label, is_rot)
 	local limit = is_rot and 3.2 or 5.2
 	ImGui.PushID(label)
 	if is_rot then
