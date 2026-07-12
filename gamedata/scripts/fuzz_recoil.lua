@@ -136,7 +136,7 @@ function on_fire()
 
 	is_firing = true
 
-	hudrc.on_fire()
+	hudrc.on_fire(handling_power)
 	camrc.on_fire(handling_power, m_profile.cam_recoil_power, m_profile.shot_cam_impulse_factor)
 end
 function on_update()

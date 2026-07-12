@@ -20,6 +20,10 @@ local pos_raw = vector():set(0, 0, 0)
 local rot_raw = vector():set(0, 0, 0)
 local pos_smooth = vector():set(0, 0, 0)
 local rot_smooth = vector():set(0, 0, 0)
+
+--------------
+local yaw_sign = -1
+
 --------------
 --Cahced variables
 --------------
@@ -239,11 +243,17 @@ end
 --------------
 --Spring Mode
 --------------
-local function on_fire_spring()
+local function on_fire_spring(handling_power)
+	-- local yaw_impulse = (math.random() * 2 - 1) * wpn_profile.shot_yaw
 	vel_rot.y = vel_rot.y + force_pitch --/ mass_factor
 	vel_pos.y = vel_pos.y + force_y --/mass_factor
 
-	local yaw_impulse = (math.random() * 2 - 1) * force_yaw
+	local yaw_kick_enhancer = (math.random() * 2 - 1)
+	if handling_power < 0.9 then
+		yaw_kick_enhancer = (math.random() / 10 + 0.9) * yaw_sign
+	end
+
+	local yaw_impulse = force_yaw * yaw_kick_enhancer
 	vel_rot.x = vel_rot.x + yaw_impulse
 
 	--NOTE:count_ratio = 1/20
@@ -326,6 +336,7 @@ end
 function M.start()
 	M.reset_hud_hand()
 	M.enable_hud_adjust()
+	yaw_sign = math.random() > 0.5 and 1 or -1
 end
 function M.stop()
 	logger.dbg("reset hud recoil")
@@ -342,8 +353,8 @@ function M.stop()
 	M.reset_hud_hand()
 end
 
-function M.on_fire()
-	_on_fire_fn()
+function M.on_fire(handling_power)
+	_on_fire_fn(handling_power)
 end
 function M.update(dt, handling_power)
 	return _update_fn(dt, handling_power)
