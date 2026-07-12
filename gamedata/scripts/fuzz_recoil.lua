@@ -1,9 +1,9 @@
 fuzz_recoil = { version = "a4" }
 ---@diagnostic disable: lowercase-global
 ----Imports
-local utils = fuzz_utils or fuzz_recoil_utils.fuzz_utils
-local cvter = converter or fuzz_recoil_converter.converter
-local logger = logger or fuzz_recoil_logger.logger
+local utils = fuzz_recoil_utils
+local cvter = fuzz_recoil_converter
+local logger = fuzz_recoil_logger
 ---
 CAM_FX_ID = 7897
 cur_wpn = nil
@@ -129,7 +129,7 @@ wpn_profile = {
 	is_bolt_action = false,
 	cam_recoil_power = 4,
 	cam_return_speed = 1,
-	--0 means uncapped, radians like cam_angle
+	--0 means uncapped, radians like cam angle
 	cam_max_angle = 0,
 	--1 means no per shot variance
 	pitch_frac = 1,
@@ -148,6 +148,12 @@ wpn_profile = {
 	-- hud_return_speed = 1,
 
 	handling_speed = 0.5,
+
+	-- shot_delay
+	should_shot_delay = false,
+	shot_delay_time = 0.4,
+	shot_cam_impulse_factor = 0.2,
+
 	--per shot growth ratio, kick = base*(1 + increase_rate*burst_shot_index)
 	increase_rate = 0,
 	-- mass_inertia = -1,
@@ -158,10 +164,6 @@ state = {
 	handling_power = 0.0,
 	--shots in the current burst, drives recoil expansion
 	burst_shots = 0,
-
-	is_cam_returned = false,
-	cam_angle = 0,
-	cam_vel = 0.0,
 
 	is_hud_returned = false,
 	--own instances, VEC_ZERO is one shared global and these get mutated in place
@@ -176,10 +178,6 @@ state = {
 	addon_sig = "",
 	next_addon_check = 0,
 	fire_interval = 0.1,
-	-- shot_delay
-	should_shot_delay = false,
-	shot_delay_time = 0.4,
-	shot_cam_impulse_factor = 0.2,
 	--addon koefs x ammo k_cam_dispersion, refreshed per shot
 	shot_cam_k = 1,
 	is_ads = false,
@@ -215,11 +213,16 @@ debug_var = {
 	float_x2 = 0,
 }
 
+local camrc = fuzz_recoil_cam:new()
+
 function on_game_start()
 	RegisterScriptCallback("actor_on_update", actor_on_update)
 	RegisterScriptCallback("actor_on_weapon_before_fire", on_before_fire)
 	RegisterScriptCallback("actor_on_weapon_fired", on_fire)
 	RegisterScriptCallback("actor_on_changed_slot", function(_, _, _, _)
+		--FIXME: i think calling  this will cause cam glith when camera not fully is_cam_returned
+		--Never seen it happens since switching animation will give us a natrual delay
+		--but if it happens we can fix it with a TimeEvent
 		force_reset_recoil()
 	end)
 end
@@ -230,9 +233,7 @@ end
 function on_before_fire()
 	-- logger.dbg("Before Shot ")
 	if not state.active then
-		--PERF:NEED NEW ENTRY POINT
-		--init before fire is difinitely a bad practise,
-		--the best entry point is when switching weapon,which i can only hook to it through on_animation_paly
+		--TODO: this is fine,we need a hook when applying upgrades on cur_weapon,to refresh
 		state.active = get_current_weapon()
 		---check ammo
 		-- if cur_cast_wpn:GetAmmoElapsed() == 0 then
@@ -241,23 +242,21 @@ function on_before_fire()
 	end
 end
 function on_fire()
-	--FIXME: this is definately a lazy way
 	--first draw reaches here with active already true, check the effector too
 	if not state.active or not level.check_cam_effector(CAM_FX_ID) then
-		init_recoil()
+		start_recoil()
 	end
-	if state.should_shot_delay then
+	if wpn_profile.should_shot_delay then
 		--create is a no op while one is pending, reset makes the delay count from the last shot
-		CreateTimeEvent("fuzz_recoil", "bolt_delay_stop", state.shot_delay_time, function()
+		CreateTimeEvent("fuzz_recoil", "bolt_delay_stop", wpn_profile.shot_delay_time, function()
 			on_fire_stop()
 			return true
 		end)
-		ResetTimeEvent("fuzz_recoil", "bolt_delay_stop", state.shot_delay_time)
+		ResetTimeEvent("fuzz_recoil", "bolt_delay_stop", wpn_profile.shot_delay_time)
 	end
 	logger.dbg("Shot ")
 
 	state.is_firing = true
-	state.is_cam_returned = false
 	state.is_hud_returned = false
 
 	-- local inertia_modifier = 1.0 / (1.0 + (wpn_profile.mass_inertia * 0.1))
@@ -265,7 +264,6 @@ function on_fire()
 	update_shot_cam_k()
 	on_fire_phys()
 
-	local cam_handle_factor = math.pow(1.0 - state.handling_power, 2)
 	--vanilla dispersion_frac as mean preserving per shot variance
 	local frac_factor = settings.use_pitch_frac and (1 + (math.random() * 2 - 1) * (1 - wpn_profile.pitch_frac)) or 1
 	--engine style expansion, kick grows linearly with burst length (EffectorShot Shot)
@@ -273,15 +271,13 @@ function on_fire()
 			and (1 + wpn_profile.increase_rate * settings.increase_rate_scale * state.burst_shots)
 		or 1
 	state.burst_shots = state.burst_shots + 1
-	local cam_impulse = wpn_profile.cam_recoil_power
-		* cam_handle_factor
-		* state.shot_cam_impulse_factor
+	local kick_scale = wpn_profile.shot_cam_impulse_factor
 		* frac_factor
 		* expansion
 		* state.shot_cam_k
 		* settings.recoil_cam_scale
 		* (settings.hud_kick_v2 and get_mode_kick_mul() or 1)
-	state.cam_vel = state.cam_vel + cam_impulse
+	camrc:on_fire(state.handling_power, wpn_profile.cam_recoil_power, kick_scale)
 end
 --v2, instant displacement per shot, recovery eases it back (snap out ease back)
 function on_fire_phys_v2()
@@ -420,35 +416,19 @@ function on_update(dt)
 
 	update_handling_power(dt)
 	if state.is_firing then
-		if state.should_shot_delay then
-			on_cam_update_cubic(dt)
-		else
-			on_cam_update(dt)
-		end
+		camrc:update(dt, state.is_firing)
 		on_hud_update_phys(dt)
 		return
 	else
-		if not state.is_cam_returned then
-			do_cam_return(dt)
-			-- reset_cam_recoil()
-		end
+		local cam_returned = camrc:update(dt, state.is_firing)
 		if not state.is_hud_returned then
 			do_hud_return_phys(dt)
 			-- reset_hud_recoil()
 		end
-		if state.is_cam_returned and state.is_hud_returned and state.handling_power <= 0 then
+		if cam_returned and state.is_hud_returned and state.handling_power <= 0 then
 			reset_recoil()
 		end
 	end
-
-	-- logger.dbg(
-	-- 	"on_hud_update,pitch:%.5f,ptich vel:%.5f,pos:%.5f,pos_vel:%.5f",
-	-- 	dt,
-	-- 	state.hud_rot_smooth.y,
-	-- 	state.vel_hud_rot.y,
-	-- 	state.hud_pos_smooth.y,
-	-- 	state.vel_hud_pos.y
-	-- )
 end
 function on_fire_stop()
 	state.is_firing = false
@@ -480,11 +460,11 @@ function update_sim_shooting(dt)
 end
 --TODO: we should desync it
 function pos_y_sync_with_cam()
-	if state.should_shot_delay then
+	if wpn_profile.should_shot_delay then
 		--PERF: should cached once code is stablelized
 		y_impulse = (wpn_profile.is_bolt_action and settings.bolt_action_Y_lift) and math.abs(wpn_profile.shot_pos_y) * 2
 			or wpn_profile.shot_pos_y
-		state.hud_pos_raw.y = state.cam_angle * y_impulse
+		state.hud_pos_raw.y = camrc.angle * y_impulse
 	end
 end
 --v2 recovery, exponential pull toward aim, rate grows with handling for climb then plateau
@@ -554,58 +534,8 @@ function do_hud_return_phys(dt)
 	set_hud_offset(state.hud_pos_smooth, rot_with_drift())
 end
 
-function on_cam_update(dt)
-	if state.is_firing and math.abs(state.cam_vel) > 0.01 then
-		local decay = math.exp(-dt * config.cam_impulse_decay)
-		local step = state.cam_vel * (1 - decay) / config.cam_step_div
-		state.cam_vel = state.cam_vel * decay
-		state.cam_angle = state.cam_angle + step
-		clamp_cam_angle()
-		set_player_angle(state.cam_angle)
-	end
-end
-function on_cam_update_cubic(dt)
-	if state.is_firing and math.abs(state.cam_vel) > 0.01 then
-		local drag = settings.cam_drag * math.sqrt(math.abs(state.cam_vel))
-		state.cam_vel = state.cam_vel * math.exp(-drag * dt)
-		local step = state.cam_vel * dt
-		state.cam_angle = state.cam_angle + step
-		clamp_cam_angle()
-		set_player_angle(state.cam_angle)
-	end
-end
---vanilla cam_max_angle cap, 0 disables
-function clamp_cam_angle()
-	if not settings.use_cam_max_angle then
-		return
-	end
-	if wpn_profile.cam_max_angle > 0 and state.cam_angle > wpn_profile.cam_max_angle then
-		state.cam_angle = wpn_profile.cam_max_angle
-	end
-end
---NOTE: min_step is the best i can got...still can't get the final phase right.
---TODO: maybe try simple_ease and lerp the vel to a min value?,it could be more natrual when the angle is high.
-function do_cam_return(dt)
-	-- logger.dbg("cam returning")
-	if state.cam_angle <= config.min_cam_return_step then
-		reset_cam_recoil()
-		return
-	end
-	--TODO:Bonus ,mass, upgrades?
-	--refactor this to state
-	local speed_factor = config.base_cam_return_speed + wpn_profile.cam_return_speed
-	local lerp_factor = 1.0 - math.exp(-speed_factor * dt)
-	local step = state.cam_angle * lerp_factor
-
-	local min_step = config.min_cam_return_step
-	local final_step = math.max(step, min_step)
-	--NOTE:vel is actually step when returning ,im just lazy ,its easy to debug
-	state.cam_vel = final_step
-	state.cam_angle = state.cam_angle - final_step
-	set_player_angle(state.cam_angle)
-end
-
 --PERF:smart_cast everytime or cached table?
+--i think cached table is better
 function init_weapon(wpn_sec)
 	collect_wpn_info(wpn_sec)
 	init_hud_adjust(wpn_sec)
@@ -624,36 +554,31 @@ function init_weapon(wpn_sec)
 	end
 
 	-- NOTE: or we can just check available firemodes?
-	-- REFT: look at this mess...
-	state.should_shot_delay = false
-	state.shot_cam_impulse_factor = 0.2
+	-- REFT: look at this mess...move this to converter
+	wpn_profile.should_shot_delay = false
+	wpn_profile.shot_cam_impulse_factor = 0.2
 
 	local skind = shot_delay_table[wpn_info.kind]
 	if skind and wpn_info.rpm <= skind.rpm then
-		state.should_shot_delay = true
-		state.shot_delay_time = utils.math_clamp(state.fire_interval, 0.1, 0.5)
-		state.shot_cam_impulse_factor = skind.cam_impulse
+		wpn_profile.should_shot_delay = true
+		wpn_profile.shot_delay_time = utils.math_clamp(state.fire_interval, 0.1, 0.5)
+		wpn_profile.shot_cam_impulse_factor = skind.cam_impulse
 	end
+
+	camrc:init(wpn_profile.cam_return_speed, wpn_profile.should_shot_delay and "cubic" or "exp")
+	camrc.max_angle = wpn_profile.cam_max_angle
 
 	logger.dbg("Initialize weapon")
 end
-function init_recoil()
+function start_recoil()
 	state.active = true
+	camrc:start()
 	reset_hud_hand()
 	enable_hud_adjust()
-	if not level.check_cam_effector(CAM_FX_ID) then
-		level.add_cam_effector("camera_effects\\onerad.anm", 7897, true, "", 0, true, 0.0001)
-	end
 	RemoveTimeEvent("fuzz_recoil", "bolt_delay_stop")
 	logger.dbg("Initialize Recoil")
 end
 
-function reset_cam_recoil()
-	set_player_angle(0.0001)
-	state.is_cam_returned = true
-	state.cam_angle = 0
-	state.cam_vel = 0
-end
 function reset_hud_recoil()
 	logger.dbg("reset hud recoil")
 	state.is_hud_returned = true
@@ -687,7 +612,7 @@ function reset_recoil()
 	logger.dbg("reset recoil")
 end
 function force_reset_recoil()
-	reset_cam_recoil()
+	camrc:stop()
 	reset_hud_recoil()
 	reset_recoil()
 end
@@ -756,14 +681,6 @@ function set_vanilla_cam_recoil(cast_wpn, cam_disp, cam_disp_inc, zoom_cam_disp,
 	cast_wpn:SetZoomCamDispersionInc(zoom_cam_dis_inc)
 end
 
---no op until init_recoil adds the effector, resets before init are silent
-function set_player_angle(angle)
-	if not level.check_cam_effector(CAM_FX_ID) then
-		return
-	end
-	level.set_cam_effector_factor(CAM_FX_ID, math.max(0.0001, math.min(angle, 0.999)))
-end
-
 function enable_hud_adjust()
 	hud_adjust.enabled(true)
 end
@@ -792,7 +709,6 @@ function reset_hud_hand()
 	apply_cur_hud_hand()
 end
 --=========Init Recoil and Info Collection============
---NOTE:this is safer,cause we are changing cam_recoil
 --NOTE: engine getters return the live post-upgrade values in radians,
 --converter rules are tuned to ini degrees, so convert back with math.deg
 --engine clamps addon koefs to [0.01, 2.0], empty section means koef 1 like engine reset
@@ -875,6 +791,8 @@ function collect_wpn_info(wpn_sec)
 		wpn_info.zoom_cam_relax_speed = math.deg(cur_cast_wpn:GetZoomCamRelaxSpeed())
 		wpn_info.rpm = cur_cast_wpn:RealRPM()
 		wpn_info.mag_size = cur_cast_wpn:GetAmmoMagSize()
+		--live weight includes attached addons
+		wpn_info.inv_weight = cur_cast_wpn:Weight()
 		collect_addon_koefs()
 	else
 		--fallback: base section values, no upgrades
@@ -895,10 +813,10 @@ function collect_wpn_info(wpn_sec)
 		wpn_info.zoom_cam_relax_speed = utils.get_float(wpn_sec, "zoom_cam_relax_speed", wpn_info.cam_relax_speed)
 		wpn_info.rpm = utils.get_float(wpn_sec, "rpm", 600)
 		wpn_info.mag_size = utils.get_float(wpn_sec, "ammo_mag_size", 30)
+		wpn_info.inv_weight = utils.get_float(wpn_sec, "inv_weight", 3)
 		wpn_info.addon_cam_k = 1
 		wpn_info.addon_cam_inc_k = 1
 	end
-	wpn_info.inv_weight = utils.get_float(wpn_sec, "inv_weight", 3)
 	wpn_info.burst_class = classify_burst_class(wpn_info.kind, wpn_info.mag_size)
 	state.addon_sig = get_addon_sig()
 	try_get_recoil_profile(wpn_sec)

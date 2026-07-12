@@ -1,8 +1,9 @@
 --FIXME: this namesacpe is bad for refactor
 local frm = fuzz_recoil -- or require("scripts.fuzz_recoil")
-local utils = fuzz_utils or fuzz_recoil_utils.fuzz_utils
-local logger = logger or fuzz_recoil_logger.logger
-local cvter = converter or fuzz_recoil_converter.converter
+local utils = fuzz_recoil_utils
+local logger = fuzz_recoil_logger
+local cvter = fuzz_recoil_converter
+local camrc = fuzz_recoil_cam.instance
 --stylua: ignore start
 --stylua: ignore end
 -- local log_text = frm.log_text
@@ -13,6 +14,7 @@ local test_cur_pos_inc = vector():set(0, 0, 0)
 local test_cur_rot_inc = vector():set(0, 0, 0)
 
 local showImguiWin = fuzz_dev and true or false
+local overlay_toggle = fuzz_dev and true or false
 local showProfile = fuzz_dev and true or false
 local showInfo = fuzz_dev and true or false
 local showLogs = fuzz_dev and true or false
@@ -64,10 +66,29 @@ function renderImguiWindow()
 	ImGui.End()
 end
 function renderImguiTab()
+	ImGui.SameLine()
+	if ImGui.Button("ToggleOverlays", vector2():set(100, 25)) then
+		overlay_toggle = not overlay_toggle
+		showPlots = overlay_toggle
+		showLogs = overlay_toggle
+		showInfo = overlay_toggle
+		showProfile = overlay_toggle
+	end
 	ImGui.Text(debug_text1)
 	_, showProfile = ImGui.Checkbox("Profile", showProfile)
 	ImGui.SameLine()
 	_, showInfo = ImGui.Checkbox("Info", showInfo)
+	ImGui.SameLine()
+	if ImGui.Button("Load Weapon", vector2():set(100, 25)) then
+		if frm.get_current_weapon() then
+			debug_text1 = frm.cur_wpn:section() .. ":" .. frm.state.cur_wpn_id
+		else
+			debug_text1 = "Failed to load weapon"
+		end
+	end
+	----------------
+	----------------
+	_, showPlots = ImGui.Checkbox("Histogram", showPlots)
 	ImGui.SameLine()
 	_, showLogs = ImGui.Checkbox("Logs", showLogs)
 	ImGui.SameLine()
@@ -77,14 +98,11 @@ function renderImguiTab()
 		logger.clear_internal_log()
 	end
 	ImGui.SameLine()
-	if ImGui.Button("Load Weapon", vector2():set(100, 25)) then
-		if frm.get_current_weapon() then
-			debug_text1 = frm.cur_wpn:section() .. ":" .. frm.state.cur_wpn_id
-		else
-			debug_text1 = "Failed to load weapon"
-		end
+	if ImGui.Button("Export Log", vector2():set(100, 25)) then
+		logger.export_internal_log()
 	end
-	_, showPlots = ImGui.Checkbox("Histogram", showPlots)
+	----------------
+	----------------
 	if frm.cur_wpn then
 		ImGui.TextColored(vector4():set(0, 1, 0, 1), "Weapon: " .. frm.cur_wpn:section())
 		ImGui.Separator()
@@ -154,9 +172,11 @@ function plot_overlay()
 	ImGui.SetNextWindowSize(vector2():set(300, 600), ImGuiCond.FirstUseEver)
 	expanded, _ = ImGui.Begin("Histogram", true)
 	if expanded and frm.cur_wpn then
-		ImGui.Text("cam_angle")
-		local new_val = frm.state.active and frm.state.cam_angle or nil
-		cam_angle_plot:draw(new_val)
+		if ImGui.TreeNode("cam_angle") then
+			local new_val = frm.state.active and camrc.angle or nil
+			cam_angle_plot:draw(new_val)
+			ImGui.TreePop()
+		end
 		if ImGui.TreeNode("handling_power") then
 			new_val = frm.state.active and frm.state.handling_power or nil
 			handling_power_plot:draw(new_val)
@@ -210,7 +230,7 @@ function info_overlay()
 				level.check_cam_effector(frm.CAM_FX_ID)
 			)
 		)
-		ImGui.Text(string.format("CamRetrun:%s,HudReturn:%s", frm.state.is_cam_returned, frm.state.is_hud_returned))
+		ImGui.Text(string.format("CamRetrun:%s,HudReturn:%s", camrc.is_returned, frm.state.is_hud_returned))
 
 		ImGui.ProgressBar(
 			frm.state.handling_power,
@@ -236,8 +256,8 @@ function info_overlay()
 
 		ImGui.Separator()
 		ImGui.TextColored(vector4():set(0, 1, 0.5, 1), "Camera recoil")
-		ImGui.Text(string.format("Cam pitch: %.3f", frm.state.cam_angle))
-		ImGui.Text(string.format("Cam velocity: %.3f", frm.state.cam_vel))
+		ImGui.Text(string.format("Cam pitch: %.3f", camrc.angle))
+		ImGui.Text(string.format("Cam velocity: %.3f", camrc.vel))
 		ImGui.Text(string.format("Shot cam k (addon x ammo): %.3f", frm.state.shot_cam_k))
 		-- cam_total_up
 	end
@@ -298,7 +318,6 @@ function renderConfig()
 		ImGui.Separator()
 		frm.config.firing_handling_ease:draw_imgui("Handling inc")
 		frm.config.idle_handling_ease:draw_imgui("Handling dec")
-		--FIXME: tree does not PushID?
 		_, frm.config.base_cam_return_speed =
 			ImGui.SliderFloat("Base Cam Return Speed", frm.config.base_cam_return_speed, 0.1, 10, "%.2frad")
 		_, frm.config.min_cam_return_step =

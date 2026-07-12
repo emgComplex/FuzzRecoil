@@ -7,7 +7,7 @@ end
 function on_game_start()
 	if grok_bo_enhanced_recoil then
 		grok_bo_enhanced_recoil.shoot_effect = no_shot_effect
-		m_log("Recoil patched")
+		m_log("Goobs patched")
 	else
 		m_log("Can't find grok_bo_enhanced_recoil")
 	end

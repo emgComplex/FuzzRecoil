@@ -1,11 +1,12 @@
-fuzz_utils = {}
-local logger = logger or fuzz_recoil_logger.logger
+-- overwrite vector operators
+local M = {}
+_G.fuzz_recoil_utils = M
+local logger = fuzz_recoil_logger
 
---TODO: handle nil and other exceptions here maybbe?
-function fuzz_utils.get_string(sec, param, def)
+function M.get_string(sec, param, def)
 	return SYS_GetParam(0, sec, param, def ~= nil and def or "")
 end
-function fuzz_utils.get_bool(sec, param, def)
+function M.get_bool(sec, param, def)
 	--SYS_GetParam drops the caller def for bools and returns nil on missing keys
 	local v = SYS_GetParam(1, sec, param)
 	if v == nil then
@@ -13,13 +14,13 @@ function fuzz_utils.get_bool(sec, param, def)
 	end
 	return v
 end
-function fuzz_utils.get_float(sec, param, def)
+function M.get_float(sec, param, def)
 	return SYS_GetParam(2, sec, param, def ~= nil and def or 0.0)
 end
 
-fuzz_utils.simple_ease = {}
-fuzz_utils.simple_ease.__index = fuzz_utils.simple_ease
-function fuzz_utils.simple_ease:new(base_speed, speed_mul, offset, intensity, mode)
+M.simple_ease = {}
+M.simple_ease.__index = M.simple_ease
+function M.simple_ease:new(base_speed, speed_mul, offset, intensity, mode)
 	local ins = {
 		base_speed = base_speed,
 		speed_mul = speed_mul,
@@ -29,68 +30,78 @@ function fuzz_utils.simple_ease:new(base_speed, speed_mul, offset, intensity, mo
 		intensity_def = intensity,
 		is_ease_in = (mode == "in"),
 	}
-	setmetatable(ins, fuzz_utils.simple_ease)
+	setmetatable(ins, M.simple_ease)
 	return ins
 end
-function fuzz_utils.simple_ease:set_speed(speed)
+function M.simple_ease:set_speed(speed)
 	self.base_speed = speed * self.speed_mul
 end
-function fuzz_utils.simple_ease:update(progress, dt)
+function M.simple_ease:update(progress, dt)
 	local p_factor = self.is_ease_in and progress or (1 - progress)
 	local eased_speed = self.base_speed * (self.offset + self.intensity * p_factor) * dt
 	local new_p = progress + eased_speed
 	return new_p
 end
-function fuzz_utils.simple_ease:draw_imgui(label)
+function M.simple_ease:draw_imgui(label)
 	if ImGui.TreeNode(label) then
 		_, self.offset = ImGui.SliderFloat("Offset", self.offset, 0.1, 10, "%.2f")
 		_, self.intensity = ImGui.SliderFloat("Intensity", self.intensity, 0.1, 10, "%.2f")
 		ImGui.TreePop()
 	end
 end
-function fuzz_utils.simple_ease:reset()
+function M.simple_ease:reset()
 	self.offset = self.offset_def
 	self.intensity = self.intensity_def
 end
 
-function fuzz_utils.math_clamp(val, min, max)
+function M.math_clamp(val, min, max)
 	return math.max(min, math.min(max, val))
 end
-function fuzz_utils.range_lerp(val, from, to, offset, clamp)
+function M.range_lerp(val, from, to, offset, clamp)
 	if not offset then
 		offset = 0
 	end
 	if clamp then
-		val = fuzz_utils.math_clamp(val, from.min, from.max)
+		val = M.math_clamp(val, from.min, from.max)
 	end
-	logger.dbg(
-		string.format(
-			"val:%.2f,from_min:%.2f,from_max:%.2f,to_min:%.2f,to_max:%.2f,offset:%.2f",
-			val,
-			from.min,
-			from.max,
-			to.min,
-			to.max,
-			offset
-		)
-	)
+	-- logger.dbg(
+	-- 	string.format(
+	-- 		"val:%.2f,from_min:%.2f,from_max:%.2f,to_min:%.2f,to_max:%.2f,offset:%.2f",
+	-- 		val,
+	-- 		from.min,
+	-- 		from.max,
+	-- 		to.min,
+	-- 		to.max,
+	-- 		offset
+	-- 	)
+	-- )
 	local range = from.max - from.min
 	if range == 0 then
 		return to.min + offset
 	end
 	return (val - from.min) / range * (to.max - to.min) + to.min + offset
 end
-function fuzz_utils.vector_clamp_with_sign(val, min)
+function M.vector_clamp_with_sign(val, min)
 	local flag = val < 0
 	local sign = flag and -1 or 1
 	local magnitude = math.max(math.abs(val), min)
 	return magnitude * sign
 end
-function fuzz_utils.vector_lerp(from, to, t)
+function M.vector_lerp(from, to, t)
 	return vector():set(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t, from.z + (to.z - from.z) * t)
 end
-function fuzz_utils.vector_to_string(vec)
+function M.vector_to_string(vec)
 	return string.format("x:%.4f,y:%.4f,z:%.4f", vec.x, vec.y, vec.z)
+end
+
+--NOTE: recusive needed?
+function M.get_base_weapon(wpn_sec)
+	local parent_section = ini_sys:r_string_ex(wpn_sec, "parent_section")
+	if parent_section and wpn_sec ~= parent_section then
+		return M.get_base_weapon(parent_section)
+	else
+		return wpn_sec
+	end
 end
 
 --===========================
@@ -108,7 +119,7 @@ local allowed_kinds = {
 }
 local disallowed_sections = {}
 local allowed_sections = {}
-function fuzz_utils.get_all_weapon_sections()
+function M.get_all_weapon_sections()
 	json = require("json")
 	if not json then
 		logger.err("Cannot find json.lua")
@@ -179,12 +190,80 @@ function iterator(section)
 		end
 	end
 end
---TODO: recusive needed?
-function fuzz_utils.get_base_weapon(wpn_sec)
-	local parent_section = ini_sys:r_string_ex(wpn_sec, "parent_section")
-	if parent_section and wpn_sec ~= parent_section then
-		return fuzz_utils.get_base_weapon(parent_section)
-	else
-		return wpn_sec
-	end
-end
+
+--NOTE: this could slow down the whole game,i'll have to do the refator
+--i just left a code here to remind me this is a bad idea
+-- function fuzz_utils.init_vector_extensions()
+-- 	local temp_vec = vector()
+-- 	local mt = getmetatable(temp_vec)
+-- 	if mt then
+-- 		local ori_add = mt.__add
+-- 		local ori_sub = mt.__sub
+-- 		local ori_div = mt.__div
+-- 		local ori_unm = mt.__unm
+-- 		local ori_mul = mt.__mul
+--
+-- 		local function is_vector(v)
+-- 			return type(v) == "userdata" and v.x ~= nil
+-- 		end
+--
+-- 		mt.__add = function(a, b)
+-- 			if is_vector(a) and is_vector(b) then
+-- 				return vector():set(a.x + b.x, a.y + b.y, a.z + b.z)
+-- 			elseif ori_add then
+-- 				return ori_add(a, b)
+-- 			else
+-- 				error(string.format("Unsupported operator(+) for %s and %s", tostring(a), tostring(b)))
+-- 			end
+-- 		end
+--
+-- 		mt.__sub = function(a, b)
+-- 			if is_vector(a) and is_vector(b) then
+-- 				return vector():set(a.x - b.x, a.y - b.y, a.z - b.z)
+-- 			elseif ori_sub then
+-- 				return ori_sub(a, b)
+-- 			else
+-- 				error(string.format("Unsupported operator(-) for %s and %s", tostring(a), tostring(b)))
+-- 			end
+-- 		end
+--
+-- 		mt.__mul = function(a, b)
+-- 			if type(a) == "number" and is_vector(b) then
+-- 				return vector():set(b.x * a, b.y * a, b.z * a)
+-- 			elseif is_vector(a) and type(b) == "number" then
+-- 				return vector():set(a.x * b, a.y * b, a.z * b)
+-- 			elseif is_vector(a) and is_vector(b) then
+-- 				return vector():set(a.x * b.x, a.y * b.y, a.z * b.z)
+-- 			elseif ori_mul then
+-- 				return ori_mul(a, b)
+-- 			else
+-- 				error(string.format("Unsupported operator(*) for %s and %s", tostring(a), tostring(b)))
+-- 			end
+-- 		end
+--
+-- 		mt.__div = function(a, b)
+-- 			if is_vector(a) and type(b) == "number" then
+-- 				if b == 0 then
+-- 					error("divided by 0!")
+-- 				end
+-- 				return vector():set(a.x / b, a.y / b, a.z / b)
+-- 			elseif ori_div then
+-- 				return ori_div(a, b)
+-- 			else
+-- 				error(string.format("Unsupported operator(/) for %s and %s", tostring(a), tostring(b)))
+-- 			end
+-- 		end
+--
+-- 		mt.__unm = function(a)
+-- 			if is_vector(a) then
+-- 				return vector():set(-a.x, -a.y, -a.z)
+-- 			elseif ori_unm then
+-- 				return ori_unm(a)
+-- 			else
+-- 				error("Unsupported type to negate: " .. tostring(a))
+-- 			end
+-- 		end
+-- 	else
+-- 		error("Can't find vector metatable")
+-- 	end
+-- end
