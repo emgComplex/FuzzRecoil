@@ -325,6 +325,7 @@ function renderConfig()
 		_, frm.settings.use_cam_max_angle = ImGui.Checkbox("Cam Max Angle Cap", frm.settings.use_cam_max_angle)
 		_, frm.settings.use_addon_ammo_koefs = ImGui.Checkbox("Addon & Ammo Koefs", frm.settings.use_addon_ammo_koefs)
 		_, frm.settings.use_increase_rate = ImGui.Checkbox("Burst Expansion", frm.settings.use_increase_rate)
+		_, frm.settings.use_zoom_ratio = ImGui.Checkbox("ADS Zoom Ratio", frm.settings.use_zoom_ratio)
 		_, frm.settings.recoil_v_scale =
 			ImGui.SliderFloat("Recoil scale(Vert)", frm.settings.recoil_v_scale, 0.1, 2.0, "%.2f")
 		_, frm.settings.recoil_h_scale =

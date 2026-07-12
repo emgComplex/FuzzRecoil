@@ -48,6 +48,8 @@ M.settings = {
 	use_cam_max_angle = false,
 	use_addon_ammo_koefs = false,
 	use_increase_rate = false,
+	--gamma zoom values sit at 0.6-0.8 of hip, on would weaken ads below the tune
+	use_zoom_ratio = false,
 }
 --TODO:MCM
 function M.apply_settings()

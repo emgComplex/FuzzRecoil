@@ -129,11 +129,13 @@ local cfg = M.cfg
 local bolt_action_Y_lift = true
 local recoil_v_scale = 1
 local recoil_h_scale = 1
+local use_zoom_ratio = false
 
 function M.load_settings(settings)
 	bolt_action_Y_lift = settings.bolt_action_Y_lift
 	recoil_v_scale = settings.recoil_v_scale
 	recoil_h_scale = settings.recoil_h_scale
+	use_zoom_ratio = settings.use_zoom_ratio
 end
 --------
 ---public getters
@@ -147,10 +149,10 @@ end
 function M.get_vel_rot()
 	return vel_rot
 end
---ads scales by the vanilla zoom ratio, hip fire kicks harder
+--hip fire kicks harder, the vanilla zoom ratio is opt in
 function M.get_mode_kick_mul()
 	if is_ads then
-		return zoom_ratio * cfg.ads_kick_mul
+		return (use_zoom_ratio and zoom_ratio or 1) * cfg.ads_kick_mul
 	end
 	return cfg.hip_kick_mul
 end
