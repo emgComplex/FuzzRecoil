@@ -37,7 +37,7 @@ local force_pitch = 15
 local force_y = -0.04
 local force_yaw = 15
 local force_x = 0.0006
-local shot_dealy_enabled = false
+local shot_delay_enabled = false
 local is_bolt_action = false
 
 --------------
@@ -140,7 +140,7 @@ local function apply_simple_smooth(dt, smooth)
 end
 --TODO: we should desync it
 local function pos_y_sync_with_cam()
-	if bolt_action_Y_lift and shot_dealy_enabled then
+	if bolt_action_Y_lift and shot_delay_enabled then
 		--PERF: should cached once code is stablelized
 		y_impulse = is_bolt_action and math.abs(force_y) * 2 or force_y
 		pos_raw.y = camrc.get_angle() * y_impulse
@@ -223,6 +223,19 @@ local function init_offset(wpn_sec)
 	end
 	hud_adjust.enabled(false)
 end
+function M.load_profile(profile)
+	fire_interval = profile.fire_interval
+	firing_damping = profile.firing_damping
+	pull_force = profile.pull_force
+
+	force_pitch = profile.force_pitch
+	force_y = profile.force_y
+	force_yaw = profile.force_yaw
+	force_x = profile.force_x
+
+	is_bolt_action = profile.is_bolt_action
+	shot_delay_enabled = profile.shot_delay_enabled
+end
 --------------
 ---Public functions
 --------------
@@ -235,18 +248,7 @@ end
 
 function M.init(wpn_sec, profile)
 	init_offset(wpn_sec)
-
-	fire_interval = profile.fire_interval
-	firing_damping = profile.firing_damping
-	pull_force = profile.pull_force
-
-	force_pitch = profile.force_pitch
-	force_y = profile.force_y
-	force_yaw = profile.force_yaw
-	force_x = profile.force_x
-
-	is_bolt_action = profile.is_bolt_action
-	shot_dealy_enabled = profile.shot_dealy_enabled
+	M.load_profile(profile)
 end
 
 function M.start()

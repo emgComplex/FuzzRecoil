@@ -230,12 +230,13 @@ function profile_overlay()
 	expanded, _ = ImGui.Begin("Weapon Profile", true)
 	if expanded and frm.cur_wpn then
 		ImGui.Text(frm.cur_wpn:section() .. ":" .. frm.state.cur_wpn_id)
-		for k, v in pairs(frm.wpn_info) do
+		local wpn_info = frm.get_wpn_info()
+		for k, v in pairs(wpn_info) do
 			text_drawer(k, v)
 		end
 		ImGui.Separator()
 		ImGui.TextColored(vector4():set(0, 1, 0.5, 1), "Converted")
-		for k, v in pairs(frm.wpn_profile) do
+		for k, v in pairs(frm.get_recoil_profile().raw_profile) do
 			text_drawer(k, v)
 		end
 	end
@@ -276,43 +277,23 @@ function info_overlay()
 end
 AddUniqueCall(info_overlay)
 
+--TODO:! load and apply modifier
+--don't forget sort this out ,man
 function renderProfile()
 	if ImGui.TreeNode("Weapon profile") then
+		local prf = frm.get_recoil_profile()
 		ImGui.Text("To input a value directly,You can crlt+click on the slider")
-		_, frm.wpn_profile.is_bolt_action = ImGui.Checkbox("Bolt Action", frm.wpn_profile.is_bolt_action)
-		_, frm.wpn_profile.cam_recoil_power =
-			ImGui.SliderFloat("Cam Recoil Power", frm.wpn_profile.cam_recoil_power, 0.1, 16.0, "%.2f")
-		_, frm.wpn_profile.cam_return_speed =
-			ImGui.SliderFloat("Cam Return Speed", frm.wpn_profile.cam_return_speed, 0.5, 2, "%.2f")
-
-		ImGui.Text("Shot Impact Force")
-		_, frm.wpn_profile.force_pitch = ImGui.SliderFloat("Pitch", frm.wpn_profile.force_pitch, 0, 60, "%.2f")
-		_, frm.wpn_profile.force_y = ImGui.SliderFloat("PosY", frm.wpn_profile.force_y, -0.06, 0.06, "%.4f")
-		frm.wpn_profile.force_y = frm.wpn_profile.force_y
-		_, frm.wpn_profile.force_yaw = ImGui.SliderFloat("Yaw", frm.wpn_profile.force_yaw, 0, 60, "%.2f")
-		_, frm.wpn_profile.force_x = ImGui.SliderFloat("PosX", frm.wpn_profile.force_x, 0.0001, 0.0025, "%.4f")
-		frm.wpn_profile.force_x = frm.wpn_profile.force_x
-		_, frm.wpn_profile.pull_force = ImGui.SliderFloat("Pull Force", frm.wpn_profile.pull_force, 0.1, 4.0, "%.2f")
-		_, frm.wpn_profile.firing_damping =
-			ImGui.SliderFloat("Spring Damping", frm.wpn_profile.firing_damping, 0.1, 4.0, "%.2f")
-
-		ImGui.Text("Handling")
-		handle_speed_change, frm.wpn_profile.handling_speed =
-			ImGui.SliderFloat("Handling speed", frm.wpn_profile.handling_speed, 0.1, 2.0, "%.2f")
-		if handle_speed_change then
-			frm.config.firing_handling_ease:set_speed(frm.wpn_profile.handling_speed)
-			frm.config.idle_handling_ease:set_speed(frm.wpn_profile.handling_speed)
-		end
-		ImGui.TextColored(vector4():set(1, 0, 0, 1), "NOT IMPLEMENTED YET")
-		_, frm.wpn_profile.increase_rate =
-			ImGui.SliderFloat("Increase Rate", frm.wpn_profile.increase_rate, 0.0, 2.0, "%.2f")
-		ImGui.Separator()
+		prf:imgui_editor_drawer()
 		ImGui.Text(export_hint)
-		if ImGui.Button("Export to LTX", vector2():set(-1, 25)) then
-			export_profile_to_ltx()
+		if ImGui.Button("Apply", vector2():set(-1, 25)) then
+			hudrc.load_profile(prf)
 		end
-		if ImGui.Button("Convert from vannilla", vector2():set(-1, 25)) then
-			cvter.convert(frm.wpn_info, frm.wpn_profile)
+		if ImGui.Button("Export to LTX", vector2():set(-1, 25)) then
+			export_profile_to_ltx(prf)
+		end
+		if ImGui.Button("Reload Profile", vector2():set(-1, 25)) then
+			-- TODO: ! call should be in fuzz_recoil
+			-- cvter.convert(frm.get_wpn_info(), self)
 		end
 		ImGui.TreePop()
 	end
@@ -415,8 +396,8 @@ function indicator_drawer(val, label, min, max)
 	end
 end
 
-function export_profile_to_ltx()
-	local profile = frm.wpn_profile
+function export_profile_to_ltx(input_profile)
+	local profile = input_profile.raw_profile
 	local wpn_name = tostring(utils.get_base_weapon(frm.cur_wpn:section()))
 
 	local filename = string.format("mod_system_z_fuzz_recoil_%s.ltx", wpn_name)

@@ -1,3 +1,4 @@
+local Profile = fuzz_recoil_profile
 fuzz_recoil = { version = "a4" }
 ---@diagnostic disable: lowercase-global
 ----Imports
@@ -8,23 +9,25 @@ local logger = fuzz_recoil_logger
 cur_wpn = nil
 cur_cast_wpn = nil
 local player = nil
+
+state = {
+	active = false,
+	is_firing = false,
+	handling_power = 0.0,
+	--TODO: duration or ? we need a way to achieve recoil expansion
+	--i don't like duration at all,too "linear-like"
+	--maybe an  arm muscle (or aimming) stamina ,
+	-- cur_aim_state = 0
+	--no need to reset
+	cur_wpn_id = 0,
+}
+
 local allowed_kinds = {
 	w_pistol = true,
 	w_rifle = true,
 	w_shotgun = true,
 	w_sniper = true,
 	w_smg = true,
-}
-
-wpn_info = {
-	cam_dispersion = 0,
-	cam_dispersion_inc = 0,
-	zoom_cam_dispersion = 0,
-	zoom_cam_dispersion_inc = 0,
-	cam_step_angle_horz = 0,
-	cam_relax_speed = 0,
-	inv_weight = 0,
-	rpm = 600,
 }
 settings = {
 	debug_mode = fuzz_dev and true or false,
@@ -47,50 +50,17 @@ config = {
 	sniper_idle_handling = { offset = 0.2, intensity = 0.8 },
 	pitch_expansion = 1.5,
 }
-wpn_profile = {
-	is_bolt_action = false,
-	cam_recoil_power = 4,
-	cam_return_speed = 1,
-	--TODO:
-	--zoom_scale_ratio
 
-	force_pitch = 15,
-	force_y = -0.04,
-	force_yaw = 15,
-	force_x = 0.0006,
-
-	pull_force = 1.5,
-	firing_damping = 1.0,
-	-- hud_return_speed = 1,
-
-	handling_speed = 0.5,
-
-	-- shot_delay
-	should_shot_delay = false,
-	shot_delay_time = 0.4,
-	shot_cam_impulse_factor = 0.2,
-
-	--TODO:NOT IMPLEMENTED
-	stamina_factor = 1,
-	-- mass_inertia = -1,
-	-- hidden vars
-	fire_interval = 0.1,
-}
-state = {
-	active = false,
-	is_firing = false,
-	handling_power = 0.0,
-	--TODO: duration or ? we need a way to achieve recoil expansion
-	--i don't like duration at all,too "linear-like"
-	--maybe an  arm muscle (or aimming) stamina ,
-	-- cur_aim_state = 0
-	--no need to reset
-	cur_wpn_id = 0,
-}
-local shot_delay_table = {
-	w_sniper = { rpm = 60, cam_impulse = 1 },
-	w_shotgun = { rpm = 250, cam_impulse = 0.7 },
-	w_pistol = { rpm = 340, cam_impulse = 0.4 },
+local m_profile = Profile:new()
+local wpn_info = {
+	cam_dispersion = 0,
+	cam_dispersion_inc = 0,
+	zoom_cam_dispersion = 0,
+	zoom_cam_dispersion_inc = 0,
+	cam_step_angle_horz = 0,
+	cam_relax_speed = 0,
+	inv_weight = 0,
+	rpm = 600,
 }
 
 sim_firing = false
@@ -146,8 +116,8 @@ function on_fire()
 		--no need to good deep for optimization ,leave it here for now.
 		start_recoil()
 	end
-	if wpn_profile.shot_dealy_enabled then
-		CreateTimeEvent("fuzz_recoil", "bolt_delay_stop", wpn_profile.shot_delay_time, function()
+	if m_profile.shot_delay_enabled then
+		CreateTimeEvent("fuzz_recoil", "bolt_delay_stop", m_profile.shot_delay_time, function()
 			on_fire_stop()
 			return true
 		end)
@@ -156,10 +126,8 @@ function on_fire()
 
 	state.is_firing = true
 
-	-- local inertia_modifier = 1.0 / (1.0 + (wpn_profile.mass_inertia * 0.1))
-
 	hudrc.on_fire()
-	camrc.on_fire(state.handling_power, wpn_profile.cam_recoil_power, wpn_profile.shot_cam_impulse_factor)
+	camrc.on_fire(state.handling_power, m_profile.cam_recoil_power, m_profile.shot_cam_impulse_factor)
 end
 
 function on_update(dt)
@@ -206,41 +174,9 @@ function update_sim_shooting(dt)
 	end
 end
 
+--TODO: fallback to vanilla if something went wrong
 --PERF:smart_cast everytime or cached table?
 --i think cached table is better ,but we still have to update the profile evertime
-function init_weapon(wpn_sec)
-	collect_wpn_info(wpn_sec)
-	remove_vanilla_cam_recoil()
-
-	-- inil some recoil paramete from here
-	wpn_profile.fire_interval = 60 / wpn_info.rpm
-	config.firing_handling_ease:set_speed(wpn_profile.handling_speed)
-	config.idle_handling_ease:set_speed(wpn_profile.handling_speed)
-
-	if wpn_profile.is_bolt_action then
-		config.idle_handling_ease.intensity = config.sniper_idle_handling.intensity
-		config.idle_handling_ease.offset = config.sniper_idle_handling.offset
-	else
-		config.idle_handling_ease:reset()
-	end
-
-	-- NOTE: or we can just check available firemodes?
-	-- REFT: look at this mess...move this to converter
-	wpn_profile.shot_dealy_enabled = false
-	wpn_profile.shot_cam_impulse_factor = 0.2
-
-	local skind = shot_delay_table[wpn_info.kind]
-	if skind and wpn_info.rpm <= skind.rpm then
-		wpn_profile.shot_dealy_enabled = true
-		wpn_profile.shot_delay_time = utils.math_clamp(wpn_profile.fire_interval, 0.1, 0.5)
-		wpn_profile.shot_cam_impulse_factor = skind.cam_impulse
-	end
-
-	camrc.init(wpn_profile.cam_return_speed, wpn_profile.shot_dealy_enabled and "cubic" or "exp")
-	hudrc.init(wpn_sec, wpn_profile)
-
-	logger.dbg("Initialize weapon")
-end
 function start_recoil()
 	state.active = true
 	camrc.start()
@@ -248,7 +184,6 @@ function start_recoil()
 	RemoveTimeEvent("fuzz_recoil", "bolt_delay")
 	logger.dbg("Initialize Recoil")
 end
-
 function reset_recoil()
 	state.active = false
 	state.is_firing = false
@@ -269,6 +204,7 @@ end
 --------------------------------------
 ---Feat
 --------------------------------------
+--TODO: call this when switching weapon
 function get_current_weapon()
 	player = db.actor
 	if not player then
@@ -302,11 +238,34 @@ function get_current_weapon()
 	init_weapon(wpn_sec)
 	return true
 end
+function init_weapon(wpn_sec)
+	collect_wpn_info(wpn_sec)
+	m_profile = fuzz_recoil_profile:new():load(wpn_sec, wpn_info)
+	remove_vanilla_cam_recoil()
+
+	-- inil some recoil paramete from here
+	config.firing_handling_ease:set_speed(m_profile.handling_speed)
+	config.idle_handling_ease:set_speed(m_profile.handling_speed)
+
+	if m_profile.is_bolt_action then
+		config.idle_handling_ease.intensity = config.sniper_idle_handling.intensity
+		config.idle_handling_ease.offset = config.sniper_idle_handling.offset
+	else
+		config.idle_handling_ease:reset()
+	end
+
+	camrc.init(m_profile.cam_return_speed, m_profile.shot_delay_enabled and "cubic" or "exp")
+	hudrc.init(wpn_sec, m_profile)
+
+	logger.dbg("Initialize weapon")
+end
+--TODO: use vannilla recoil for grende launcher
 function should_active(wpn_sec)
 	local kind = utils.get_string(wpn_sec, "kind")
 	return allowed_kinds[kind], kind
 end
 
+--=========Vannilla recoil handler============
 function remove_vanilla_cam_recoil()
 	set_vanilla_cam_recoil(cur_cast_wpn, 0, 0, 0, 0)
 end
@@ -360,32 +319,18 @@ function collect_wpn_info(wpn_sec)
 		--NOTE: if we are considering mass effect,we should use engine-getter
 		wpn_info.inv_weight = utils.get_float(wpn_sec, "inv_weight", 3)
 	end
-	try_get_recoil_profile(wpn_sec)
 	for k, v in pairs(wpn_info) do
 		logger.dbg(type(v) == "number" and "%s:%.6f" or "%s:%s", k, v)
 	end
 end
-function try_get_recoil_profile(wpn_sec)
-	local profile = ini_sys:r_string_ex(wpn_sec, "fuzz_recoil", nil)
-	if profile then
-		wpn_profile.is_bolt_action = utils.get_bool(profile, "is_bolt_action", false)
-		wpn_profile.cam_recoil_power = utils.get_float(profile, "cam_recoil_power", 4)
-		wpn_profile.cam_return_speed = utils.get_float(profile, "cam_return_speed", 1)
-
-		wpn_profile.force_pitch = utils.get_float(profile, "force_pitch", 15)
-		wpn_profile.force_y = utils.get_float(profile, "force_y", -0.04)
-		wpn_profile.force_yaw = utils.get_float(profile, "force_yaw", 15)
-		wpn_profile.force_x = utils.get_float(profile, "force_x", 0)
-
-		wpn_profile.pull_force = utils.get_float(profile, "pull_force", 1.5)
-		wpn_profile.firing_damping = utils.get_float(profile, "firing_damping", 1)
-		-- wpn_profile.hud_return_speed = utils.get_float(profile, "hud_return_speed", 1)
-
-		wpn_profile.handling_speed = utils.get_float(profile, "handling_speed", 0.5)
-		wpn_profile.stamina_factor = utils.get_float(profile, "increase_rate", 0)
-	else
-		cvter.convert(wpn_info, wpn_profile)
-	end
+--------------------
+---Public Getter
+--------------------
+function get_wpn_info()
+	return wpn_info
+end
+function get_recoil_profile()
+	return m_profile
 end
 
 -- local function get_aim_state()
