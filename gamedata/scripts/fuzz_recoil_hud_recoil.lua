@@ -36,7 +36,7 @@ local force_pitch = 15
 local force_y = -0.04
 local force_yaw = 15
 local force_x = 0.0006
-local shot_dealy_enable = false
+local shot_dealy_enabled = false
 local is_bolt_action = false
 --------
 ---public getters
@@ -118,7 +118,7 @@ local function apply_simple_smooth(dt, smooth)
 end
 --TODO: we should desync it
 local function pos_y_sync_with_cam()
-	if m_settings.bolt_action_Y_lift and shot_dealy_enable then
+	if m_settings.bolt_action_Y_lift and shot_dealy_enabled then
 		--PERF: should cached once code is stablelized
 		y_impulse = is_bolt_action and math.abs(force_y) * 2 or force_y
 		pos_raw.y = camrc.angle * y_impulse
@@ -289,7 +289,7 @@ function M.update(dt, handling_power)
 	end
 	pos_y_sync_with_cam()
 
-	apply_simple_smooth(dt, m_cfg.smooth_return)
+	apply_simple_smooth(dt, handling_power and m_cfg.smooth_firing or m_cfg.smooth_return)
 	M.set_hud_offset(pos_smooth, rot_smooth)
 	return false
 end
