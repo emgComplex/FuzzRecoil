@@ -76,14 +76,14 @@ M.cfg = {
 	smooth_return = 10,
 
 	--v2 kick, profile impulses rescaled into instant hud displacement
-	v2_pitch_scale = 0.1,
+	v2_pitch_scale = 0.03,
 	v2_yaw_scale = 0.035,
 	v2_pos_scale = 0.02,
 	--fraction of the kick fed straight into the smoothed value, frame one snap
 	v2_kick_feedforward = 0.65,
 	--per shot kick variance, plateau jitter scales with handling so the peak needs work
 	v2_pitch_jitter = 0.16,
-	v2_plateau_jitter = 0.18,
+	v2_plateau_jitter = 0.05,
 	--small aim point wander, visual shake only since bullets follow the camera
 	--kept tight so the sight picture stays honest about the real poi
 	--the uncompensatable spread comes from fire bloom instead
@@ -114,7 +114,7 @@ M.cfg = {
 	},
 	v2_heat_max = 1.6,
 	--recovery rate, base plus handling driven convergence
-	v2_recover_base = 1.2,
+	v2_recover_base = 2.4,
 	v2_recover_gain = 3.0,
 	--horizontal recovers slower like tarkov, z shoulder pop recovers fast
 	v2_h_recover_mul = 0.4,
@@ -438,7 +438,7 @@ local function on_fire_instant(handling_power, ads, cam_k, burst_shots)
 	local accel = cfg.v2_wander * handling_power * wander_mul * heat
 
 	--pitch rides above the plateau, surges up freely, sags down only gently, never dives
-	local pmax = wmax * 0.7
+	local pmax = wmax * 0.3
 	if burst_shots == 0 then
 		drift_vel_pitch = math.random() * cfg.v2_burst_kick * jitter_mul
 	else
