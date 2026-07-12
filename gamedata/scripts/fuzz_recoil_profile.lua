@@ -129,9 +129,13 @@ end
 --TODO:! should edit raw
 function M:imgui_editor_drawer()
 	_, self.is_bolt_action = ImGui.Checkbox("Bolt Action", self.is_bolt_action)
+	ImGui.Text("Camera recoil")
 	_, self.cam_recoil_power = ImGui.SliderFloat("Cam Recoil Power", self.cam_recoil_power, 0.1, 16.0, "%.2f")
 	_, self.cam_return_speed = ImGui.SliderFloat("Cam Return Speed", self.cam_return_speed, 0.5, 2, "%.2f")
 
+	ImGui.Text("Hud Recoil")
+	_, self.pull_force = ImGui.SliderFloat("Pull Force", self.pull_force, 0.1, 4.0, "%.2f")
+	_, self.firing_damping = ImGui.SliderFloat("Spring Damping", self.firing_damping, 0.1, 4.0, "%.2f")
 	ImGui.Text("Shot Impact Force")
 	_, self.force_pitch = ImGui.SliderFloat("Pitch", self.force_pitch, 0, 60, "%.2f")
 	_, self.force_y = ImGui.SliderFloat("PosY", self.force_y, -0.06, 0.06, "%.4f")
@@ -139,17 +143,13 @@ function M:imgui_editor_drawer()
 	_, self.force_yaw = ImGui.SliderFloat("Yaw", self.force_yaw, 0, 60, "%.2f")
 	_, self.force_x = ImGui.SliderFloat("PosX", self.force_x, 0.0001, 0.0025, "%.4f")
 	self.force_x = self.force_x
-	_, self.pull_force = ImGui.SliderFloat("Pull Force", self.pull_force, 0.1, 4.0, "%.2f")
-	_, self.firing_damping = ImGui.SliderFloat("Spring Damping", self.firing_damping, 0.1, 4.0, "%.2f")
 
 	ImGui.Text("Handling")
 	handle_speed_change, self.handling_speed =
 		ImGui.SliderFloat("Handling speed", self.handling_speed, 0.1, 2.0, "%.2f")
-	-- TODO:! refactor this to fuzz_recoil
-	-- if handle_speed_change then
-	-- 	frm.config.firing_handling_ease:set_speed(self.handling_speed)
-	-- 	frm.config.idle_handling_ease:set_speed(self.handling_speed)
-	-- end
+	if handle_speed_change then
+		fuzz_recoil.set_handling_speed(self.handling_speed)
+	end
 	ImGui.TextColored(vector4():set(1, 0, 0, 1), "NOT IMPLEMENTED YET")
 	_, self.increase_rate = ImGui.SliderFloat("Increase Rate", self.increase_rate, 0.0, 2.0, "%.2f")
 	ImGui.Separator()
