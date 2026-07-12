@@ -83,6 +83,8 @@ wpn_profile = {
 	--TODO:NOT IMPLEMENTED
 	increase_rate = 0,
 	-- mass_inertia = -1,
+	-- hidden vars
+	fire_interval = 0.1,
 }
 state = {
 	active = false,
@@ -91,17 +93,9 @@ state = {
 	--TODO: duration or ? we need a way to achieve recoil expansion
 	--i don't like duration at all,too "linear-like"
 	--maybe an  arm muscle (or aimming) stamina ,
-	is_hud_returned = false,
-	vel_hud_pos = VEC_ZERO,
-	vel_hud_rot = VEC_ZERO,
-	hud_pos_raw = VEC_ZERO,
-	hud_rot_raw = VEC_ZERO,
-	hud_pos_smooth = VEC_ZERO,
-	hud_rot_smooth = VEC_ZERO,
 	-- cur_aim_state = 0
 	--no need to reset
 	cur_wpn_id = 0,
-	fire_interval = 0.1,
 }
 local shot_delay_table = {
 	w_sniper = { rpm = 60, cam_impulse = 1 },
@@ -109,12 +103,6 @@ local shot_delay_table = {
 	w_pistol = { rpm = 340, cam_impulse = 0.4 },
 }
 
-ori_hand_trs = {
-	VEC_ZERO,
-	VEC_ZERO,
-}
-cur_hud_pos = VEC_ZERO
-cur_hud_rot = VEC_ZERO
 sim_firing = false
 sim_timer = 0.0
 debug_var = {
@@ -127,6 +115,7 @@ debug_var = {
 }
 
 local camrc = fuzz_recoil_cam_recoil:new()
+local hudrc = fuzz_recoil_hud_recoil
 
 function on_game_start()
 	RegisterScriptCallback("actor_on_update", actor_on_update)
@@ -171,23 +160,11 @@ function on_fire()
 	logger.dbg("Shot ")
 
 	state.is_firing = true
-	state.is_hud_returned = false
 
 	-- local inertia_modifier = 1.0 / (1.0 + (wpn_profile.mass_inertia * 0.1))
 
-	on_fire_phys()
+	hudrc.on_fire()
 	camrc:on_fire(state.handling_power, wpn_profile.cam_recoil_power, wpn_profile.shot_cam_impulse_factor)
-end
-function on_fire_phys()
-	state.vel_hud_rot.y = state.vel_hud_rot.y + wpn_profile.shot_pitch
-	state.vel_hud_pos.y = state.vel_hud_pos.y + wpn_profile.shot_pos_y
-
-	local yaw_impulse = (math.random() * 2 - 1) * wpn_profile.shot_yaw
-	state.vel_hud_rot.x = state.vel_hud_rot.x + yaw_impulse
-
-	--NOTE:count_ratio = 1/20
-	local pos_x_impulse = (math.random() * 2 - 1) * wpn_profile.shot_pos_x
-	state.vel_hud_pos.x = state.vel_hud_pos.x + pos_x_impulse
 end
 
 function on_update(dt)
@@ -201,19 +178,10 @@ function on_update(dt)
 	-- update_sim_shooting(dt)
 
 	update_handling_power(dt)
-	if state.is_firing then
-		on_hud_update_phys(dt)
-		local cam_returned = camrc:update(dt, state.is_firing)
-		return
-	else
-		if not state.is_hud_returned then
-			do_hud_return_phys(dt)
-			-- reset_hud_recoil()
-		end
-		local cam_returned = camrc:update(dt, state.is_firing)
-		if state.handling_power <= 0 and state.is_hud_returned and cam_returned then
-			reset_recoil()
-		end
+	local hud_returned = hudrc.update(dt, state.is_firing and state.handling_power or 0)
+	local cam_returned = camrc:update(dt, state.is_firing)
+	if state.handling_power <= 0 and hud_returned and cam_returned then
+		reset_recoil()
 	end
 end
 function on_fire_stop()
@@ -242,56 +210,15 @@ function update_sim_shooting(dt)
 		end
 	end
 end
---TODO: we should desync it
-function pos_y_sync_with_cam()
-	if settings.bolt_action_Y_lift and wpn_profile.shot_dealy_enable then
-		--PERF: should cached once code is stablelized
-		y_impulse = wpn_profile.is_bolt_action and math.abs(wpn_profile.shot_pos_y) * 2 or wpn_profile.shot_pos_y
-		state.hud_pos_raw.y = camrc.angle * y_impulse
-	end
-end
-function on_hud_update_phys(dt)
-	local pull_strength = wpn_profile.pull_force * state.handling_power
-
-	apply_recoil_forces(dt, pull_strength, wpn_profile.firing_damping)
-
-	-- limit before smooth
-	state.hud_rot_raw:clamp(config.max_hud_rot)
-	state.hud_pos_raw:clamp(config.max_hud_pos)
-
-	pos_y_sync_with_cam()
-	apply_simple_smooth(dt, config.smooth_firing)
-
-	set_hud_offset(state.hud_pos_smooth, state.hud_rot_smooth)
-end
-function do_hud_return_phys(dt)
-	local spring = config.return_spring
-	local damping = config.return_damping
-
-	apply_spring_vec(state.hud_pos_raw, state.vel_hud_pos, dt, spring, damping)
-	apply_spring_vec(state.hud_rot_raw, state.vel_hud_rot, dt, spring, damping)
-
-	local threshold_return = 0.001
-	if state.hud_rot_raw:magnitude() < threshold_return and state.hud_pos_raw:magnitude() < threshold_return then
-		reset_hud_recoil()
-		return
-	end
-
-	pos_y_sync_with_cam()
-
-	apply_simple_smooth(dt, config.smooth_return)
-	set_hud_offset(state.hud_pos_smooth, state.hud_rot_smooth)
-end
 
 --PERF:smart_cast everytime or cached table?
---i think cached table is better
+--i think cached table is better ,but we still have to update the profile evertime
 function init_weapon(wpn_sec)
 	collect_wpn_info(wpn_sec)
-	init_hud_adjust(wpn_sec)
 	remove_vanilla_cam_recoil()
 
 	-- inil some recoil paramete from here
-	state.fire_interval = 60 / wpn_info.rpm
+	wpn_profile.fire_interval = 60 / wpn_info.rpm
 	config.firing_handling_ease:set_speed(wpn_profile.handling_speed)
 	config.idle_handling_ease:set_speed(wpn_profile.handling_speed)
 
@@ -310,51 +237,37 @@ function init_weapon(wpn_sec)
 	local skind = shot_delay_table[wpn_info.kind]
 	if skind and wpn_info.rpm <= skind.rpm then
 		wpn_profile.shot_dealy_enable = true
-		wpn_profile.shot_delay_time = utils.math_clamp(state.fire_interval, 0.1, 0.5)
+		wpn_profile.shot_delay_time = utils.math_clamp(wpn_profile.fire_interval, 0.1, 0.5)
 		wpn_profile.shot_cam_impulse_factor = skind.cam_impulse
 	end
 
 	camrc:init(wpn_profile.cam_return_speed, wpn_profile.shot_dealy_enable and "cubic" or "exp")
+	hudrc.init(wpn_sec, wpn_profile)
 
 	logger.dbg("Initialize weapon")
 end
 function start_recoil()
 	state.active = true
 	camrc:start()
-	reset_hud_hand()
-	enable_hud_adjust()
+	hudrc.start()
 	RemoveTimeEvent("fuzz_recoil", "bolt_delay")
 	logger.dbg("Initialize Recoil")
 end
 
-function reset_hud_recoil()
-	logger.dbg("reset hud recoil")
-	state.is_hud_returned = true
-
-	state.vel_hud_rot = VEC_ZERO
-	state.vel_hud_pos = VEC_ZERO
-
-	state.hud_pos_raw = VEC_ZERO
-	state.hud_pos_smooth = VEC_ZERO
-	state.hud_rot_raw = VEC_ZERO
-	state.hud_rot_smooth = VEC_ZERO
-
-	reset_hud_hand()
-end
 function reset_recoil()
 	state.active = false
 	state.is_firing = false
 	state.handling_power = 0
 
-	disable_hud_adjust()
-	RemoveTimeEvent("fuzz_recoil", "bolt_delay")
 	camrc.remove_cam_fx()
+	hudrc.disable_hud_adjust()
+	RemoveTimeEvent("fuzz_recoil", "bolt_delay")
 
 	logger.dbg("reset recoil")
 end
 function force_reset_recoil()
 	camrc:stop()
-	reset_hud_recoil()
+	hudrc.stop()
 	reset_recoil()
 end
 
@@ -422,33 +335,6 @@ function set_vanilla_cam_recoil(cast_wpn, cam_disp, cam_disp_inc, zoom_cam_disp,
 	cast_wpn:SetZoomCamDispersionInc(zoom_cam_dis_inc)
 end
 
-function enable_hud_adjust()
-	hud_adjust.enabled(true)
-end
-function disable_hud_adjust()
-	hud_adjust.enabled(false)
-end
-function set_hud_hand(pos, rot)
-	hud_adjust.set_vector(0, 0, pos.x, pos.y, pos.z)
-	hud_adjust.set_vector(1, 0, rot.x, rot.y, rot.z)
-end
-function apply_cur_hud_hand()
-	set_hud_hand(cur_hud_pos, cur_hud_rot)
-end
-function update_cur_hud_hand_by(pos, rot)
-	cur_hud_pos:add(pos)
-	cur_hud_rot:add(rot)
-end
-function set_hud_offset(pos, rot)
-	cur_hud_pos = vector():set(ori_hand_trs[1]):add(pos)
-	cur_hud_rot = vector():set(ori_hand_trs[2]):add(rot)
-	apply_cur_hud_hand()
-end
-function reset_hud_hand()
-	cur_hud_pos = vector():set(ori_hand_trs[1])
-	cur_hud_rot = vector():set(ori_hand_trs[2])
-	apply_cur_hud_hand()
-end
 --=========Init Recoil and Info Collection============
 --FIXME: only cam_step_angle_horz update with upgrades
 --tested with wpn_m98b,there is an unpacked upgrades ltx in
@@ -480,9 +366,9 @@ function collect_wpn_info(wpn_sec)
 		wpn_info.inv_weight = utils.get_float(wpn_sec, "inv_weight", 3)
 	end
 	try_get_recoil_profile(wpn_sec)
-end
-for k, v in pairs(wpn_info) do
-	logger.dbg("%s:%.6f", k, v)
+	for k, v in pairs(wpn_info) do
+		logger.dbg(type(v) == "number" and "%s:%.6f" or "%s:%s", k, v)
+	end
 end
 function try_get_recoil_profile(wpn_sec)
 	local profile = ini_sys:r_string_ex(wpn_sec, "fuzz_recoil", nil)
@@ -506,80 +392,7 @@ function try_get_recoil_profile(wpn_sec)
 		cvter.convert(wpn_info, wpn_profile)
 	end
 end
-function init_hud_adjust(wpn_sec)
-	hud_adjust.enabled(true)
-	local hud = utils.get_string(wpn_sec, "hud")
-	local postfix = utils_xml.is_widescreen() and "_16x9" or ""
-	local function get_hud_vector(hud_sec, key, v)
-		local value = utils.get_string(hud_sec, key .. postfix)
-		if value == "" then
-			value = utils.get_string(hud_sec, key)
-		end
-		if value == "" then
-			return v.def or VEC_ZERO
-		end
-		return utils_data.string_to_vector(value)
-	end
-	local function set_hud_vector(hud_sec, key, v)
-		local _vec = get_hud_vector(hud_sec, key, v)
-		hud_adjust.set_vector(v.idxa, v.idxb, _vec.x, _vec.y, _vec.z)
-	end
-	ori_hand_trs = {
-		get_hud_vector(hud, "hands_position", { def = VEC_ZERO }),
-		get_hud_vector(hud, "hands_orientation", { def = VEC_ZERO }),
-	}
-	--credit:@demonized's weapon tilt cover
-	local offset_key_list = {
-		["hands_position"] = { idxa = 0, idxb = 0 },
-		["hands_orientation"] = { idxa = 1, idxb = 0 },
-		["aim_hud_offset_pos"] = { idxa = 0, idxb = 1 },
-		["aim_hud_offset_rot"] = { idxa = 1, idxb = 1 },
-		["gl_hud_offset_pos"] = { idxa = 0, idxb = 2 },
-		["gl_hud_offset_rot"] = { idxa = 1, idxb = 2 },
-		["aim_hud_offset_alt_pos"] = { idxa = 0, idxb = 3 },
-		["aim_hud_offset_alt_rot"] = { idxa = 1, idxb = 3 },
-		["lowered_hud_offset_pos"] = { idxa = 0, idxb = 4 },
-		["lowered_hud_offset_rot"] = { idxa = 1, idxb = 4 },
-		["fire_point"] = { idxa = 0, idxb = 10 },
-		["fire_point2"] = { idxa = 0, idxb = 11 },
-		["fire_direction"] = { def = VEC_Z, idxa = 1, idxb = 10 },
-		["shell_point"] = { idxa = 1, idxb = 11 },
-		["custom_ui_pos"] = { idxa = 0, idxb = 20 },
-		["custom_ui_rot"] = { idxa = 1, idxb = 20 },
-		["item_position"] = { idxa = 0, idxb = 12 },
-		["item_orientation"] = { idxa = 1, idxb = 12 },
-	}
-	local value_list = {
-		["scope_zoom_factor"] = {},
-		["gl_zoom_factor"] = {},
-		["scope_zoom_factor_alt"] = {},
-		["attach_scale"] = { def = 1 },
-	}
-	--credit: @MsPizza727
-	if MODDED_EXES_VERSION >= 20240412 then
-		offset_key_list["base_hud_offset_pos"] = { idxa = 0, idxb = 5 }
-		offset_key_list["base_hud_offset_rot"] = { idxa = 1, idxb = 5 }
-		offset_key_list["attach_base_hud_offset_pos"] = { idxa = 0, idxb = 6 }
-		offset_key_list["attach_base_hud_offset_rot"] = { idxa = 1, idxb = 6 }
-		offset_key_list["attach_mount_hud_offset_pos"] = { idxa = 0, idxb = 7 }
-		offset_key_list["attach_mount_hud_offset_rot"] = { idxa = 1, idxb = 7 }
-	else
-		offset_key_list["attach_base_hud_offset_pos"] = { idxa = 0, idxb = 6 }
-		offset_key_list["attach_base_hud_offset_rot"] = { idxa = 1, idxb = 6 }
-		offset_key_list["attach_mount_hud_offset_pos"] = { idxa = 0, idxb = 7 }
-		offset_key_list["attach_mount_hud_offset_rot"] = { idxa = 1, idxb = 7 }
-	end
-	for k, v in pairs(offset_key_list) do
-		set_hud_vector(hud, k, v)
-	end
-	for k, v in pairs(value_list) do
-		local value = utils.get_float(hud, k, v.def or 0)
-		if value then
-			hud_adjust.set_value(k, utils.get_float(wpn_sec, k))
-		end
-	end
-	hud_adjust.enabled(false)
-end
+
 -- local function get_aim_state()
 -- 	-- local is_gl = weapon:weapon_in_grenade_mode()
 -- 	if not cur_cast_wpn:IsZoomed() then
@@ -592,79 +405,6 @@ end
 -- 		state.cur_aim_state = 0
 -- 	end
 -- end
---================PHYSICS======================
-function apply_spring(raw_val, vel, dt, spring, damping)
-	if not damping then
-		--Calculate critical damping
-		damping = math.sqrt(spring) * 2
-	end
-	--TODO: switch to solution for better fps adaption
-	dt = math.min(dt, 1 / 30)
-	local acc = raw_val * -spring - vel * damping
-	vel = vel + acc * dt
-	return raw_val + vel * dt, vel
-end
-function apply_spring_vec(raw_vec, vel_vec, dt, spring, damping)
-	if not damping then
-		--Calculate critical damping
-		damping = math.sqrt(spring) * 2
-	end
-	--TODO: switch to solution
-	dt = math.min(dt, 1 / 30)
-	local acc = vector():set(raw_vec):mul(-spring)
-	acc:sub(vector():set(vel_vec):mul(damping))
-	vel_vec:add(acc:mul(dt))
-	raw_vec:add(vector():set(vel_vec):mul(dt))
-end
---REFT:redundant
---NOTE: i mean i know this is not accurate (or completely wrong) , but it works...
-function apply_spring_vec_with_decay(raw_vec, vel_vec, dt, spring, damping)
-	--TODO: switch to solution
-	dt = math.min(dt, 1 / 30)
-	local damping_factor = math.max(0, 1 - damping * dt)
-	vel_vec:sub(vector():set(raw_vec):mul(spring:mul(dt))):mul(damping_factor)
-	raw_vec:add(vector():set(vel_vec):mul(dt))
-end
-
----FIXME: duck duck tell me, why this is not working.
--- function apply_spring_vec(raw_vec, vel_vec, dt, spring, damping)
--- 	apply_spring(raw_vec.x, vel_vec.x, dt, spring, damping)
--- 	apply_spring(raw_vec.y, vel_vec.y, dt, spring, damping)
--- 	-- apply_spring(raw_vec.z, vel_vec.z, dt, spring, damping)
--- end
--- function apply_spring_vec_with_decay(raw_vec, vel_vec, dt, spring, damping)
--- 	if not damping then
--- 		--Calculate critical damping
--- 		damping = math.sqrt(spring) * 2
--- 	end
--- 	--TODO: switch to solution
--- 	dt = math.min(dt, 1 / 30)
--- 	local acc = vector():set(raw_vec):mul(-spring):mul(dt)
--- 	vel_vec:add(dt)
--- 	local damping_factor = math.max(0, 1 - damping * dt)
--- 	-- vel_vec:mul(decay factor)
--- 	vel_vec:mul(damping_factor)
--- 	raw_vec:add(vector():set(vel_vec):mul(dt))
--- end
-function apply_recoil_forces(dt, control_strength, damping)
-	local base_feedback = (wpn_profile.shot_pitch / state.fire_interval) * control_strength
-	local feedback_strength = base_feedback * wpn_profile.pull_force
-
-	local strength_vec = vector():set(feedback_strength * 1.5, feedback_strength, 0)
-
-	apply_spring_vec_with_decay(state.hud_rot_raw, state.vel_hud_rot, dt, strength_vec, damping)
-	apply_spring_vec_with_decay(state.hud_pos_raw, state.vel_hud_pos, dt, strength_vec, damping)
-end
-function apply_simple_smooth(dt, smooth)
-	if smooth <= 0.001 then
-		state.hud_rot_smooth = vector():set(state.hud_rot_raw)
-		state.hud_pos_smooth = vector():set(state.hud_pos_raw)
-	else
-		local smooth_factor = utils.math_clamp(smooth * dt, 0, 1)
-		state.hud_rot_smooth = utils.vector_lerp(state.hud_rot_smooth, state.hud_rot_raw, smooth_factor)
-		state.hud_pos_smooth = utils.vector_lerp(state.hud_pos_smooth, state.hud_pos_raw, smooth_factor)
-	end
-end
 --------------------------------------
 ---Debug
 --------------------------------------
