@@ -21,6 +21,10 @@ local burst_shots = 0
 --refreshed per shot, addon koefs x ammo k_cam_dispersion and ads flag
 local is_ads = false
 local shot_cam_k = 1
+--fire bloom state, heat in cone multiples over the cached vanilla base
+local bloom_heat = 0
+local orig_fire_disp = 0
+local bloom_applied = -1
 --attached addon fingerprint, throttled check in on_update
 local addon_sig = ""
 local next_addon_check = 0
@@ -50,6 +54,22 @@ M.settings = {
 	use_increase_rate = false,
 	--gamma zoom values sit at 0.6-0.8 of hip, on would weaken ads below the tune
 	use_zoom_ratio = false,
+	--fire bloom, sustained fire and hip stance widen the real bullet cone
+	use_bloom = true,
+}
+--bloom multiplies the weapons fire_dispersion_base, silencer, ammo and
+--condition koefs stack on top like vanilla (WeaponDispersion.cpp)
+--base is the flat hip penalty, rate grows per shot, heat caps at max
+M.bloom = {
+	decay = 1.5,
+	ads_mul = 0.35,
+	classes = {
+		pistol = { base = 0.9, rate = 0.12, max = 1.2 },
+		smg = { base = 0.3, rate = 0.06, max = 0.8 },
+		ar = { base = 0.35, rate = 0.08, max = 0.9 },
+		lmg = { base = 0.7, rate = 0.1, max = 1.5 },
+		other = { base = 0.5, rate = 0.08, max = 1.0 },
+	},
 }
 --TODO:MCM
 function M.apply_settings()
@@ -123,6 +143,9 @@ end
 function M.get_handling_eases()
 	return firing_handling_ease, idle_handling_ease
 end
+function M.get_bloom_state()
+	return bloom_heat, bloom_applied, orig_fire_disp
+end
 --------------------
 ---Public Setter
 --------------------
@@ -152,6 +175,10 @@ function on_before_fire()
 		--TODO: this is fine,we need a hook when applying upgrades on cur_weapon,to refresh
 		active = M.check_current_weapon()
 	end
+	--the engine reads dispersion when the bullet leaves, apply before the first one
+	if active then
+		update_bloom(0)
+	end
 end
 function on_fire()
 	--first draw reaches here with active already true, check the effector too
@@ -171,6 +198,10 @@ function on_fire()
 	is_firing = true
 
 	update_shot_cam_k()
+	if M.settings.use_bloom then
+		local bc = M.bloom.classes[m_profile.burst_class] or M.bloom.classes.other
+		bloom_heat = math.min(bloom_heat + bc.rate * (is_ads and M.bloom.ads_mul or 1), bc.max)
+	end
 	hudrc.on_fire(handling_power, is_ads, shot_cam_k, burst_shots)
 
 	--vanilla dispersion_frac as mean preserving per shot variance
@@ -210,6 +241,7 @@ function on_update()
 	-- update_sim_shooting(dt)
 
 	update_handling_power(dt)
+	update_bloom(dt)
 	local hud_returned = hudrc.update(dt, is_firing and handling_power or nil)
 	local cam_returned = camrc.update(dt, is_firing)
 	if handling_power <= 0 and hud_returned and cam_returned then
@@ -244,6 +276,7 @@ function reset_recoil()
 
 	camrc.remove_cam_fx()
 	hudrc.disable_hud_adjust()
+	restore_vanilla_fire_disp()
 	RemoveTimeEvent("fuzz_recoil", "bolt_delay_stop")
 
 	logger.dbg("reset recoil")
@@ -260,6 +293,36 @@ function update_handling_power(dt)
 		-- handling_power = 0
 		handling_power = utils.math_clamp(idle_handling_ease:update(handling_power, dt), 0, 1)
 	end
+end
+--drives the live bullet cone, base hip penalty plus decaying heat
+function update_bloom(dt)
+	if not cur_cast_wpn or orig_fire_disp <= 0 then
+		return
+	end
+	if not M.settings.use_bloom then
+		if bloom_applied ~= 1 then
+			cur_cast_wpn:SetFireDispersion(orig_fire_disp)
+			bloom_applied = 1
+		end
+		return
+	end
+	--stance can change without a shot, keep it current
+	is_ads = cur_cast_wpn:IsZoomed() and true or false
+	bloom_heat = bloom_heat * math.exp(-M.bloom.decay * dt)
+	local bc = M.bloom.classes[m_profile.burst_class] or M.bloom.classes.other
+	local mul = 1 + (is_ads and 0 or bc.base) + bloom_heat
+	if math.abs(mul - bloom_applied) > 0.01 then
+		cur_cast_wpn:SetFireDispersion(orig_fire_disp * mul)
+		bloom_applied = mul
+	end
+end
+function restore_vanilla_fire_disp()
+	if not cur_cast_wpn or orig_fire_disp <= 0 then
+		return
+	end
+	cur_cast_wpn:SetFireDispersion(orig_fire_disp)
+	bloom_applied = -1
+	bloom_heat = 0
 end
 function update_sim_shooting(dt)
 	if sim_firing then
@@ -282,6 +345,11 @@ function M.init_weapon(wpn_sec)
 	collect_wpn_info(wpn_sec)
 	m_profile = fuzz_recoil_profile:new():load(wpn_sec, wpn_info)
 	remove_vanilla_cam_recoil()
+
+	--vanilla cone base in radians, bloom multiplies it at runtime
+	orig_fire_disp = cur_cast_wpn and cur_cast_wpn:GetFireDispersion() or 0
+	bloom_heat = 0
+	bloom_applied = -1
 
 	-- inil some recoil paramete from here
 	firing_handling_ease:set_speed(m_profile.handling_speed * M.settings.handling_speed_scale)
@@ -434,6 +502,7 @@ function M.check_current_weapon()
 	--NOTE: give the previous weapon its vanilla cam recoil back,
 	--otherwise re-equipping it would collect our zeroed values
 	restore_vanilla_cam_recoil()
+	restore_vanilla_fire_disp()
 	cur_wpn_id = new_id
 	local wpn_sec = cur_wpn:section()
 	local flag, kind = should_active(wpn_sec)
@@ -501,6 +570,18 @@ end
 function M.imgui_config_drawer()
 	firing_handling_ease:draw_imgui("Handling inc")
 	idle_handling_ease:draw_imgui("Handling dec")
+	if ImGui.TreeNode("Fire Bloom") then
+		ImGui.Text(string.format("heat %.2f, applied x%.2f, base %.4frad", bloom_heat, bloom_applied, orig_fire_disp))
+		_, M.bloom.decay = ImGui.SliderFloat("Decay", M.bloom.decay, 0.2, 5.0, "%.2f")
+		_, M.bloom.ads_mul = ImGui.SliderFloat("ADS Mul", M.bloom.ads_mul, 0.0, 1.0, "%.2f")
+		for _, class in ipairs({ "pistol", "smg", "ar", "lmg", "other" }) do
+			local bc = M.bloom.classes[class]
+			_, bc.base = ImGui.SliderFloat(class .. " base", bc.base, 0.0, 2.0, "%.2f")
+			_, bc.rate = ImGui.SliderFloat(class .. " rate", bc.rate, 0.0, 0.5, "%.3f")
+			_, bc.max = ImGui.SliderFloat(class .. " max", bc.max, 0.0, 3.0, "%.2f")
+		end
+		ImGui.TreePop()
+	end
 end
 --------------------------------------
 ---Debug

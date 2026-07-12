@@ -84,6 +84,9 @@ local function classify_burst_class(kind, mag_size)
 	if kind == "w_smg" then
 		return "smg"
 	end
+	if kind == "w_pistol" then
+		return "pistol"
+	end
 	if kind == "w_rifle" then
 		return (mag_size or 30) >= 50 and "lmg" or "ar"
 	end
