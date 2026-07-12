@@ -15,6 +15,9 @@ M.mark_size = 8
 
 local marks = {}
 local ghosts = {}
+--rolling window for the live spread readout, survives the hot to ghost handoff
+local recent = {}
+local RECENT_CAP = 30
 
 --r, g, b like the sim viewer, hot bullet yellow and dark blue ghost
 local HOT = { r = 255, g = 226, b = 74 }
@@ -28,6 +31,7 @@ end
 function M.clear()
 	marks = {}
 	ghosts = {}
+	recent = {}
 end
 
 function M.on_impact(t)
@@ -39,6 +43,33 @@ function M.on_impact(t)
 		return
 	end
 	marks[#marks + 1] = { pos = vector():set(t.position), t = time_global() }
+	recent[#recent + 1] = marks[#marks].pos
+	if #recent > RECENT_CAP then
+		table.remove(recent, 1)
+	end
+end
+
+--live spread of the recent impacts, rms radius around the centroid
+--meters plus the angle it subtends from the player, wall test friendly
+local function spread_stats()
+	local n = #recent
+	if n < 3 then
+		return nil
+	end
+	local c = vector():set(0, 0, 0)
+	for _, p in ipairs(recent) do
+		c:add(p)
+	end
+	c:mul(1 / n)
+	local sum = 0
+	for _, p in ipairs(recent) do
+		local d = vector():set(p):sub(c)
+		sum = sum + d:magnitude() * d:magnitude()
+	end
+	local rms = math.sqrt(sum / n)
+	local dist = db.actor and db.actor:position():distance_to(c) or 0
+	local ang = dist > 0.1 and math.deg(math.atan(rms / dist)) or 0
+	return n, rms, dist, ang
 end
 
 local function draw_mark(pos, color, size, id, sx, sy)
@@ -110,6 +141,14 @@ end
 function M.imgui_settings_drawer()
 	_, M.enabled = ImGui.Checkbox("Impact Markers", M.enabled)
 	_, M.ghosts = ImGui.Checkbox("Impact Ghosts", M.ghosts)
+	local n, rms, dist, ang = spread_stats()
+	if n then
+		ImGui.Text(string.format("Spread last %d: rms %.1fcm @ %.1fm (%.2fdeg)", n, rms * 100, dist, ang))
+		local bh = fuzz_recoil.get_bloom_state()
+		ImGui.Text(string.format("Bloom heat now: %.2f", bh))
+	else
+		ImGui.Text("Spread: need 3+ marked impacts")
+	end
 	_, M.fade_time = ImGui.SliderFloat("Mark Fade Time", M.fade_time, 1.0, 15.0, "%.1fs")
 	_, M.max_ghosts = ImGui.SliderFloat("Max Ghosts", M.max_ghosts, 20, 500, "%.0f")
 	_, M.mark_size = ImGui.SliderFloat("Mark Size", M.mark_size, 3, 20, "%.0f")
