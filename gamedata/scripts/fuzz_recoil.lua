@@ -136,8 +136,8 @@ function on_fire()
 
 	is_firing = true
 
-	hudrc.on_fire()
-	camrc.on_fire(handling_power, m_profile.cam_recoil_power, m_profile.shot_cam_impulse_factor)
+	hudrc.on_fire(handling_power)
+	camrc.on_fire(handling_power)
 end
 function on_update()
 	local dt = device().time_delta / 1000
@@ -172,8 +172,8 @@ end
 --i think cached table is better ,but we still have to update the profile evertime
 function start_recoil()
 	active = true
-	camrc.start()
-	hudrc.start()
+	camrc.start(m_profile)
+	hudrc.start(m_profile)
 	RemoveTimeEvent("fuzz_recoil", "bolt_delay")
 	logger.dbg("Initialize Recoil")
 end
@@ -234,8 +234,8 @@ function M.init_weapon(wpn_sec)
 		idle_handling_ease:reset()
 	end
 
-	camrc.init(m_profile.cam_return_speed, m_profile.shot_delay_enabled and "cubic" or "exp")
-	hudrc.init(wpn_sec, m_profile)
+	camrc.init(m_profile.shot_delay_enabled and "cubic" or "exp")
+	hudrc.init(wpn_sec)
 
 	logger.dbg("Initialize weapon")
 end

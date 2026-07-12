@@ -292,7 +292,7 @@ function renderProfile()
 		prf:imgui_editor_drawer()
 		ImGui.Text(export_hint)
 		if ImGui.Button("Apply", vector2():set(-1, 25)) then
-			hudrc.load_profile(prf)
+			hudrc.cache_profile(prf)
 		end
 		if ImGui.Button("Export to LTX", vector2():set(-1, 25)) then
 			export_profile_to_ltx(prf, wpn_sec)

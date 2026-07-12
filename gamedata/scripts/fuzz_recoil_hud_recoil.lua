@@ -20,6 +20,10 @@ local pos_raw = vector():set(0, 0, 0)
 local rot_raw = vector():set(0, 0, 0)
 local pos_smooth = vector():set(0, 0, 0)
 local rot_smooth = vector():set(0, 0, 0)
+
+--------------
+local yaw_sign = -1
+
 --------------
 --Cahced variables
 --------------
@@ -159,7 +163,7 @@ local function init_offset(wpn_sec)
 			value = utils.get_string(hud_sec, key)
 		end
 		if value == "" then
-			return v.def or vector():set(0,0,0)
+			return v.def or vector():set(0, 0, 0)
 		end
 		return utils_data.string_to_vector(value)
 	end
@@ -168,8 +172,8 @@ local function init_offset(wpn_sec)
 		hud_adjust.set_vector(v.idxa, v.idxb, _vec.x, _vec.y, _vec.z)
 	end
 	ori_hand_trs = {
-		get_hud_vector(hud, "hands_position", { def = vector():set(0,0,0) }),
-		get_hud_vector(hud, "hands_orientation", { def = vector():set(0,0,0) }),
+		get_hud_vector(hud, "hands_position", { def = vector():set(0, 0, 0) }),
+		get_hud_vector(hud, "hands_orientation", { def = vector():set(0, 0, 0) }),
 	}
 	--credit:@demonized's weapon tilt cover
 	local offset_key_list = {
@@ -223,7 +227,7 @@ local function init_offset(wpn_sec)
 	end
 	hud_adjust.enabled(false)
 end
-function M.load_profile(profile)
+function M.cache_profile(profile)
 	fire_interval = profile.fire_interval
 	firing_damping = profile.firing_damping
 	pull_force = profile.pull_force
@@ -239,11 +243,17 @@ end
 --------------
 --Spring Mode
 --------------
-local function on_fire_spring()
+local function on_fire_spring(handling_power)
+	-- local yaw_impulse = (math.random() * 2 - 1) * wpn_profile.shot_yaw
 	vel_rot.y = vel_rot.y + force_pitch --/ mass_factor
 	vel_pos.y = vel_pos.y + force_y --/mass_factor
 
-	local yaw_impulse = (math.random() * 2 - 1) * force_yaw
+	local yaw_kick_enhancer = (math.random() * 2 - 1)
+	if handling_power < 0.9 then
+		yaw_kick_enhancer = (math.random() / 10 + 0.9) * yaw_sign
+	end
+
+	local yaw_impulse = force_yaw * yaw_kick_enhancer
 	vel_rot.x = vel_rot.x + yaw_impulse
 
 	--NOTE:count_ratio = 1/20
@@ -319,13 +329,14 @@ function M.awake()
 	return M
 end
 
-function M.init(wpn_sec, profile)
+function M.init(wpn_sec)
 	init_offset(wpn_sec)
-	M.load_profile(profile)
 end
-function M.start()
+function M.start(profile)
+	M.cache_profile(profile)
 	M.reset_hud_hand()
 	M.enable_hud_adjust()
+	yaw_sign = math.random() > 0.5 and 1 or -1
 end
 function M.stop()
 	logger.dbg("reset hud recoil")
@@ -342,8 +353,8 @@ function M.stop()
 	M.reset_hud_hand()
 end
 
-function M.on_fire()
-	_on_fire_fn()
+function M.on_fire(handling_power)
+	_on_fire_fn(handling_power)
 end
 function M.update(dt, handling_power)
 	return _update_fn(dt, handling_power)

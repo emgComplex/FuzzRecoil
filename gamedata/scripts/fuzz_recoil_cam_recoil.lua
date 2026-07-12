@@ -39,7 +39,13 @@ local bonus_return_speed = 0
 
 local _update_fn = M.update_exp
 ----------
+---Cached vars
+----------
+local lift_force = 0
+local impulse_factor = 0
+----------
 ---Pulibc Getters
+----------
 function M.get_angle()
 	return m_angle
 end
@@ -75,14 +81,19 @@ function M.awake()
 	M.instance = M
 	return M
 end
-function M.init(bspeed, mode)
-	bonus_return_speed = bspeed or 0
+function M.init(mode)
 	if mode then
 		M.switch_mode(mode)
 	end
 	M.stop()
 end
-function M.start()
+function M.cache_profile(profile)
+	lift_force = profile.cam_recoil_power
+	impulse_factor = profile.shot_cam_impulse_factor
+	bonus_return_speed = profile.cam_return_speed
+end
+function M.start(profile)
+	M.cache_profile(profile)
 	create_cam_effector()
 	is_returned = false
 end
@@ -93,10 +104,10 @@ function M.stop()
 	m_angle = 0
 	m_vel = 0
 end
-function M.on_fire(handle, wforce, ammo_scale, scale)
+function M.on_fire(handle)
 	is_returned = false
 	handle = math.pow(1 - handle, 2)
-	local cam_impulse = wforce * handle * ammo_scale --* scale
+	local cam_impulse = lift_force * handle * impulse_factor --* scale
 	m_vel = m_vel + cam_impulse
 end
 
