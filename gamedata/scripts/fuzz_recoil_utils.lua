@@ -2,6 +2,7 @@
 local M = {}
 _G.fuzz_recoil_utils = M
 local logger = fuzz_recoil_logger
+local frm = fuzz_recoil
 
 function M.get_string(sec, param, def)
 	return SYS_GetParam(0, sec, param, def ~= nil and def or "")

@@ -1,17 +1,13 @@
---FIXME: this namesacpe is bad for refactor
-local frm = fuzz_recoil -- or require("scripts.fuzz_recoil")
+local frm = fuzz_recoil
 local utils = fuzz_recoil_utils
 local logger = fuzz_recoil_logger
 local cvter = fuzz_recoil_converter
-local camrc = fuzz_recoil_cam.instance
+local camrc = fuzz_recoil_cam_recoil.instance
+local hudrc = fuzz_recoil_hud_recoil.instance
 --stylua: ignore start
 --stylua: ignore end
 -- local log_text = frm.log_text
 -- l
-
---own instances, sliders write fields in place and must not touch the shared VEC_ZERO
-local test_cur_pos_inc = vector():set(0, 0, 0)
-local test_cur_rot_inc = vector():set(0, 0, 0)
 
 local showImguiWin = fuzz_dev and true or false
 local overlay_toggle = fuzz_dev and true or false
@@ -26,6 +22,45 @@ local export_hint = "Export profile to your game's bin folder"
 
 --NOTE: we have to updadte all raw vector and nullable ref here
 --silly but work for debuging
+
+local LinePlot = {}
+LinePlot.__index = LinePlot
+function LinePlot.new(label, max_size, min_val, max_val, width, height)
+	local self = setmetatable({}, LinePlot)
+
+	self.label = label or "Plot"
+	self.max_size = max_size or 100
+	self.min_val = min_val or -1.0
+	self.max_val = max_val or 1.0
+	self.width = width or 300
+	self.height = height or 150
+
+	self.history_data = {}
+	for i = 1, self.max_size do
+		table.insert(self.history_data, 0)
+	end
+
+	return self
+end
+function LinePlot:draw(new_value)
+	table.remove(self.history_data, 1)
+	table.insert(self.history_data, new_value)
+
+	local min_y = self.min_val or nil
+	local max_y = self.max_val or nil
+
+	--NOTE: sadly no lua bindings for plot...
+	ImGui.PlotLines(
+		self.label,
+		self.history_data,
+		self.max_size,
+		0,
+		nil,
+		min_y,
+		max_y,
+		vector2():set(self.width, self.height)
+	)
+end
 
 local LinePlotHack = {}
 LinePlotHack.__index = LinePlotHack
@@ -80,8 +115,8 @@ function renderImguiTab()
 	_, showInfo = ImGui.Checkbox("Info", showInfo)
 	ImGui.SameLine()
 	if ImGui.Button("Load Weapon", vector2():set(100, 25)) then
-		if frm.get_current_weapon() then
-			debug_text1 = frm.cur_wpn:section() .. ":" .. frm.state.cur_wpn_id
+		if frm.check_current_weapon() then
+			debug_text1 = frm.get_cur_wpn():section() .. ":" .. frm.get_cur_wpn_id()
 		else
 			debug_text1 = "Failed to load weapon"
 		end
@@ -103,11 +138,13 @@ function renderImguiTab()
 	end
 	----------------
 	----------------
-	if frm.cur_wpn then
-		ImGui.TextColored(vector4():set(0, 1, 0, 1), "Weapon: " .. frm.cur_wpn:section())
+	--TODO: pass wpn,id,sec to render funcs
+	local cur_wpn = frm.get_cur_wpn()
+	if cur_wpn then
+		ImGui.TextColored(vector4():set(0, 1, 0, 1), "Weapon: " .. cur_wpn:section())
 		ImGui.Separator()
 		if ImGui.Button("ResetHand") then
-			frm.reset_hud_hand()
+			hudrc.reset_hud_hand()
 		end
 		ImGui.SameLine()
 		if ImGui.Button("ForeceResetRecoil", vector2():set(150, 25)) then
@@ -119,7 +156,7 @@ function renderImguiTab()
 			ImGui.TreePop()
 		end
 		if ImGui.TreeNode("HUD Control") then
-			renderHudControls()
+			hudrc.renderHudControls()
 			ImGui.TreePop()
 		end
 		if ImGui.TreeNode("Debug Vars") then
@@ -128,6 +165,7 @@ function renderImguiTab()
 		end
 	end
 end
+
 --NOTE: all windows must draw inside imgui_on_render (main thread, open frame)
 --raw AddUniqueCall drawing races the render thread when mt_level_call is on
 ImGui.Groups.Main.Widget(function()
@@ -153,7 +191,7 @@ function log_overlay()
 	end
 	ImGui.SetNextWindowSize(vector2():set(400, 200), ImGuiCond.FirstUseEver)
 	expanded, _ = ImGui.Begin("Recoil Log", true)
-	if expanded and frm.cur_wpn then
+	if expanded and frm.get_cur_wpn() then
 		-- Force scroll if the user was already at the bottom, or if a new item triggered a scroll
 		ImGui.Text(logger.get_log_text())
 		if auto_scroll_logs and ImGui.GetScrollY() >= ImGui.GetScrollMaxY() then
@@ -171,14 +209,14 @@ function plot_overlay()
 	end
 	ImGui.SetNextWindowSize(vector2():set(300, 600), ImGuiCond.FirstUseEver)
 	expanded, _ = ImGui.Begin("Histogram", true)
-	if expanded and frm.cur_wpn then
+	if expanded and frm.get_cur_wpn() then
 		if ImGui.TreeNode("cam_angle") then
-			local new_val = frm.state.active and camrc.angle or nil
+			local new_val = frm.is_active() and camrc.get_angle() or nil
 			cam_angle_plot:draw(new_val)
 			ImGui.TreePop()
 		end
 		if ImGui.TreeNode("handling_power") then
-			new_val = frm.state.active and frm.state.handling_power or nil
+			new_val = frm.is_active() and frm.get_handling_power() or nil
 			handling_power_plot:draw(new_val)
 			ImGui.TreePop()
 		end
@@ -199,14 +237,16 @@ function profile_overlay()
 		end
 	end
 	expanded, _ = ImGui.Begin("Weapon Profile", true)
-	if expanded and frm.cur_wpn then
-		ImGui.Text(frm.cur_wpn:section() .. ":" .. frm.state.cur_wpn_id)
-		for k, v in pairs(frm.wpn_info) do
+	local cur_wpn = frm.get_cur_wpn()
+	if expanded and cur_wpn then
+		ImGui.Text(cur_wpn:section() .. ":" .. frm.get_cur_wpn_id())
+		local wpn_info = frm.get_wpn_info()
+		for k, v in pairs(wpn_info) do
 			text_drawer(k, v)
 		end
 		ImGui.Separator()
 		ImGui.TextColored(vector4():set(0, 1, 0.5, 1), "Converted")
-		for k, v in pairs(frm.wpn_profile) do
+		for k, v in pairs(frm.get_recoil_profile().raw_profile) do
 			text_drawer(k, v)
 		end
 	end
@@ -219,94 +259,47 @@ function info_overlay()
 	end
 	ImGui.SetNextWindowSize(vector2():set(400, 600), ImGuiCond.FirstUseEver)
 	expanded, _ = ImGui.Begin("Recoil Info", true)
-	if expanded and frm.cur_wpn then
+	if expanded and frm.get_cur_wpn() then
 		ImGui.Separator()
 
 		ImGui.Text(
 			string.format(
 				"Active:%s,Firing:%s,Cam_FX:%s",
-				frm.state.active,
-				frm.state.is_firing,
-				level.check_cam_effector(frm.CAM_FX_ID)
+				frm.is_active(),
+				frm.is_firing(),
+				camrc.has_camera_effector()
 			)
 		)
-		ImGui.Text(string.format("CamRetrun:%s,HudReturn:%s", camrc.is_returned, frm.state.is_hud_returned))
+		ImGui.Text(string.format("CamRetrun:%s,HudReturn:%s", camrc.is_returned(), hudrc.is_returned()))
 
-		ImGui.ProgressBar(
-			frm.state.handling_power,
-			vector2():set(-1, 0),
-			string.format("Handling power: %.1f%%", frm.state.handling_power * 100)
-		)
+		local hdl_power = frm.get_handling_power()
+		ImGui.ProgressBar(hdl_power, vector2():set(-1, 0), string.format("Handling power: %.1f%%", hdl_power * 100))
 		ImGui.Separator()
-		ImGui.TextColored(vector4():set(0, 1, 0.5, 1), "Hud Trans offset")
-		vector_imgui_text_drawer(frm.state.hud_pos_raw, "Pos")
-		vector_imgui_text_drawer(frm.state.hud_rot_raw, "Rot", true)
-		vector_imgui_text_drawer(frm.state.vel_hud_rot, "Vel Rot", true)
-		vector_imgui_text_drawer(frm.state.hud_rot_smooth, "Smoothed Rot", true)
-		ImGui.Text(string.format("Raw Pitch: %.2f", math.deg(frm.state.hud_rot_raw.y)))
-		ImGui.Text(string.format("Raw Target:Y%.2f|P %.2f", frm.state.hud_rot_raw.x, frm.state.hud_rot_raw.y))
-		-- ImGui.Text(string.format("EMA Smooth Y:%.2f P: %.2f", state.hud_rot_smooth.x, state.hud_rot_smooth.y))
-
-		local v_cap_ratio = math.abs(frm.state.hud_rot_smooth.y) / frm.config.max_hud_rot.y
-		ImGui.ProgressBar(v_cap_ratio, vector2():set(-1, 0), string.format("Pitch %.1f%%", v_cap_ratio * 100))
-
-		local yaw_value = frm.state.hud_rot_smooth.x
-		local yaw_display = yaw_value
-		local _, _ = ImGui.SliderFloat("##yaw_slider", yaw_display, -0.5, 0.5, string.format("Yaw: %.4f", yaw_value))
-
+		hudrc.imgui_info_drawer()
 		ImGui.Separator()
-		ImGui.TextColored(vector4():set(0, 1, 0.5, 1), "Camera recoil")
-		ImGui.Text(string.format("Cam pitch: %.3f", camrc.angle))
-		ImGui.Text(string.format("Cam velocity: %.3f", camrc.vel))
-		ImGui.Text(string.format("Shot cam k (addon x ammo): %.3f", frm.state.shot_cam_k))
-		-- cam_total_up
+		camrc.imgui_info_drawer()
 	end
 	ImGui.End()
 end
 
+--TODO:! load and apply modifier
+--don't forget sort this out ,man
 function renderProfile()
 	if ImGui.TreeNode("Weapon profile") then
+		local prf = frm.get_recoil_profile()
+		local wpn_sec = frm.get_cur_wpn():section()
 		ImGui.Text("To input a value directly,You can crlt+click on the slider")
-		_, frm.wpn_profile.is_bolt_action = ImGui.Checkbox("Bolt Action", frm.wpn_profile.is_bolt_action)
-		_, frm.wpn_profile.cam_recoil_power =
-			ImGui.SliderFloat("Cam Recoil Power", frm.wpn_profile.cam_recoil_power, 0.1, 16.0, "%.2f")
-		_, frm.wpn_profile.cam_return_speed =
-			ImGui.SliderFloat("Cam Return Speed", frm.wpn_profile.cam_return_speed, 0.5, 2, "%.2f")
-		_, frm.wpn_profile.cam_max_angle =
-			ImGui.SliderFloat("Cam Max Angle", frm.wpn_profile.cam_max_angle, 0, 1, "%.3frad")
-		_, frm.wpn_profile.pitch_frac = ImGui.SliderFloat("Pitch Frac", frm.wpn_profile.pitch_frac, 0, 1, "%.2f")
-
-		ImGui.Text("Shot Impact")
-		_, frm.wpn_profile.shot_pitch = ImGui.SliderFloat("Pitch", frm.wpn_profile.shot_pitch, 0, 60, "%.2f")
-		_, frm.wpn_profile.shot_pos_y = ImGui.SliderFloat("PosY", frm.wpn_profile.shot_pos_y, -0.06, 0.06, "%.4f")
-		frm.wpn_profile.shot_pos_y = frm.wpn_profile.shot_pos_y
-		_, frm.wpn_profile.shot_yaw = ImGui.SliderFloat("Yaw", frm.wpn_profile.shot_yaw, 0, 60, "%.2f")
-		_, frm.wpn_profile.shot_pos_x = ImGui.SliderFloat("PosX", frm.wpn_profile.shot_pos_x, 0.0001, 0.0025, "%.4f")
-		_, frm.wpn_profile.shot_pos_z =
-			ImGui.SliderFloat("PosZ (shoulder)", frm.wpn_profile.shot_pos_z, 0.0, 0.02, "%.4f")
-		frm.wpn_profile.shot_pos_x = frm.wpn_profile.shot_pos_x
-		_, frm.wpn_profile.pull_force = ImGui.SliderFloat("Pull Force", frm.wpn_profile.pull_force, 0.1, 4.0, "%.2f")
-		_, frm.wpn_profile.firing_damping =
-			ImGui.SliderFloat("Spring Damping", frm.wpn_profile.firing_damping, 0.1, 4.0, "%.2f")
-		-- _, wpn_profile.hud_return_speed =
-		-- 	ImGui.SliderFloat("Hud Return Speed", config.hud_return_speed, 0.5, 2, "%.2frad")
-
-		ImGui.Text("Handling")
-		handle_speed_change, frm.wpn_profile.handling_speed =
-			ImGui.SliderFloat("Handling speed", frm.wpn_profile.handling_speed, 0.1, 2.0, "%.2f")
-		if handle_speed_change then
-			frm.config.firing_handling_ease:set_speed(frm.wpn_profile.handling_speed * frm.settings.handling_speed_scale)
-			frm.config.idle_handling_ease:set_speed(frm.wpn_profile.handling_speed * frm.settings.handling_speed_scale)
-		end
-		_, frm.wpn_profile.increase_rate =
-			ImGui.SliderFloat("Increase Rate", frm.wpn_profile.increase_rate, 0.0, 2.0, "%.2f")
-		ImGui.Separator()
+		prf:imgui_editor_drawer()
 		ImGui.Text(export_hint)
-		if ImGui.Button("Export to LTX", vector2():set(-1, 25)) then
-			export_profile_to_ltx()
+		if ImGui.Button("Apply", vector2():set(-1, 25)) then
+			hudrc.cache_profile(prf)
+			camrc.cache_profile(prf)
 		end
-		if ImGui.Button("Convert from vannilla", vector2():set(-1, 25)) then
-			cvter.convert(frm.wpn_info, frm.wpn_profile)
+		if ImGui.Button("Export to LTX", vector2():set(-1, 25)) then
+			export_profile_to_ltx(prf, wpn_sec)
+		end
+		if ImGui.Button("Reload Profile", vector2():set(-1, 25)) then
+			frm.init_weapon(wpn_sec)
 		end
 		ImGui.TreePop()
 	end
@@ -315,93 +308,23 @@ function renderConfig()
 	ImGui.TextColored(vector4():set(1, 0, 0, 1), "vvvvv DO NOT TOUCH THIS vvvvv")
 	if ImGui.TreeNode("Config") then
 		ImGui.TextColored(vector4():set(1, 1, 0, 1), "UNLESS YOU KNOW WHAT YOU ARE DOING")
+		frm.imgui_config_drawer()
+		camrc.imgui_config_drawer()
 		ImGui.Separator()
-		frm.config.firing_handling_ease:draw_imgui("Handling inc")
-		frm.config.idle_handling_ease:draw_imgui("Handling dec")
-		_, frm.config.base_cam_return_speed =
-			ImGui.SliderFloat("Base Cam Return Speed", frm.config.base_cam_return_speed, 0.1, 10, "%.2frad")
-		_, frm.config.min_cam_return_step =
-			ImGui.SliderFloat("Min Cam Return step", frm.config.min_cam_return_step, 0.001, 0.01, "%.4frad")
-
-		ImGui.Separator()
-		ImGui.TextColored(vector4():set(0.3, 0.8, 1, 1), "Physics")
-		_, frm.config.cam_impulse_decay =
-			ImGui.SliderFloat("Cam Impulse Decay", frm.config.cam_impulse_decay, 1.0, 50.0, "%.2f")
-		_, frm.config.cam_step_div = ImGui.SliderFloat("Cam Step Div", frm.config.cam_step_div, 1.0, 50.0, "%.2f")
-		_, frm.config.smooth_firing = ImGui.SliderFloat("Smooth Firing", frm.config.smooth_firing, 0.0, 10.0, "%.2f")
-		_, frm.config.smooth_return = ImGui.SliderFloat("Smooth Return", frm.config.smooth_return, 5.0, 15.0, "%.2f")
-		_, frm.config.return_spring = ImGui.SliderFloat("Return Spring", frm.config.return_spring, 0.1, 30.0, "%.2f")
-		_, frm.config.return_damping = ImGui.SliderFloat("Return Damping", frm.config.return_damping, 0.1, 16.0, "%.2f")
-		ImGui.Text("Settings")
-		_, frm.settings.hud_kick_v2 = ImGui.Checkbox("Tarkov HUD kick (v2)", frm.settings.hud_kick_v2)
-		if frm.settings.hud_kick_v2 and ImGui.TreeNode("V2 Kick Tuning") then
-			_, frm.config.v2_pitch_scale =
-				ImGui.SliderFloat("Pitch Scale", frm.config.v2_pitch_scale, 0.01, 0.3, "%.3f")
-			_, frm.config.v2_yaw_scale = ImGui.SliderFloat("Yaw Scale", frm.config.v2_yaw_scale, 0.005, 0.15, "%.3f")
-			_, frm.config.v2_pos_scale = ImGui.SliderFloat("Pos Scale", frm.config.v2_pos_scale, 0.005, 0.1, "%.3f")
-			_, frm.config.v2_recover_base =
-				ImGui.SliderFloat("Recover Base", frm.config.v2_recover_base, 0.2, 6.0, "%.2f")
-			_, frm.config.v2_recover_gain =
-				ImGui.SliderFloat("Recover Gain", frm.config.v2_recover_gain, 0.0, 10.0, "%.2f")
-			_, frm.config.v2_h_recover_mul =
-				ImGui.SliderFloat("Horiz Recover Mul", frm.config.v2_h_recover_mul, 0.1, 1.0, "%.2f")
-			_, frm.config.v2_z_recover = ImGui.SliderFloat("Z Pop Recover", frm.config.v2_z_recover, 2.0, 20.0, "%.2f")
-			_, frm.config.smooth_firing_v2 =
-				ImGui.SliderFloat("Smooth Firing V2", frm.config.smooth_firing_v2, 5.0, 60.0, "%.1f")
-			_, frm.config.v2_pitch_jitter =
-				ImGui.SliderFloat("Pitch Jitter", frm.config.v2_pitch_jitter, 0.0, 0.5, "%.2f")
-			_, frm.config.v2_plateau_jitter =
-				ImGui.SliderFloat("Plateau Jitter", frm.config.v2_plateau_jitter, 0.0, 0.8, "%.2f")
-			_, frm.config.v2_wander = ImGui.SliderFloat("Wander Accel", frm.config.v2_wander, 0.0, 0.5, "%.2f")
-			_, frm.config.v2_wander_vel =
-				ImGui.SliderFloat("Wander Max Vel", frm.config.v2_wander_vel, 0.05, 0.6, "%.2f")
-			_, frm.config.v2_burst_kick =
-				ImGui.SliderFloat("Burst Direction Kick", frm.config.v2_burst_kick, 0.0, 0.5, "%.2f")
-			_, frm.config.v2_wander_damp =
-				ImGui.SliderFloat("Wander Momentum", frm.config.v2_wander_damp, 0.5, 0.98, "%.2f")
-			_, frm.config.v2_wander_max =
-				ImGui.SliderFloat("Wander Max", frm.config.v2_wander_max, 0.2, 2.0, "%.2f")
-			if ImGui.TreeNode("Burst Heat") then
-				_, frm.config.v2_heat_max = ImGui.SliderFloat("Heat Max", frm.config.v2_heat_max, 1.0, 4.0, "%.2f")
-				for _, cls in ipairs({ "smg", "ar", "lmg", "other" }) do
-					local hc = frm.config.v2_heat[cls]
-					ImGui.PushID(cls)
-					ImGui.Text(cls)
-					ImGui.SameLine()
-					_, hc.grace = ImGui.SliderFloat("grace", hc.grace, 0, 20, "%.0f")
-					ImGui.SameLine()
-					_, hc.rate = ImGui.SliderFloat("rate", hc.rate, 0.0, 0.3, "%.2f")
-					ImGui.PopID()
-				end
-				ImGui.TreePop()
-			end
-			if ImGui.TreeNode("ADS / Hip") then
-				_, frm.config.ads_kick_mul = ImGui.SliderFloat("ADS Kick", frm.config.ads_kick_mul, 0.5, 1.5, "%.2f")
-				_, frm.config.ads_wander_mul =
-					ImGui.SliderFloat("ADS Wander", frm.config.ads_wander_mul, 0.8, 2.0, "%.2f")
-				_, frm.config.hip_kick_mul = ImGui.SliderFloat("Hip Kick", frm.config.hip_kick_mul, 0.8, 2.5, "%.2f")
-				_, frm.config.hip_spread_mul =
-					ImGui.SliderFloat("Hip Spread", frm.config.hip_spread_mul, 1.0, 5.0, "%.2f")
-				_, frm.config.hip_jitter_mul =
-					ImGui.SliderFloat("Hip Jitter", frm.config.hip_jitter_mul, 1.0, 5.0, "%.2f")
-				_, frm.config.hip_recover_mul =
-					ImGui.SliderFloat("Hip Recover", frm.config.hip_recover_mul, 0.4, 1.2, "%.2f")
-				_, frm.config.hip_wander_box =
-					ImGui.SliderFloat("Hip Wander Box", frm.config.hip_wander_box, 1.0, 2.2, "%.2f")
-				ImGui.TreePop()
-			end
-			ImGui.TreePop()
+		hudrc.imgui_config_drawer()
+		if ImGui.Button("Dump All Weapon datas(need json.lua)", vector2():set(-1, 25)) then
+			utils.get_all_weapon_sections()
 		end
+		ImGui.Separator()
+		ImGui.Text("Settings")
+		_, frm.settings.hud_kick_v2 = ImGui.Checkbox("Tarkov Kick (V2 instant)", frm.settings.hud_kick_v2)
+		_, frm.settings.bolt_action_Y_lift = ImGui.Checkbox("Bolt-Action Lift", frm.settings.bolt_action_Y_lift)
 		_, frm.settings.cam_drag = ImGui.SliderFloat("Cam Drag", frm.settings.cam_drag, 5.0, 20.0, "%.2f")
-		ImGui.Text("Vanilla data extras (default off)")
-		_, frm.settings.use_pitch_frac =
-			ImGui.Checkbox("Pitch variance (cam_dispersion_frac)", frm.settings.use_pitch_frac)
-		_, frm.settings.use_cam_max_angle =
-			ImGui.Checkbox("Cam climb cap (cam_max_angle)", frm.settings.use_cam_max_angle)
-		_, frm.settings.use_addon_ammo_koefs =
-			ImGui.Checkbox("Addon and ammo recoil koefs", frm.settings.use_addon_ammo_koefs)
-		_, frm.settings.use_increase_rate =
-			ImGui.Checkbox("Recoil expansion (cam_dispersion_inc)", frm.settings.use_increase_rate)
+		ImGui.Text("Vanilla data extras")
+		_, frm.settings.use_pitch_frac = ImGui.Checkbox("Pitch Frac Variance", frm.settings.use_pitch_frac)
+		_, frm.settings.use_cam_max_angle = ImGui.Checkbox("Cam Max Angle Cap", frm.settings.use_cam_max_angle)
+		_, frm.settings.use_addon_ammo_koefs = ImGui.Checkbox("Addon & Ammo Koefs", frm.settings.use_addon_ammo_koefs)
+		_, frm.settings.use_increase_rate = ImGui.Checkbox("Burst Expansion", frm.settings.use_increase_rate)
 		_, frm.settings.recoil_v_scale =
 			ImGui.SliderFloat("Recoil scale(Vert)", frm.settings.recoil_v_scale, 0.1, 2.0, "%.2f")
 		_, frm.settings.recoil_h_scale =
@@ -412,13 +335,10 @@ function renderConfig()
 			ImGui.SliderFloat("Increase Rate", frm.settings.increase_rate_scale, 0.1, 2.0, "%.2f")
 		_, frm.settings.handling_speed_scale =
 			ImGui.SliderFloat("Handling Speed", frm.settings.handling_speed_scale, 0.1, 2.0, "%.2f")
-		-- ImGui.TextColored(vector4():set(0.2, 0.9, 0.4, 1), "=== HUD EMA FILTER CONTROLS ===")
-		-- _, config.hud_fire_step = ImGui.SliderFloat("Fire Smooth Steps", config.hud_fire_step, 1, 12)
-		-- _, config.hud_return_step = ImGui.SliderFloat("Return Smooth Steps", config.hud_return_step, 2, 25)
-		if ImGui.Button("Dump All Weapon datas(need json.lua)", vector2():set(-1, 25)) then
-			utils.get_all_weapon_sections()
-		end
 		ImGui.TreePop()
+		if ImGui.Button("Apply Settings", vector2():set(-1, 25)) then
+			frm.apply_settings()
+		end
 	end
 	--TODO:refactor this to base
 	ImGui.Separator()
@@ -446,93 +366,48 @@ function renderDebugVars()
 	_, vars.float_x2 = ImGui.SliderFloat("float_x2", vars.float_x2, 0, 50, "%.2f")
 end
 
-function renderHudControls()
-	ImGui.Text("Original Hand Pos:" .. utils.vector_to_string(frm.ori_hand_trs[1]))
-	ImGui.Text("Original Hand Rot:" .. utils.vector_to_string(frm.ori_hand_trs[2]))
-	ImGui.Text(
-		string.format(
-			"Current HUD Pos: X:%.3f, Y:%.3f, Z:%.3f",
-			frm.cur_hud_pos.x,
-			frm.cur_hud_pos.y,
-			frm.cur_hud_pos.z
-		)
-	)
-	ImGui.Text(
-		string.format(
-			"Current HUD Rot: X:%.3f, Y:%.3f, Z:%.3f",
-			frm.cur_hud_rot.x,
-			frm.cur_hud_rot.y,
-			frm.cur_hud_rot.z
-		)
-	)
-	ImGui.Separator()
-
-	ImGui.Text("Direct")
-
-	local changed_px, n_px = ImGui.SliderFloat("Pos X", frm.cur_hud_pos.x, -5.2, 5.2, "%.6f")
-	local changed_py, n_py = ImGui.SliderFloat("Pos Y", frm.cur_hud_pos.y, -5.2, 5.2, "%.6f")
-	local changed_pz, n_pz = ImGui.SliderFloat("Pos Z", frm.cur_hud_pos.z, -5.2, 5.2, "%.6f")
-
-	local changed_rx, n_rx = ImGui.SliderFloat("Yaw", frm.cur_hud_rot.x, -3.2, 3.2, "%.6f")
-	local changed_ry, n_ry = ImGui.SliderFloat("Pitch", frm.cur_hud_rot.y, -3.2, 3.2, "%.6f")
-	local changed_rz, n_rz = ImGui.SliderFloat("Roll", frm.cur_hud_rot.z, -3.2, 3.2, "%.6f")
-
-	if changed_px or changed_py or changed_pz or changed_rx or changed_ry or changed_rz then
-		frm.enable_hud_adjust()
-		frm.cur_hud_pos = vector():set(n_px or frm.cur_hud_pos.x, n_py or frm.cur_hud_pos.y, n_pz or frm.cur_hud_pos.z)
-		frm.cur_hud_rot = vector():set(n_rx or frm.cur_hud_rot.x, n_ry or frm.cur_hud_rot.y, n_rz or frm.cur_hud_rot.z)
-		frm.apply_cur_hud_hand()
-	end
-
-	if ImGui.Button("Reset HUD to Default") then
-		frm.reset_hud_hand()
-		frm.disable_hud_adjust()
-	end
-	ImGui.Separator()
-
-	ImGui.Text("Impulse Delta")
-
-	_, test_cur_pos_inc.x = ImGui.SliderFloat("Delta PosX", test_cur_pos_inc.x, -0.01, 0.01, "%.6f")
-	_, test_cur_pos_inc.y = ImGui.SliderFloat("Delta PosY", test_cur_pos_inc.y, -0.01, 0.01, "%.6f")
-	_, test_cur_pos_inc.z = ImGui.SliderFloat("Delta PosZ", test_cur_pos_inc.z, -0.01, 0.01, "%.6f")
-
-	_, test_cur_rot_inc.x = ImGui.SliderFloat("Delta Yaw", test_cur_rot_inc.x, -0.5, 0.5, "%.6f")
-	_, test_cur_rot_inc.y = ImGui.SliderFloat("Delta Pitch", test_cur_rot_inc.y, -0.5, 0.5, "%.6f")
-	_, test_cur_rot_inc.z = ImGui.SliderFloat("Delta Roll", test_cur_rot_inc.z, -0.5, 0.5, "%.6f")
-	--TODO: messy...
-	if ImGui.Button("UseOffset") then
-		frm.enable_hud_adjust()
-		frm.cur_hud_pos = vector():set(frm.ori_hand_trs[1]):add(test_cur_pos_inc)
-		frm.cur_hud_rot = vector():set(frm.ori_hand_trs[2]):add(test_cur_rot_inc)
-		frm.apply_cur_hud_hand()
-	end
-	ImGui.SameLine()
-	if ImGui.Button("GetOffset") then
-		test_cur_pos_inc = vector():set(frm.cur_hud_pos):sub(frm.ori_hand_trs[1])
-		test_cur_rot_inc = vector():set(frm.cur_hud_rot):sub(frm.ori_hand_trs[2])
-	end
-	ImGui.SameLine()
-	if ImGui.Button("ResetInc") then
-		test_cur_pos_inc = vector():set(0, 0, 0)
-		test_cur_rot_inc = vector():set(0, 0, 0)
-	end
-	ImGui.SameLine()
-	if ImGui.Button("Shot") then
-		frm.enable_hud_adjust()
-		frm.update_cur_hud_hand_by(test_cur_pos_inc, test_cur_rot_inc)
-		frm.apply_cur_hud_hand()
-	end
+local M = {}
+_G.fuzz_recoil_imgui = M
+function M.on_game_start()
+	hudrc = fuzz_recoil_hud_recoil
 end
-
-function vector_imgui_text_drawer(vec, label, is_rot)
+function M.vector_imgui_text_drawer(vec, label, is_rot)
 	local formater = is_rot and "Y: %.5f | P: %.5f | R: %.5f" or "X: %.5f | Y: %.5f | Z: %.5f"
 	local info = string.format(formater, vec.x, vec.y, vec.z)
 	ImGui.TextColored(vector4():set(0, 1, 0.5, 1), label)
 	ImGui.Text(info)
 end
-function export_profile_to_ltx()
-	local profile = frm.wpn_profile
-	local wpn_name = tostring(utils.get_base_weapon(frm.cur_wpn:section()))
+function M.vector_imgui_slider_drawer(vec, label, limit, is_rot, is_info)
+	limit = limit or 1
+	ImGui.Text(label)
+	ImGui.PushID(label)
+	if is_info then
+		ImGui.BeginDisabled(true)
+	end
+	if is_rot then
+		_, vec.x = ImGui.SliderFloat("Yaw", vec.x, -limit, limit, "%.5f")
+		_, vec.y = ImGui.SliderFloat("Pitch", vec.y, -limit, limit, "%.5f")
+		_, vec.z = ImGui.SliderFloat("Roll", vec.z, -limit, limit, "%.5f")
+	else
+		_, vec.x = ImGui.SliderFloat("X", vec.x, -limit, limit, "%.5f")
+		_, vec.y = ImGui.SliderFloat("Y", vec.y, -limit, limit, "%.5f")
+		_, vec.z = ImGui.SliderFloat("Z", vec.z, -limit, limit, "%.5f")
+	end
+	if is_info then
+		ImGui.EndDisabled()
+	end
+	ImGui.PopID()
+end
+
+function indicator_drawer(val, label, min, max)
+	if type(val) == "number" then
+		_, _ = ImGui.SliderFloat(label, val, min, max, "%.5f")
+	end
+end
+
+function export_profile_to_ltx(input_profile, wpn_sec)
+	local profile = input_profile.raw_profile
+	local wpn_name = tostring(utils.get_base_weapon(wpn_sec))
 
 	local filename = string.format("mod_system_z_fuzz_recoil_%s.ltx", wpn_name)
 	local file = io.open(filename, "w")

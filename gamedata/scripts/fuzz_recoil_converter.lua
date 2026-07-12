@@ -7,11 +7,11 @@ M.rule = {
 	["cam_recoil_power"] = { offset = 1, from = { min = 0, max = 4 }, to = { min = 1, max = 5 } },
 	["cam_return_speed"] = { offset = 0, from = { min = 0, max = 10 }, to = { min = 0, max = 2 }, clamp = true },
 
-	["shot_pitch"] = { offset = 0, from = { min = 0, max = 4 }, to = { min = 3, max = 16 }, clamp = true },
-	["shot_pos_y"] = { offset = 0, from = { min = 0, max = 4 }, to = { min = 0, max = -0.08 }, clamp = true },
-	["shot_pos_z"] = { offset = 0, from = { min = 0, max = 4 }, to = { min = 0.003, max = 0.012 }, clamp = true },
-	["shot_yaw"] = { offset = 0, from = { min = 0, max = 2 }, to = { min = 0, max = 1 }, clamp = true },
-	["shot_pos_x"] = { offset = 0, from = { min = 0, max = 2 }, to = { min = 0, max = 0.001 }, clamp = true },
+	["force_pitch"] = { offset = 0, from = { min = 0, max = 4 }, to = { min = 3, max = 16 }, clamp = true },
+	["force_y"] = { offset = 0, from = { min = 0, max = 4 }, to = { min = 0, max = -0.08 }, clamp = true },
+	["force_z"] = { offset = 0, from = { min = 0, max = 4 }, to = { min = 0.003, max = 0.012 }, clamp = true },
+	["force_yaw"] = { offset = 0, from = { min = 0, max = 2 }, to = { min = 0, max = 1 }, clamp = true },
+	["force_x"] = { offset = 0, from = { min = 0, max = 2 }, to = { min = 0, max = 0.001 }, clamp = true },
 
 	["pull_force"] = { offset = 1, from = { min = 0, max = 0.09 }, to = { min = 0.8, max = 0.3 }, clamp = true },
 	-- ["firing_damping"] = { offset = 0, from = { min = 0.1, max = 0.7 }, to = { min = 1, max = 1.5 } },
@@ -38,19 +38,19 @@ end
 
 M.convert = function(op, np)
 	-- op = wpn_info
-	-- np = wpn_profile
-	--cam side addon koef is applied per shot at runtime (state.shot_cam_k)
-	--inc koef stays here, it feeds nonlinear handling lerps
+	-- np = recoil profile
+	--cam side addon koef is applied per shot at runtime, inc koef stays here
+	--it feeds the nonlinear handling lerps
 	local cam_disp_inc = op.cam_dispersion_inc * (op.addon_cam_inc_k or 1)
 
 	np.cam_recoil_power = op.cam_dispersion
 	np.cam_return_speed = op.cam_relax_speed
 
-	np.shot_pitch = op.cam_dispersion
-	np.shot_pos_y = op.cam_dispersion
-	np.shot_pos_z = op.cam_dispersion
-	np.shot_yaw = op.cam_step_angle_horz
-	np.shot_pos_x = op.cam_step_angle_horz
+	np.force_pitch = op.cam_dispersion
+	np.force_y = op.cam_dispersion
+	np.force_z = op.cam_dispersion
+	np.force_yaw = op.cam_step_angle_horz
+	np.force_x = op.cam_step_angle_horz
 
 	np.pull_force = cam_disp_inc
 	np.handling_speed = cam_disp_inc
@@ -58,7 +58,7 @@ M.convert = function(op, np)
 	np.firing_damping = 1
 	np.is_bolt_action = is_bolt_action(op)
 
-	--cam_angle is radians, ini cam_max_angle is degrees
+	--cam angle is radians, ini cam_max_angle is degrees
 	np.cam_max_angle = op.cam_max_angle > 0 and math.rad(op.cam_max_angle) or 0
 	np.pitch_frac = utils.math_clamp(op.cam_dispersion_frac or 1, 0, 1)
 	--engine growth ratio, per shot kick = base*(1 + (inc/base)*n)
@@ -68,7 +68,7 @@ M.convert = function(op, np)
 			and utils.math_clamp(op.zoom_cam_dispersion / op.cam_dispersion, 0.25, 2)
 		or 1
 
-	np.shot_yaw = np.shot_pitch + np.shot_yaw
+	np.force_yaw = np.force_pitch + np.force_yaw
 
 	--TODO: Kind bonus
 	--TODO: mass bonus
