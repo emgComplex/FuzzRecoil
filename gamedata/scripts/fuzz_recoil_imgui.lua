@@ -334,8 +334,6 @@ function renderConfig()
 			ImGui.SliderFloat("Recoil scale(Hori) ", frm.settings.recoil_h_scale, -0.1, 2, "%.2f")
 		_, frm.settings.recoil_cam_scale =
 			ImGui.SliderFloat("Recoil scale(Cam)", frm.settings.recoil_cam_scale, -0.1, 2, "%.2f")
-		_, frm.settings.increase_rate_scale =
-			ImGui.SliderFloat("Increase Rate", frm.settings.increase_rate_scale, -0.1, 2, "%.2f")
 		_, frm.settings.handling_speed_scale =
 			ImGui.SliderFloat("Handling Speed", frm.settings.handling_speed_scale, -0.1, 2, "%.2f")
 		ImGui.TreePop()

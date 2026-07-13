@@ -44,8 +44,6 @@ local default_profile = {
 	-- hud_return_speed = 1,
 
 	handling_speed = 0.5,
-	--per shot growth ratio, kick = base*(1 + increase_rate*burst_shot_index)
-	increase_rate = 0,
 	--deterministic weapon class, drives burst heat
 	burst_class = "other",
 
