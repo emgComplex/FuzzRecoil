@@ -60,13 +60,11 @@ end
 ----------
 ---Configs
 ----------
-local cfg = {
-	base_cam_return_speed = 4.0,
-	min_cam_return_step = 0.0045,
-	--auto fire impulse decay and step divisor
-	cam_impulse_decay = 12,
-	cam_step_div = 15,
-}
+base_cam_return_speed = 4.0
+min_cam_return_step = 0.0045
+--auto fire impulse decay and step divisor
+cam_impulse_decay = 12
+cam_step_div = 15
 ----------
 ---Settings
 ----------
@@ -151,8 +149,8 @@ function M.update_exp(dt)
 	if math.abs(m_vel) <= 0.01 then
 		return
 	end
-	local decay = math.exp(-dt * cfg.cam_impulse_decay)
-	local step = m_vel * (1 - decay) / cfg.cam_step_div
+	local decay = math.exp(-dt * cam_impulse_decay)
+	local step = m_vel * (1 - decay) / cam_step_div
 	m_vel = m_vel * decay
 	m_angle = m_angle + step
 	clamp_angle()
@@ -188,15 +186,15 @@ end
 --leave it here
 function M.do_return(dt)
 	--TODO:remove config and cache this when init
-	if m_angle <= cfg.min_cam_return_step then
+	if m_angle <= min_cam_return_step then
 		M.stop()
 		return
 	end
-	local speed_factor = cfg.base_cam_return_speed + bonus_return_speed
+	local speed_factor = base_cam_return_speed + bonus_return_speed
 	local lerp_factor = 1.0 - math.exp(-speed_factor * dt)
 
 	local step = m_angle * lerp_factor
-	local min_step = cfg.min_cam_return_step
+	local min_step = min_cam_return_step
 	local final_step = math.max(step, min_step)
 	--NOTE:vel is actually step when returning ,im just lazy ,its easy to debug
 	m_vel = final_step
@@ -225,10 +223,8 @@ function M.imgui_info_drawer()
 end
 function M.imgui_config_drawer()
 	ImGui.Text("Cam Recoil Config")
-	_, cfg.base_cam_return_speed =
-		ImGui.SliderFloat("Base Cam Return Speed", cfg.base_cam_return_speed, 0.1, 10, "%.2frad")
-	_, cfg.min_cam_return_step =
-		ImGui.SliderFloat("Min Cam Return step", cfg.min_cam_return_step, 0.001, 0.01, "%.4frad")
-	_, cfg.cam_impulse_decay = ImGui.SliderFloat("Cam Impulse Decay", cfg.cam_impulse_decay, 1.0, 50.0, "%.2f")
-	_, cfg.cam_step_div = ImGui.SliderFloat("Cam Step Div", cfg.cam_step_div, 1.0, 50.0, "%.2f")
+	_, base_cam_return_speed = ImGui.SliderFloat("Base Cam Return Speed", base_cam_return_speed, 0.1, 10, "%.2frad")
+	_, min_cam_return_step = ImGui.SliderFloat("Min Cam Return step", min_cam_return_step, 0.001, 0.01, "%.4frad")
+	_, cam_impulse_decay = ImGui.SliderFloat("Cam Impulse Decay", cam_impulse_decay, 1.0, 50.0, "%.2f")
+	_, cam_step_div = ImGui.SliderFloat("Cam Step Div", cam_step_div, 1.0, 50.0, "%.2f")
 end

@@ -68,60 +68,58 @@ local is_bolt_action = false
 local max_hud_rot = vector():set(3, 3, 0)
 local max_hud_pos = vector():set(0.0025, 0.0035, 0.02)
 
-local cfg = {
-	return_spring = 150,
-	return_damping = 15.0,
-	smooth_firing = 4.5,
-	smooth_return = 10,
+return_spring = 150
+return_damping = 15.0
+smooth_firing = 4.5
+smooth_return = 10
 
-	--v2 kick, profile impulses rescaled into instant hud displacement
-	v2_pitch_scale = 0.022,
-	v2_yaw_scale = 0.025,
-	v2_pos_scale = 0.02,
-	--fraction of the kick fed straight into the smoothed value, frame one snap
-	v2_kick_feedforward = 0.65,
-	--per shot kick variance, plateau jitter scales with handling so the peak needs work
-	v2_pitch_jitter = 0.16,
-	v2_plateau_jitter = 0.05,
-	--small aim point wander, visual shake only since bullets follow the camera
-	--kept tight so the sight picture stays honest about the real poi
-	--the uncompensatable spread comes from fire bloom instead
-	v2_wander = 0.08,
-	v2_wander_vel = 0.18,
-	v2_burst_kick = 0.12,
-	v2_wander_damp = 0.9,
-	v2_wander_max = 0.4,
-	v2_wander_decay = 0.25,
-	--ads uses vanilla zoom ratio, hip fire kicks harder and wanders more
-	ads_kick_mul = 1.0,
-	--ads walk speed and dwell, shift far then settle a few shots then shift again
-	ads_wander_mul = 1.15,
-	ads_dwell_shots = 3,
-	hip_kick_mul = 1.3,
-	hip_spread_mul = 2.2,
-	hip_jitter_mul = 2.0,
-	hip_recover_mul = 0.72,
-	--hip wander roams a wider box than ads
-	hip_wander_box = 1.55,
-	--burst heat, sustained fire grows the variance, short bursts stay clean
-	--grace is the free shot budget, rate is escalation per shot past it
-	v2_heat = {
-		smg = { grace = 8, rate = 0.06 },
-		ar = { grace = 6, rate = 0.09 },
-		lmg = { grace = 12, rate = 0.05 },
-		other = { grace = 6, rate = 0.06 },
-	},
-	v2_heat_max = 1.6,
-	--recovery rate, base plus handling driven convergence
-	v2_recover_base = 3.0,
-	v2_recover_gain = 3.0,
-	--recenter fraction per fire interval, each snap returns before the next shot
-	v2_snap_return = 2.0,
-	--horizontal recovers slower like tarkov, z shoulder pop recovers fast
-	v2_h_recover_mul = 0.65,
-	v2_z_recover = 9.0,
-	smooth_firing_v2 = 25,
+--v2 kick   profile impulses rescaled into instant hud displacement
+v2_pitch_scale = 0.022
+v2_yaw_scale = 0.025
+v2_pos_scale = 0.02
+--fraction of the kick fed straight into the smoothed value   frame one snap
+v2_kick_feedforward = 0.65
+--per shot kick variance   plateau jitter scales with handling so the peak needs work
+v2_pitch_jitter = 0.16
+v2_plateau_jitter = 0.05
+--small aim point wander   visual shake only since bullets follow the camera
+--kept tight so the sight picture stays honest about the real poi
+--the uncompensatable spread comes from fire bloom instead
+v2_wander = 0.08
+v2_wander_vel = 0.18
+v2_burst_kick = 0.12
+v2_wander_damp = 0.9
+v2_wander_max = 0.4
+v2_wander_decay = 0.25
+--ads uses vanilla zoom ratio   hip fire kicks harder and wanders more
+ads_kick_mul = 1.0
+--ads walk speed and dwell   shift far then settle a few shots then shift again
+ads_wander_mul = 1.15
+ads_dwell_shots = 3
+hip_kick_mul = 1.3
+hip_spread_mul = 2.2
+hip_jitter_mul = 2.0
+hip_recover_mul = 0.72
+--hip wander roams a wider box than ads
+hip_wander_box = 1.55
+--burst heat, sustained fire grows the variance, short bursts stay clean
+--grace is the free shot budget, rate is escalation per shot past it
+v2_heat = {
+	smg = { grace = 8, rate = 0.06 },
+	ar = { grace = 6, rate = 0.09 },
+	lmg = { grace = 12, rate = 0.05 },
+	other = { grace = 6, rate = 0.06 },
 }
+v2_heat_max = 1.6
+--recovery rate, base plus handling driven convergence
+v2_recover_base = 3.0
+v2_recover_gain = 3.0
+--recenter fraction per fire interval   each snap returns before the next shot
+v2_snap_return = 2.0
+--horizontal recovers slower like tarkov   z shoulder pop recovers fast
+v2_h_recover_mul = 0.65
+v2_z_recover = 9.0
+smooth_firing_v2 = 25
 
 --------------
 --Cahced settings
@@ -148,9 +146,9 @@ end
 --hip fire kicks harder, the vanilla zoom ratio is opt in
 function M.get_mode_kick_mul()
 	if is_ads then
-		return (use_zoom_ratio and zoom_ratio or 1) * cfg.ads_kick_mul
+		return (use_zoom_ratio and zoom_ratio or 1) * ads_kick_mul
 	end
-	return cfg.hip_kick_mul
+	return hip_kick_mul
 end
 
 --------------
@@ -367,8 +365,8 @@ local function update_on_firing(dt, handling_power)
 	pos_raw:clamp(max_hud_pos)
 end
 local function update_on_return(dt)
-	local spring = cfg.return_spring
-	local damping = cfg.return_damping
+	local spring = return_spring
+	local damping = return_damping
 
 	apply_spring_vec(pos_raw, vel_pos, dt, spring, damping)
 	apply_spring_vec(rot_raw, vel_rot, dt, spring, damping)
@@ -391,7 +389,7 @@ local function update_spring(dt, handling_power)
 	end
 	pos_y_sync_with_cam()
 
-	apply_simple_smooth(dt, handling_power and cfg.smooth_firing or cfg.smooth_return)
+	apply_simple_smooth(dt, handling_power and smooth_firing or smooth_return)
 	M.set_hud_offset(pos_smooth, rot_smooth)
 	return false
 end
@@ -406,39 +404,39 @@ local function on_fire_instant(handling_power, ads, cam_k, burst_shots)
 	shot_cam_k = cam_k or 1
 
 	local mode_mul = M.get_mode_kick_mul()
-	local jitter_mul = is_ads and 1 or cfg.hip_jitter_mul
-	local spread_mul = is_ads and 1 or cfg.hip_spread_mul
+	local jitter_mul = is_ads and 1 or hip_jitter_mul
+	local spread_mul = is_ads and 1 or hip_spread_mul
 	local v_scale = shot_cam_k * mode_mul
 	local h_scale = spread_mul
 
 	--burst heat, every shot past the class grace budget grows the variance
-	local hc = cfg.v2_heat[burst_class] or cfg.v2_heat.other
+	local hc = v2_heat[burst_class] or v2_heat.other
 	local heat = 1 + hc.rate * math.max(0, burst_shots - hc.grace)
-	if heat > cfg.v2_heat_max then
-		heat = cfg.v2_heat_max
+	if heat > v2_heat_max then
+		heat = v2_heat_max
 	end
 
 	--kick variance floored, starved kicks would let the recovery sink the baseline
-	local jitter = 1 + (math.random() * 2 - 1) * cfg.v2_pitch_jitter * jitter_mul
+	local jitter = 1 + (math.random() * 2 - 1) * v2_pitch_jitter * jitter_mul
 	if jitter < 0.6 then
 		jitter = 0.6
 	end
 	--plateau jitter only adds on top, the ride height never dips
-	local plateau = math.random() * cfg.v2_plateau_jitter * handling_power * jitter_mul * heat
+	local plateau = math.random() * v2_plateau_jitter * handling_power * jitter_mul * heat
 
 	--heat widens the roam box and speeds the stride just enough to keep legs completable
 	--dwell spots land farther apart, that is where the sustained fire spread comes from
-	local wander_mul = is_ads and cfg.ads_wander_mul or cfg.hip_jitter_mul
-	local vmax = cfg.v2_wander_vel * wander_mul * math.min(heat, 1.6)
-	local wmax = cfg.v2_wander_max * (is_ads and 1 or cfg.hip_wander_box) * heat
-	local accel = cfg.v2_wander * handling_power * wander_mul * heat
+	local wander_mul = is_ads and ads_wander_mul or hip_jitter_mul
+	local vmax = v2_wander_vel * wander_mul * math.min(heat, 1.6)
+	local wmax = v2_wander_max * (is_ads and 1 or hip_wander_box) * heat
+	local accel = v2_wander * handling_power * wander_mul * heat
 
 	--pitch rides above the plateau, surges up freely, sags down only gently, never dives
 	local pmax = wmax * 0.12
 	if burst_shots == 0 then
-		drift_vel_pitch = math.random() * cfg.v2_burst_kick * jitter_mul
+		drift_vel_pitch = math.random() * v2_burst_kick * jitter_mul
 	else
-		drift_vel_pitch = drift_vel_pitch * cfg.v2_wander_damp + (math.random() * 2 - 1) * accel
+		drift_vel_pitch = drift_vel_pitch * v2_wander_damp + (math.random() * 2 - 1) * accel
 	end
 	drift_vel_pitch = utils.math_clamp(drift_vel_pitch, -0.22 * vmax, vmax)
 	drift_pitch = utils.math_clamp(drift_pitch + drift_vel_pitch, 0, pmax)
@@ -451,7 +449,7 @@ local function on_fire_instant(handling_power, ads, cam_k, burst_shots)
 	--lateral wander walks waypoint to waypoint, traversal is guaranteed, camping impossible
 	--ads settles a few shots at each stop, spread comes from dwelling at varied spots
 	local hop_limit = is_ads and 10 or 8
-	local dwell_limit = is_ads and cfg.ads_dwell_shots or 0
+	local dwell_limit = is_ads and ads_dwell_shots or 0
 	local arrived = math.abs(yaw_target - drift_yaw) < 0.15 * wmax
 	if burst_shots == 0 or shots_since_target >= hop_limit or (arrived and dwell_shots >= dwell_limit) then
 		--next stop is on the other side of here, coin flip when we sit at center
@@ -474,10 +472,10 @@ local function on_fire_instant(handling_power, ads, cam_k, burst_shots)
 	drift_vel_yaw = utils.math_clamp(drift_vel_yaw, -vmax, vmax)
 	drift_yaw = utils.math_clamp(drift_yaw + drift_vel_yaw, -wmax, wmax)
 
-	local d_pitch = force_pitch * cfg.v2_pitch_scale * v_scale * jitter + plateau
-	local d_pos_y = force_y * cfg.v2_pos_scale * v_scale
+	local d_pitch = force_pitch * v2_pitch_scale * v_scale * jitter + plateau
+	local d_pos_y = force_y * v2_pos_scale * v_scale
 	--bounded horizontal walk, small random steps instead of full size flips
-	local d_yaw = (math.random() * 2 - 1) * force_yaw * cfg.v2_yaw_scale * h_scale
+	local d_yaw = (math.random() * 2 - 1) * force_yaw * v2_yaw_scale * h_scale
 	local d_pos_x = (math.random() * 2 - 1) * force_x * h_scale
 	--shoulder push
 	local d_pos_z = -force_z * shot_cam_k
@@ -489,7 +487,7 @@ local function on_fire_instant(handling_power, ads, cam_k, burst_shots)
 	pos_raw.z = pos_raw.z + d_pos_z
 
 	--feed part of the kick straight into the smoothed value, the ema only shapes recovery
-	local ff = cfg.v2_kick_feedforward
+	local ff = v2_kick_feedforward
 	rot_smooth.y = rot_smooth.y + d_pitch * ff
 	rot_smooth.x = rot_smooth.x + d_yaw * ff
 	pos_smooth.y = pos_smooth.y + d_pos_y * ff
@@ -498,21 +496,21 @@ local function on_fire_instant(handling_power, ads, cam_k, burst_shots)
 end
 --recovery, exponential pull toward aim, rate grows with handling for climb then plateau
 local function apply_recover_instant(dt, handling_power)
-	local r = (cfg.v2_recover_base + cfg.v2_recover_gain * handling_power) * pull_force
+	local r = (v2_recover_base + v2_recover_gain * handling_power) * pull_force
 	if not is_ads then
-		r = r * cfg.hip_recover_mul
+		r = r * hip_recover_mul
 	end
 	--rpm scaled recentering, the standing offset stays near zero at any fire rate
-	r = r + cfg.v2_snap_return / fire_interval
+	r = r + v2_snap_return / fire_interval
 	local d_v = math.exp(-r * dt)
-	local d_h = math.exp(-r * cfg.v2_h_recover_mul * dt)
+	local d_h = math.exp(-r * v2_h_recover_mul * dt)
 	rot_raw.y = rot_raw.y * d_v
 	pos_raw.y = pos_raw.y * d_v
 	rot_raw.x = rot_raw.x * d_h
 	pos_raw.x = pos_raw.x * d_h
-	pos_raw.z = pos_raw.z * math.exp(-cfg.v2_z_recover * dt)
+	pos_raw.z = pos_raw.z * math.exp(-v2_z_recover * dt)
 	--drift barely reverts while firing, that is the point
-	local wd = math.exp(-cfg.v2_wander_decay * dt)
+	local wd = math.exp(-v2_wander_decay * dt)
 	drift_pitch = drift_pitch * wd
 	drift_yaw = drift_yaw * wd
 end
@@ -534,7 +532,7 @@ local function update_instant(dt, handling_power)
 	end
 	pos_y_sync_with_cam()
 
-	apply_simple_smooth(dt, handling_power and cfg.smooth_firing_v2 or cfg.smooth_return)
+	apply_simple_smooth(dt, handling_power and smooth_firing_v2 or smooth_return)
 	M.set_hud_offset(pos_smooth, rot_with_drift())
 	return false
 end
@@ -628,50 +626,50 @@ end
 function M.imgui_config_drawer()
 	ImGui.Text("Hud Recoil Config")
 	ImGui.TextColored(vector4():set(0.3, 0.8, 1, 1), "Physics")
-	_, cfg.smooth_firing = ImGui.SliderFloat("Smooth Firing", cfg.smooth_firing, 0.0, 10.0, "%.2f")
-	_, cfg.smooth_return = ImGui.SliderFloat("Smooth Return", cfg.smooth_return, 5.0, 15.0, "%.2f")
-	_, cfg.return_spring = ImGui.SliderFloat("Return Spring", cfg.return_spring, 0.1, 30.0, "%.2f")
-	_, cfg.return_damping = ImGui.SliderFloat("Return Damping", cfg.return_damping, 0.1, 16.0, "%.2f")
+	_, smooth_firing = ImGui.SliderFloat("Smooth Firing", smooth_firing, 0.0, 10.0, "%.2f")
+	_, smooth_return = ImGui.SliderFloat("Smooth Return", smooth_return, 5.0, 15.0, "%.2f")
+	_, return_spring = ImGui.SliderFloat("Return Spring", return_spring, 0.1, 30.0, "%.2f")
+	_, return_damping = ImGui.SliderFloat("Return Damping", return_damping, 0.1, 16.0, "%.2f")
 	iui.vector_imgui_slider_drawer(max_hud_rot, "Max Hud Rot", 5, true, true)
 	iui.vector_imgui_slider_drawer(max_hud_pos, "Max Hud Pos", 0.004, false, true)
 	if ImGui.TreeNode("V2 Kick Tuning") then
-		_, cfg.v2_pitch_scale = ImGui.SliderFloat("Pitch Scale", cfg.v2_pitch_scale, 0.01, 0.4, "%.3f")
-		_, cfg.v2_yaw_scale = ImGui.SliderFloat("Yaw Scale", cfg.v2_yaw_scale, 0.01, 0.3, "%.3f")
-		_, cfg.v2_pos_scale = ImGui.SliderFloat("Pos Scale", cfg.v2_pos_scale, 0.001, 0.2, "%.3f")
-		_, cfg.v2_kick_feedforward = ImGui.SliderFloat("Kick Feedforward", cfg.v2_kick_feedforward, 0, 1, "%.2f")
-		_, cfg.v2_pitch_jitter = ImGui.SliderFloat("Pitch Jitter", cfg.v2_pitch_jitter, 0, 0.6, "%.2f")
-		_, cfg.v2_plateau_jitter = ImGui.SliderFloat("Plateau Jitter", cfg.v2_plateau_jitter, 0, 1, "%.2f")
-		_, cfg.v2_wander = ImGui.SliderFloat("Wander Accel", cfg.v2_wander, 0, 1, "%.2f")
-		_, cfg.v2_wander_vel = ImGui.SliderFloat("Wander Max Vel", cfg.v2_wander_vel, 0, 1.5, "%.2f")
-		_, cfg.v2_burst_kick = ImGui.SliderFloat("Burst Start Kick", cfg.v2_burst_kick, 0, 1, "%.2f")
-		_, cfg.v2_wander_damp = ImGui.SliderFloat("Wander Damp", cfg.v2_wander_damp, 0.5, 1, "%.2f")
-		_, cfg.v2_wander_max = ImGui.SliderFloat("Wander Box", cfg.v2_wander_max, 0.2, 4, "%.2f")
-		_, cfg.v2_wander_decay = ImGui.SliderFloat("Wander Decay", cfg.v2_wander_decay, 0, 3, "%.2f")
-		_, cfg.v2_recover_base = ImGui.SliderFloat("Recover Base", cfg.v2_recover_base, 0.1, 5, "%.2f")
-		_, cfg.v2_recover_gain = ImGui.SliderFloat("Recover Gain", cfg.v2_recover_gain, 0, 8, "%.2f")
-		_, cfg.v2_h_recover_mul = ImGui.SliderFloat("H Recover Mul", cfg.v2_h_recover_mul, 0.1, 1, "%.2f")
-		_, cfg.v2_z_recover = ImGui.SliderFloat("Z Recover", cfg.v2_z_recover, 1, 20, "%.1f")
-		_, cfg.smooth_firing_v2 = ImGui.SliderFloat("Smooth Firing V2", cfg.smooth_firing_v2, 5, 60, "%.1f")
+		_, v2_pitch_scale = ImGui.SliderFloat("Pitch Scale", v2_pitch_scale, 0.01, 0.4, "%.3f")
+		_, v2_yaw_scale = ImGui.SliderFloat("Yaw Scale", v2_yaw_scale, 0.01, 0.3, "%.3f")
+		_, v2_pos_scale = ImGui.SliderFloat("Pos Scale", v2_pos_scale, 0.001, 0.2, "%.3f")
+		_, v2_kick_feedforward = ImGui.SliderFloat("Kick Feedforward", v2_kick_feedforward, 0, 1, "%.2f")
+		_, v2_pitch_jitter = ImGui.SliderFloat("Pitch Jitter", v2_pitch_jitter, 0, 0.6, "%.2f")
+		_, v2_plateau_jitter = ImGui.SliderFloat("Plateau Jitter", v2_plateau_jitter, 0, 1, "%.2f")
+		_, v2_wander = ImGui.SliderFloat("Wander Accel", v2_wander, 0, 1, "%.2f")
+		_, v2_wander_vel = ImGui.SliderFloat("Wander Max Vel", v2_wander_vel, 0, 1.5, "%.2f")
+		_, v2_burst_kick = ImGui.SliderFloat("Burst Start Kick", v2_burst_kick, 0, 1, "%.2f")
+		_, v2_wander_damp = ImGui.SliderFloat("Wander Damp", v2_wander_damp, 0.5, 1, "%.2f")
+		_, v2_wander_max = ImGui.SliderFloat("Wander Box", v2_wander_max, 0.2, 4, "%.2f")
+		_, v2_wander_decay = ImGui.SliderFloat("Wander Decay", v2_wander_decay, 0, 3, "%.2f")
+		_, v2_recover_base = ImGui.SliderFloat("Recover Base", v2_recover_base, 0.1, 5, "%.2f")
+		_, v2_recover_gain = ImGui.SliderFloat("Recover Gain", v2_recover_gain, 0, 8, "%.2f")
+		_, v2_h_recover_mul = ImGui.SliderFloat("H Recover Mul", v2_h_recover_mul, 0.1, 1, "%.2f")
+		_, v2_z_recover = ImGui.SliderFloat("Z Recover", v2_z_recover, 1, 20, "%.1f")
+		_, smooth_firing_v2 = ImGui.SliderFloat("Smooth Firing V2", smooth_firing_v2, 5, 60, "%.1f")
 		ImGui.TreePop()
 	end
 	if ImGui.TreeNode("Burst Heat") then
-		_, cfg.v2_heat_max = ImGui.SliderFloat("Heat Max", cfg.v2_heat_max, 1, 4, "%.2f")
+		_, v2_heat_max = ImGui.SliderFloat("Heat Max", v2_heat_max, 1, 4, "%.2f")
 		for _, class in ipairs({ "smg", "ar", "lmg", "other" }) do
-			local hc = cfg.v2_heat[class]
+			local hc = v2_heat[class]
 			_, hc.grace = ImGui.SliderFloat(class .. " grace", hc.grace, 0, 20, "%.0f")
 			_, hc.rate = ImGui.SliderFloat(class .. " rate", hc.rate, 0, 0.3, "%.3f")
 		end
 		ImGui.TreePop()
 	end
 	if ImGui.TreeNode("ADS & Hip") then
-		_, cfg.ads_kick_mul = ImGui.SliderFloat("ADS Kick Mul", cfg.ads_kick_mul, 0.2, 2, "%.2f")
-		_, cfg.ads_wander_mul = ImGui.SliderFloat("ADS Wander Mul", cfg.ads_wander_mul, 0.2, 3, "%.2f")
-		_, cfg.ads_dwell_shots = ImGui.SliderFloat("ADS Dwell Shots", cfg.ads_dwell_shots, 0, 8, "%.0f")
-		_, cfg.hip_kick_mul = ImGui.SliderFloat("Hip Kick Mul", cfg.hip_kick_mul, 0.5, 3, "%.2f")
-		_, cfg.hip_spread_mul = ImGui.SliderFloat("Hip Spread Mul", cfg.hip_spread_mul, 0.5, 4, "%.2f")
-		_, cfg.hip_jitter_mul = ImGui.SliderFloat("Hip Jitter Mul", cfg.hip_jitter_mul, 0.5, 4, "%.2f")
-		_, cfg.hip_recover_mul = ImGui.SliderFloat("Hip Recover Mul", cfg.hip_recover_mul, 0.2, 1.5, "%.2f")
-		_, cfg.hip_wander_box = ImGui.SliderFloat("Hip Wander Box", cfg.hip_wander_box, 0.5, 3, "%.2f")
+		_, ads_kick_mul = ImGui.SliderFloat("ADS Kick Mul", ads_kick_mul, 0.2, 2, "%.2f")
+		_, ads_wander_mul = ImGui.SliderFloat("ADS Wander Mul", ads_wander_mul, 0.2, 3, "%.2f")
+		_, ads_dwell_shots = ImGui.SliderFloat("ADS Dwell Shots", ads_dwell_shots, 0, 8, "%.0f")
+		_, hip_kick_mul = ImGui.SliderFloat("Hip Kick Mul", hip_kick_mul, 0.5, 3, "%.2f")
+		_, hip_spread_mul = ImGui.SliderFloat("Hip Spread Mul", hip_spread_mul, 0.5, 4, "%.2f")
+		_, hip_jitter_mul = ImGui.SliderFloat("Hip Jitter Mul", hip_jitter_mul, 0.5, 4, "%.2f")
+		_, hip_recover_mul = ImGui.SliderFloat("Hip Recover Mul", hip_recover_mul, 0.2, 1.5, "%.2f")
+		_, hip_wander_box = ImGui.SliderFloat("Hip Wander Box", hip_wander_box, 0.5, 3, "%.2f")
 		ImGui.TreePop()
 	end
 end
