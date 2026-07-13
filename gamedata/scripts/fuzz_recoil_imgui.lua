@@ -148,10 +148,20 @@ function renderImguiTab()
 			hudrc.reset_hud_hand()
 		end
 		ImGui.SameLine()
-		if ImGui.Button("ForeceResetRecoil", vector2():set(150, 25)) then
+		if ImGui.Button("ForceResetRecoil", vector2():set(150, 25)) then
 			frm.force_reset_recoil()
 		end
+		--NOTE: useful move to root
 		renderProfile()
+		renderSetttings()
+		if ImGui.TreeNode("Impact Marker") then
+			impacts.imgui_settings_drawer()
+			ImGui.TreePop()
+		end
+		if not fuzz_dev then
+			ImGui.Text("Not in dev mode,advanced configs disabled")
+			return
+		end
 		if ImGui.TreeNode("Recoil Config") then
 			renderConfig()
 			ImGui.TreePop()
@@ -283,6 +293,7 @@ function info_overlay()
 	ImGui.End()
 end
 
+local _prf_type = "raw"
 --TODO:! load and apply modifier
 --don't forget sort this out ,man
 function renderProfile()
@@ -290,17 +301,69 @@ function renderProfile()
 		local prf = frm.get_recoil_profile()
 		local wpn_sec = frm.get_cur_wpn():section()
 		ImGui.Text("To input a value directly,You can crlt+click on the slider")
-		prf:imgui_editor_drawer()
-		ImGui.Text(export_hint)
-		if ImGui.Button("Apply", vector2():set(-1, 25)) then
+		if ImGui.Button("Raw") then
+			_prf_type = "raw"
+		end
+		ImGui.SameLine()
+		if ImGui.Button("Static") then
+			_prf_type = "static"
+		end
+		ImGui.SameLine()
+		if ImGui.Button("Dynamic") then
+			_prf_type = "dynamic"
+		end
+		ImGui.SameLine()
+		ImGui.Text(_prf_type)
+		local selected_prf = prf.raw_profile
+		if _prf_type == "static" then
+			selected_prf = prf.static_profile
+		elseif _prf_type == "dynamic" then
+			selected_prf = prf
+		end
+		prf.imgui_editor_drawer(selected_prf, _prf_type)
+		-- if ImGui.Button("Apply Direct", vector2():set(200, 25)) then
+		-- 	prf.shallow_copy(selected_prf, prf)
+		-- 	hudrc.cache_profile(prf)
+		-- 	camrc.cache_profile(prf)
+		-- end
+		if ImGui.Button("Apply with Modi", vector2():set(200, 25)) then
+			prf:reload_modifiers()
 			hudrc.cache_profile(prf)
 			camrc.cache_profile(prf)
 		end
-		if ImGui.Button("Export to LTX", vector2():set(-1, 25)) then
+		ImGui.Text(export_hint)
+		if ImGui.Button("Export to LTX", vector2():set(200, 25)) then
 			export_profile_to_ltx(prf, wpn_sec)
 		end
-		if ImGui.Button("Reload Profile", vector2():set(-1, 25)) then
+		ImGui.SameLine()
+		if ImGui.Button("Reload Profile", vector2():set(200, 25)) then
 			frm.init_weapon(wpn_sec)
+		end
+		ImGui.TreePop()
+	end
+end
+function renderSetttings()
+	if ImGui.TreeNode("Settings") then
+		_, frm.settings.recoil_cam_scale =
+			ImGui.SliderFloat("Recoil scale(Cam)", frm.settings.recoil_cam_scale, -0.9, 2, "%.2f")
+		_, frm.settings.recoil_h_scale =
+			ImGui.SliderFloat("Recoil scale(Hori) ", frm.settings.recoil_h_scale, -0.9, 2, "%.2f")
+		_, frm.settings.handling_speed_scale =
+			ImGui.SliderFloat("Handling Speed", frm.settings.handling_speed_scale, -0.9, 2, "%.2f")
+
+		_, frm.settings.bolt_action_Y_lift = ImGui.Checkbox("Bolt-Action Lift", frm.settings.bolt_action_Y_lift)
+		_, frm.settings.cam_drag = ImGui.SliderFloat("Cam Drag", frm.settings.cam_drag, 5.0, 20.0, "%.2f")
+		_, frm.settings.hud_kick_v2 = ImGui.Checkbox("Tarkov Kick (V2 instant)", frm.settings.hud_kick_v2)
+		_, frm.settings.use_bloom = ImGui.Checkbox("Fire Bloom", frm.settings.use_bloom)
+		ImGui.Text("Vanilla data extras")
+		_, frm.settings.use_pitch_frac = ImGui.Checkbox("Pitch Frac Variance", frm.settings.use_pitch_frac)
+		_, frm.settings.use_cam_max_angle = ImGui.Checkbox("Cam Max Angle Cap", frm.settings.use_cam_max_angle)
+		_, frm.settings.use_addon_ammo_koefs = ImGui.Checkbox("Addon & Ammo Koefs", frm.settings.use_addon_ammo_koefs)
+		_, frm.settings.use_zoom_ratio = ImGui.Checkbox("ADS Zoom Ratio", frm.settings.use_zoom_ratio)
+		-- _, frm.settings.recoil_v_scale =
+		-- 	ImGui.SliderFloat("Recoil scale(Vert)", frm.settings.recoil_v_scale, -0.9, 2, "%.2f")
+		if ImGui.Button("Apply Settings", vector2():set(-1, 25)) then
+			frm.apply_settings()
 		end
 		ImGui.TreePop()
 	end
@@ -313,35 +376,11 @@ function renderConfig()
 		camrc.imgui_config_drawer()
 		ImGui.Separator()
 		hudrc.imgui_config_drawer()
+		ImGui.Separator()
 		if ImGui.Button("Dump All Weapon datas(need json.lua)", vector2():set(-1, 25)) then
 			utils.get_all_weapon_sections()
 		end
-		ImGui.Separator()
-		ImGui.Text("Settings")
-		_, frm.settings.hud_kick_v2 = ImGui.Checkbox("Tarkov Kick (V2 instant)", frm.settings.hud_kick_v2)
-		_, frm.settings.use_bloom = ImGui.Checkbox("Fire Bloom", frm.settings.use_bloom)
-		impacts.imgui_settings_drawer()
-		_, frm.settings.bolt_action_Y_lift = ImGui.Checkbox("Bolt-Action Lift", frm.settings.bolt_action_Y_lift)
-		_, frm.settings.cam_drag = ImGui.SliderFloat("Cam Drag", frm.settings.cam_drag, 5.0, 20.0, "%.2f")
-		ImGui.Text("Vanilla data extras")
-		_, frm.settings.use_pitch_frac = ImGui.Checkbox("Pitch Frac Variance", frm.settings.use_pitch_frac)
-		_, frm.settings.use_cam_max_angle = ImGui.Checkbox("Cam Max Angle Cap", frm.settings.use_cam_max_angle)
-		_, frm.settings.use_addon_ammo_koefs = ImGui.Checkbox("Addon & Ammo Koefs", frm.settings.use_addon_ammo_koefs)
-		_, frm.settings.use_zoom_ratio = ImGui.Checkbox("ADS Zoom Ratio", frm.settings.use_zoom_ratio)
-		_, frm.settings.recoil_v_scale =
-			ImGui.SliderFloat("Recoil scale(Vert)", frm.settings.recoil_v_scale, -0.1, 2, "%.2f")
-		_, frm.settings.recoil_h_scale =
-			ImGui.SliderFloat("Recoil scale(Hori) ", frm.settings.recoil_h_scale, -0.1, 2, "%.2f")
-		_, frm.settings.recoil_cam_scale =
-			ImGui.SliderFloat("Recoil scale(Cam)", frm.settings.recoil_cam_scale, -0.1, 2, "%.2f")
-		_, frm.settings.increase_rate_scale =
-			ImGui.SliderFloat("Increase Rate", frm.settings.increase_rate_scale, -0.1, 2, "%.2f")
-		_, frm.settings.handling_speed_scale =
-			ImGui.SliderFloat("Handling Speed", frm.settings.handling_speed_scale, -0.1, 2, "%.2f")
 		ImGui.TreePop()
-		if ImGui.Button("Apply Settings", vector2():set(-1, 25)) then
-			frm.apply_settings()
-		end
 	end
 	--TODO:refactor this to base
 	ImGui.Separator()

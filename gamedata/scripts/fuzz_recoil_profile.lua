@@ -19,18 +19,34 @@ local shot_delay_table = {
 local M = {}
 _G.fuzz_recoil_profile = M
 M.__index = M
-M.name = "w_nil_profile"
 
+---@class FuzzRecoilProfile
+---@field name string
+---@field cam_recoil_power number
+---@field cam_return_speed number
+---@field force_pitch number
+---@field force_y number
+---@field force_yaw number
+---@field force_x number
+---@field force_z number
+---@field handling_speed number
+---@field pull_force number
+---@field firing_damping number
+---@field zoom_ratio number
+---@field is_bolt_action boolean
+---@field fire_interval number
+---@field pitch_frac number
+---@field burst_class string
+---@field shot_delay_enabled boolean
+---@field shot_delay_time number
+---@field shot_cam_impulse_factor number
+
+---@type FuzzRecoilProfile
 local default_profile = {
-	is_bolt_action = false,
+	name = "w_nil_profile",
+
 	cam_recoil_power = 4,
 	cam_return_speed = 1,
-	--0 means uncapped, radians like cam angle
-	cam_max_angle = 0,
-	--1 means no per shot variance
-	pitch_frac = 1,
-	--ads kick relative to hip, from vanilla zoom_cam_dispersion/cam_dispersion
-	zoom_ratio = 1,
 
 	force_pitch = 15,
 	force_y = -0.04,
@@ -39,13 +55,17 @@ local default_profile = {
 	--shoulder push, z pop per shot
 	force_z = 0.006,
 
+	handling_speed = 0.5,
 	pull_force = 1.5,
 	firing_damping = 1.0,
-	-- hud_return_speed = 1,
 
-	handling_speed = 0.5,
-	--per shot growth ratio, kick = base*(1 + increase_rate*burst_shot_index)
-	increase_rate = 0,
+	--ads kick relative to hip, from vanilla zoom_cam_dispersion/cam_dispersion
+	zoom_ratio = 1,
+	is_bolt_action = false,
+	fire_interval = 0.1,
+	--1 means no per shot variance
+	pitch_frac = 1,
+
 	--deterministic weapon class, drives burst heat
 	burst_class = "other",
 
@@ -55,11 +75,12 @@ local default_profile = {
 	shot_delay_time = 0.4,
 	shot_cam_impulse_factor = 0.2,
 
+	--NOTE: CONSIDER REMOVE
+	--0 means uncapped, radians like cam angle
+	cam_max_angle = 0,
+
 	--TODO:NOT IMPLEMENTED
 	stamina_factor = 1,
-	-- mass_inertia = -1,
-	-- hidden vars
-	fire_interval = 0.1,
 }
 setmetatable(M, { __index = default_profile })
 M.raw_profile = {}
@@ -85,7 +106,9 @@ function M:new()
 	local ins = {}
 	setmetatable(ins, M)
 	ins.raw_profile = {}
+	setmetatable(ins.raw_profile, M)
 	ins.static_profile = {}
+	setmetatable(ins.static_profile, M)
 	return ins
 end
 
@@ -195,36 +218,38 @@ end
 ---------------
 ---IMGUI
 ---------------
---TODO:! should edit raw
-function M:imgui_editor_drawer()
-	ImGui.Text(self.name)
+function M.imgui_editor_drawer(_prf, _prf_type)
+	ImGui.PushID(_prf.name .. _prf_type)
+	ImGui.BeginDisabled(_prf_type ~= "raw")
 	ImGui.Separator()
-	_, self.is_bolt_action = ImGui.Checkbox("Bolt Action", self.is_bolt_action)
+	_, _prf.is_bolt_action = ImGui.Checkbox("Bolt Action", _prf.is_bolt_action)
 	ImGui.Text("Camera recoil")
-	_, self.cam_recoil_power = ImGui.SliderFloat("Cam Recoil Power", self.cam_recoil_power, 0.1, 16.0, "%.2f")
-	_, self.cam_return_speed = ImGui.SliderFloat("Cam Return Speed", self.cam_return_speed, 0.5, 2, "%.2f")
-	_, self.cam_max_angle = ImGui.SliderFloat("Cam Max Angle", self.cam_max_angle, 0, 1, "%.3frad")
-	_, self.pitch_frac = ImGui.SliderFloat("Pitch Frac", self.pitch_frac, 0, 1, "%.2f")
-	_, self.zoom_ratio = ImGui.SliderFloat("Zoom Ratio", self.zoom_ratio, 0.25, 2, "%.2f")
+	_, _prf.cam_recoil_power = ImGui.SliderFloat("Cam Recoil Power", _prf.cam_recoil_power, 0.1, 16.0, "%.2f")
+	_, _prf.cam_return_speed = ImGui.SliderFloat("Cam Return Speed", _prf.cam_return_speed, 0.5, 2, "%.2f")
+	_, _prf.cam_max_angle = ImGui.SliderFloat("Cam Max Angle", _prf.cam_max_angle, 0, 1, "%.3frad")
+	_, _prf.pitch_frac = ImGui.SliderFloat("Pitch Frac", _prf.pitch_frac, 0, 1, "%.2f")
+	_, _prf.zoom_ratio = ImGui.SliderFloat("Zoom Ratio", _prf.zoom_ratio, 0.25, 2, "%.2f")
 
 	ImGui.Text("Hud Recoil")
-	_, self.pull_force = ImGui.SliderFloat("Pull Force", self.pull_force, 0.1, 4.0, "%.2f")
-	_, self.firing_damping = ImGui.SliderFloat("Spring Damping", self.firing_damping, 0.1, 4.0, "%.2f")
+	_, _prf.pull_force = ImGui.SliderFloat("Pull Force", _prf.pull_force, 0.1, 4.0, "%.2f")
+	_, _prf.firing_damping = ImGui.SliderFloat("Spring Damping", _prf.firing_damping, 0.1, 4.0, "%.2f")
 	ImGui.Text("Shot Impact Force")
-	_, self.force_pitch = ImGui.SliderFloat("Pitch", self.force_pitch, 0, 60, "%.2f")
-	_, self.force_y = ImGui.SliderFloat("PosY", self.force_y, -0.06, 0.06, "%.4f")
-	self.force_y = self.force_y
-	_, self.force_yaw = ImGui.SliderFloat("Yaw", self.force_yaw, 0, 60, "%.2f")
-	_, self.force_x = ImGui.SliderFloat("PosX", self.force_x, 0.0001, 0.0025, "%.4f")
-	_, self.force_z = ImGui.SliderFloat("PosZ (shoulder)", self.force_z, 0.0, 0.02, "%.4f")
-	self.force_x = self.force_x
+	_, _prf.force_pitch = ImGui.SliderFloat("Pitch", _prf.force_pitch, 0, 60, "%.2f")
+	_, _prf.force_y = ImGui.SliderFloat("PosY", _prf.force_y, -0.06, 0.06, "%.4f")
+	-- _prf.force_y = _prf.force_y
+	_, _prf.force_yaw = ImGui.SliderFloat("Yaw", _prf.force_yaw, 0, 60, "%.2f")
+	_, _prf.force_x = ImGui.SliderFloat("PosX", _prf.force_x, 0.0001, 0.0025, "%.4f")
+	_, _prf.force_z = ImGui.SliderFloat("PosZ (shoulder)", _prf.force_z, 0.0, 0.02, "%.4f")
+	-- _prf.force_x = _prf.force_x
 
 	ImGui.Text("Handling")
-	handle_speed_change, self.handling_speed =
-		ImGui.SliderFloat("Handling speed", self.handling_speed, 0.1, 2.0, "%.2f")
+	handle_speed_change, _prf.handling_speed =
+		ImGui.SliderFloat("Handling speed", _prf.handling_speed, 0.1, 2.0, "%.2f")
 	if handle_speed_change then
-		fuzz_recoil.set_handling_speed(self.handling_speed)
+		fuzz_recoil.set_handling_speed(_prf.handling_speed)
 	end
-	_, self.increase_rate = ImGui.SliderFloat("Increase Rate", self.increase_rate, 0.0, 2.0, "%.2f")
+	_, _prf.increase_rate = ImGui.SliderFloat("Increase Rate", _prf.increase_rate, 0.0, 2.0, "%.2f")
 	ImGui.Separator()
+	ImGui.EndDisabled()
+	ImGui.PopID()
 end

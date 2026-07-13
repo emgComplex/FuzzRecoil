@@ -40,26 +40,43 @@ local cur_wpn_id = 0
 ------- Settitngs
 M.settings = {
 	debug_mode = fuzz_dev and true or false,
-
-	recoil_v_scale = 0,
-	recoil_h_scale = 0,
+	--Global vertical recoil additional scale,
+	--positive increases, negative decreases , 0 means default
+	---(-0,9---2.0)
 	recoil_cam_scale = 0,
-	increase_rate_scale = 0,
+	--Global horizontal recoil additional scale,
+	--positive increases, negative decreases , 0 means default
+	---(-0,9---2.0)
+	recoil_h_scale = 0,
+	--Global recoil handling additional scale,
+	--positive increases, negative decreases , 0 means default
+	--(-0,9---2.0)
 	handling_speed_scale = 0,
+	--Camera drag for bolt-action weapon
 	--The higher the sharper, the lower the smoother (and softer)
+	--(8-20)
 	cam_drag = 12,
+	--Bolt Action will have be lifted on y-axis
 	bolt_action_Y_lift = true,
 	--tarkov style hud kick, instant displacement with eased recovery
 	hud_kick_v2 = false,
+	--NOTE: EXPERIMENTAL
+
+	--fire bloom, sustained fire and hip stance widen the real bullet cone
+	use_bloom = true,
+	--gamma zoom values sit at 0.6-0.8 of hip, on would weaken ads below the tune
+	use_zoom_ratio = false,
+	--NOTE: HIDDEN FROM MCM for now
 
 	--vanilla data extras, off keeps stock feel
 	use_pitch_frac = false,
-	use_cam_max_angle = false,
 	use_addon_ammo_koefs = false,
-	--gamma zoom values sit at 0.6-0.8 of hip, on would weaken ads below the tune
-	use_zoom_ratio = false,
-	--fire bloom, sustained fire and hip stance widen the real bullet cone
-	use_bloom = true,
+	--NOTE: CONSIDER REMOVE
+
+	--Does not fit in current recoil pattern,it looks weird visually
+	use_cam_max_angle = false,
+	-- verti recoil comes from cam recoil ,
+	recoil_v_scale = 0,
 }
 --bloom multiplies the weapons fire_dispersion_base, silencer, ammo and
 --condition koefs stack on top like vanilla (WeaponDispersion.cpp)
@@ -616,7 +633,6 @@ function init_static_modifiers()
 		{ name = "", param = "force_yaw", type = 1, val = M.settings.recoil_h_scale },
 		-- { name = "", param = "force_x", type = 1, val = M.settings.recoil_h_scale },
 		{ name = "", param = "handling_speed", type = 1, val = M.settings.handling_speed_scale },
-		-- { name = "", param = "increase_rate", type = 1, val = M.settings.increase_rate_scale },
 	}
 	for i, v in ipairs(basic_modi) do
 		local result = M.static_modifiers:add_modifier(i, v, true, true)

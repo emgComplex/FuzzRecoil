@@ -17,7 +17,6 @@ M.rule = {
 	-- ["firing_damping"] = { offset = 0, from = { min = 0.1, max = 0.7 }, to = { min = 1, max = 1.5 } },
 
 	["handling_speed"] = { offset = 0.3, from = { min = 0, max = 0.09 }, to = { min = 0.35, max = 0 }, clamp = true },
-	-- ["increase_rate"] = { offset = 0, from = { min = 0.1, max = 0.7 }, to = { min = 1, max = 1.5 } },
 }
 
 local function apply_rules(np, rule)
@@ -61,12 +60,8 @@ M.convert = function(op, np)
 	--cam angle is radians, ini cam_max_angle is degrees
 	np.cam_max_angle = op.cam_max_angle > 0 and math.rad(op.cam_max_angle) or 0
 	np.pitch_frac = utils.math_clamp(op.cam_dispersion_frac or 1, 0, 1)
-	--engine growth ratio, per shot kick = base*(1 + (inc/base)*n)
-	np.increase_rate = op.cam_dispersion > 0 and op.cam_dispersion_inc / op.cam_dispersion or 0
 	--vanilla ads to hip recoil ratio, defaults to 1 when the ini omits zoom keys
-	np.zoom_ratio = op.cam_dispersion > 0
-			and utils.math_clamp(op.zoom_cam_dispersion / op.cam_dispersion, 0.25, 2)
-		or 1
+	np.zoom_ratio = op.cam_dispersion > 0 and utils.math_clamp(op.zoom_cam_dispersion / op.cam_dispersion, 0.25, 2) or 1
 
 	np.force_yaw = np.force_pitch + np.force_yaw
 
