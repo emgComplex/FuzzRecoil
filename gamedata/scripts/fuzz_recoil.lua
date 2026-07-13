@@ -209,8 +209,7 @@ function on_fire()
 	hudrc.on_fire(handling_power, is_ads, shot_cam_k, burst_shots)
 
 	--vanilla dispersion_frac as mean preserving per shot variance
-	local frac_factor = M.settings.use_pitch_frac and (1 + (math.random() * 2 - 1) * (1 - m_profile.pitch_frac))
-		or 1
+	local frac_factor = M.settings.use_pitch_frac and (1 + (math.random() * 2 - 1) * (1 - m_profile.pitch_frac)) or 1
 	--engine style expansion, kick grows linearly with burst length (EffectorShot Shot)
 	local expansion = M.settings.use_increase_rate
 			and (1 + m_profile.increase_rate * M.settings.increase_rate_scale * burst_shots)
@@ -412,11 +411,15 @@ function collect_wpn_info(wpn_sec)
 		wpn_info.cam_relax_speed = utils.get_float(wpn_sec, "cam_relax_speed")
 		--NOTE: engine copies hip values to zoom when the ini omits the zoom keys
 		wpn_info.zoom_cam_dispersion = utils.get_float(wpn_sec, "zoom_cam_dispersion", wpn_info.cam_dispersion)
-		wpn_info.zoom_cam_dispersion_inc = utils.get_float(wpn_sec, "zoom_cam_dispersion_inc", wpn_info.cam_dispersion_inc)
-		wpn_info.zoom_cam_dispersion_frac = utils.get_float(wpn_sec, "zoom_cam_dispersion_frac", wpn_info.cam_dispersion_frac)
+		wpn_info.zoom_cam_dispersion_inc =
+			utils.get_float(wpn_sec, "zoom_cam_dispersion_inc", wpn_info.cam_dispersion_inc)
+		wpn_info.zoom_cam_dispersion_frac =
+			utils.get_float(wpn_sec, "zoom_cam_dispersion_frac", wpn_info.cam_dispersion_frac)
 		wpn_info.zoom_cam_max_angle = utils.get_float(wpn_sec, "zoom_cam_max_angle", wpn_info.cam_max_angle)
-		wpn_info.zoom_cam_max_angle_horz = utils.get_float(wpn_sec, "zoom_cam_max_angle_horz", wpn_info.cam_max_angle_horz)
-		wpn_info.zoom_cam_step_angle_horz = utils.get_float(wpn_sec, "zoom_cam_step_angle_horz", wpn_info.cam_step_angle_horz)
+		wpn_info.zoom_cam_max_angle_horz =
+			utils.get_float(wpn_sec, "zoom_cam_max_angle_horz", wpn_info.cam_max_angle_horz)
+		wpn_info.zoom_cam_step_angle_horz =
+			utils.get_float(wpn_sec, "zoom_cam_step_angle_horz", wpn_info.cam_step_angle_horz)
 		wpn_info.zoom_cam_relax_speed = utils.get_float(wpn_sec, "zoom_cam_relax_speed", wpn_info.cam_relax_speed)
 		wpn_info.rpm = utils.get_float(wpn_sec, "rpm", 600)
 		wpn_info.mag_size = utils.get_float(wpn_sec, "ammo_mag_size", 30)

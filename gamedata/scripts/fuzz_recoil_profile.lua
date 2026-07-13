@@ -62,6 +62,9 @@ M.__index = M
 M.raw_profile = {}
 setmetatable(M, { __index = default_profile })
 
+---------------
+---intenal functions
+---------------
 function M.shallow_copy(target, source)
 	--TODO: very scary my friend...
 	target = target or {}
@@ -71,7 +74,9 @@ function M.shallow_copy(target, source)
 		end
 	end
 end
-
+---------------
+---Methods
+---------------
 function M:new()
 	local ins = {}
 	setmetatable(ins, M)
