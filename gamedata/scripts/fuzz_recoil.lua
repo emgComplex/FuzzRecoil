@@ -173,11 +173,13 @@ function on_changed_slot()
 	--Never seen it happens since switching animation will give us a natrual delay
 	--but if it happens we can fix it with a TimeEvent
 	M.force_reset_recoil()
+	--NOTE:!!!breaking change,load weapon when switching,
+	--less performance impact on before fire
+	M.check_current_weapon()
 end
 function on_before_fire()
 	-- logger.dbg("Before Shot ")
 	if not active then
-		--TODO: this is fine,we need a hook when applying upgrades on cur_weapon,to refresh
 		active = M.check_current_weapon()
 	end
 	--the engine reads dispersion when the bullet leaves, apply before the first one
