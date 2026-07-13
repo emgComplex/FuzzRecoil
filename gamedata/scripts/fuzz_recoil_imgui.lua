@@ -4,6 +4,7 @@ local logger = fuzz_recoil_logger
 local cvter = fuzz_recoil_converter
 local camrc = fuzz_recoil_cam_recoil.instance
 local hudrc = fuzz_recoil_hud_recoil.instance
+local impacts = fuzz_recoil_impacts
 --stylua: ignore start
 --stylua: ignore end
 -- local log_text = frm.log_text
@@ -144,7 +145,7 @@ function renderImguiTab()
 		ImGui.TextColored(vector4():set(0, 1, 0, 1), "Weapon: " .. cur_wpn:section())
 		ImGui.Separator()
 		if ImGui.Button("ResetHand") then
-			frm.reset_hud_hand()
+			hudrc.reset_hud_hand()
 		end
 		ImGui.SameLine()
 		if ImGui.Button("ForeceResetRecoil", vector2():set(150, 25)) then
@@ -293,6 +294,7 @@ function renderProfile()
 		ImGui.Text(export_hint)
 		if ImGui.Button("Apply", vector2():set(-1, 25)) then
 			hudrc.cache_profile(prf)
+			camrc.cache_profile(prf)
 		end
 		if ImGui.Button("Export to LTX", vector2():set(-1, 25)) then
 			export_profile_to_ltx(prf, wpn_sec)
@@ -316,9 +318,17 @@ function renderConfig()
 		end
 		ImGui.Separator()
 		ImGui.Text("Settings")
+		_, frm.settings.hud_kick_v2 = ImGui.Checkbox("Tarkov Kick (V2 instant)", frm.settings.hud_kick_v2)
+		_, frm.settings.use_bloom = ImGui.Checkbox("Fire Bloom", frm.settings.use_bloom)
+		impacts.imgui_settings_drawer()
 		_, frm.settings.bolt_action_Y_lift = ImGui.Checkbox("Bolt-Action Lift", frm.settings.bolt_action_Y_lift)
 		_, frm.settings.cam_drag = ImGui.SliderFloat("Cam Drag", frm.settings.cam_drag, 5.0, 20.0, "%.2f")
-		ImGui.TextColored(vector4():set(1, 0, 0, 1), "NOT IMPLEMENTED YET")
+		ImGui.Text("Vanilla data extras")
+		_, frm.settings.use_pitch_frac = ImGui.Checkbox("Pitch Frac Variance", frm.settings.use_pitch_frac)
+		_, frm.settings.use_cam_max_angle = ImGui.Checkbox("Cam Max Angle Cap", frm.settings.use_cam_max_angle)
+		_, frm.settings.use_addon_ammo_koefs = ImGui.Checkbox("Addon & Ammo Koefs", frm.settings.use_addon_ammo_koefs)
+		_, frm.settings.use_increase_rate = ImGui.Checkbox("Burst Expansion", frm.settings.use_increase_rate)
+		_, frm.settings.use_zoom_ratio = ImGui.Checkbox("ADS Zoom Ratio", frm.settings.use_zoom_ratio)
 		_, frm.settings.recoil_v_scale =
 			ImGui.SliderFloat("Recoil scale(Vert)", frm.settings.recoil_v_scale, 0.1, 2.0, "%.2f")
 		_, frm.settings.recoil_h_scale =

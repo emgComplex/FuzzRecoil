@@ -17,7 +17,7 @@ function M.has_camera_effector()
 	return level.check_cam_effector(CAM_FX_ID)
 end
 local function set_player_angle(angle)
-	--PERF: remove check if set factor does not throw
+	--no op until start adds the effector, resets before init are silent
 	if M.has_camera_effector() then
 		level.set_cam_effector_factor(CAM_FX_ID, math.max(0.0001, math.min(angle, 0.999)))
 	end
@@ -43,6 +43,8 @@ local _update_fn = M.update_exp
 ----------
 local lift_force = 0
 local impulse_factor = 0
+--vanilla cam_max_angle cap in radians, 0 means uncapped
+local max_angle = 0
 ----------
 ---Pulibc Getters
 ----------
@@ -58,14 +60,21 @@ end
 ----------
 ---Configs
 ----------
-local base_cam_return_speed = 4.0
-local min_cam_return_step = 0.0045
+local cfg = {
+	base_cam_return_speed = 4.0,
+	min_cam_return_step = 0.0045,
+	--auto fire impulse decay and step divisor
+	cam_impulse_decay = 12,
+	cam_step_div = 15,
+}
 ----------
 ---Settings
 ----------
 local cam_drag = 12
+local use_cam_max_angle = false
 function M.load_settings(settings)
 	cam_drag = settings.cam_drag
+	use_cam_max_angle = settings.use_cam_max_angle
 end
 ----------
 ---Module
@@ -91,6 +100,7 @@ function M.cache_profile(profile)
 	lift_force = profile.cam_recoil_power
 	impulse_factor = profile.shot_cam_impulse_factor
 	bonus_return_speed = profile.cam_return_speed
+	max_angle = profile.cam_max_angle or 0
 end
 function M.start(profile)
 	M.cache_profile(profile)
@@ -100,29 +110,48 @@ end
 function M.stop()
 	-- NOTE: what if we don't remove cam effector at all?
 	-- M.remove_cam_fx()
+	set_player_angle(0.0001)
 	is_returned = true
 	m_angle = 0
 	m_vel = 0
 end
-function M.on_fire(handle)
+--scale carries the per shot koefs, frac variance, expansion and mode kick
+function M.on_fire(handle, scale)
 	is_returned = false
 	handle = math.pow(1 - handle, 2)
-	local cam_impulse = lift_force * handle * impulse_factor --* scale
+	local cam_impulse = lift_force * handle * impulse_factor * (scale or 1)
 	m_vel = m_vel + cam_impulse
 end
 
+--vanilla cam_max_angle cap, 0 disables
+local function clamp_angle()
+	if not use_cam_max_angle then
+		return
+	end
+	if max_angle > 0 and m_angle > max_angle then
+		m_angle = max_angle
+	end
+end
+
 function M.update_cubic(dt)
+	if math.abs(m_vel) <= 0.01 then
+		return
+	end
 	local drag = cam_drag * math.sqrt(math.abs(m_vel))
 	m_vel = m_vel * math.exp(-drag * dt)
 	m_angle = m_angle + m_vel * dt
+	clamp_angle()
 	set_player_angle(m_angle)
 end
 function M.update_exp(dt)
-	-- self.cam_vel = self.cam_vel * (1.0 - dt * debug_var.float_x2)
-	local decay = math.exp(-dt * 12)
-	local step = m_vel * (1 - decay) / 15
+	if math.abs(m_vel) <= 0.01 then
+		return
+	end
+	local decay = math.exp(-dt * cfg.cam_impulse_decay)
+	local step = m_vel * (1 - decay) / cfg.cam_step_div
 	m_vel = m_vel * decay
 	m_angle = m_angle + step
+	clamp_angle()
 	set_player_angle(m_angle)
 end
 function M.update_spring(dt)
@@ -155,15 +184,15 @@ end
 --leave it here
 function M.do_return(dt)
 	--TODO:remove config and cache this when init
-	if m_angle <= min_cam_return_step then
+	if m_angle <= cfg.min_cam_return_step then
 		M.stop()
 		return
 	end
-	local speed_factor = base_cam_return_speed + bonus_return_speed
+	local speed_factor = cfg.base_cam_return_speed + bonus_return_speed
 	local lerp_factor = 1.0 - math.exp(-speed_factor * dt)
 
 	local step = m_angle * lerp_factor
-	local min_step = min_cam_return_step
+	local min_step = cfg.min_cam_return_step
 	local final_step = math.max(step, min_step)
 	--NOTE:vel is actually step when returning ,im just lazy ,its easy to debug
 	m_vel = final_step
@@ -192,6 +221,8 @@ function M.imgui_info_drawer()
 end
 function M.imgui_config_drawer()
 	ImGui.Text("Cam Recoil Config")
-	_, base_cam_return_speed = ImGui.SliderFloat("Base Cam Return Speed", base_cam_return_speed, 0.1, 10, "%.2frad")
-	_, min_cam_return_step = ImGui.SliderFloat("Min Cam Return step", min_cam_return_step, 0.001, 0.01, "%.4frad")
+	_, cfg.base_cam_return_speed = ImGui.SliderFloat("Base Cam Return Speed", cfg.base_cam_return_speed, 0.1, 10, "%.2frad")
+	_, cfg.min_cam_return_step = ImGui.SliderFloat("Min Cam Return step", cfg.min_cam_return_step, 0.001, 0.01, "%.4frad")
+	_, cfg.cam_impulse_decay = ImGui.SliderFloat("Cam Impulse Decay", cfg.cam_impulse_decay, 1.0, 50.0, "%.2f")
+	_, cfg.cam_step_div = ImGui.SliderFloat("Cam Step Div", cfg.cam_step_div, 1.0, 50.0, "%.2f")
 end

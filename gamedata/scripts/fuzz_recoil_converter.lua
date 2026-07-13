@@ -9,6 +9,7 @@ M.rule = {
 
 	["force_pitch"] = { offset = 0, from = { min = 0, max = 4 }, to = { min = 3, max = 16 }, clamp = true },
 	["force_y"] = { offset = 0, from = { min = 0, max = 4 }, to = { min = 0, max = -0.08 }, clamp = true },
+	["force_z"] = { offset = 0, from = { min = 0, max = 4 }, to = { min = 0.003, max = 0.012 }, clamp = true },
 	["force_yaw"] = { offset = 0, from = { min = 0, max = 2 }, to = { min = 0, max = 1 }, clamp = true },
 	["force_x"] = { offset = 0, from = { min = 0, max = 2 }, to = { min = 0, max = 0.001 }, clamp = true },
 
@@ -31,24 +32,41 @@ local function is_bolt_action(op)
 	--NOTE: rpm now comes from cast_wpn:RealRPM() (60/fOneShotTime)
 	--thx to @Gabriell
 	return op.rpm <= 60
-	--NOTE: no lua api exposes hud motion length,animation check not feasible
+	--NOTE: no lua api exposes hud motion length, animation check not feasible
 	-- credite @verdatim
 end
 
 M.convert = function(op, np)
+	-- op = wpn_info
+	-- np = recoil profile
+	--cam side addon koef is applied per shot at runtime, inc koef stays here
+	--it feeds the nonlinear handling lerps
+	local cam_disp_inc = op.cam_dispersion_inc * (op.addon_cam_inc_k or 1)
+
 	np.cam_recoil_power = op.cam_dispersion
 	np.cam_return_speed = op.cam_relax_speed
 
 	np.force_pitch = op.cam_dispersion
 	np.force_y = op.cam_dispersion
+	np.force_z = op.cam_dispersion
 	np.force_yaw = op.cam_step_angle_horz
 	np.force_x = op.cam_step_angle_horz
 
-	np.pull_force = op.cam_dispersion_inc
-	np.handling_speed = op.cam_dispersion_inc
+	np.pull_force = cam_disp_inc
+	np.handling_speed = cam_disp_inc
 	apply_rules(np, M.rule)
 	np.firing_damping = 1
 	np.is_bolt_action = is_bolt_action(op)
+
+	--cam angle is radians, ini cam_max_angle is degrees
+	np.cam_max_angle = op.cam_max_angle > 0 and math.rad(op.cam_max_angle) or 0
+	np.pitch_frac = utils.math_clamp(op.cam_dispersion_frac or 1, 0, 1)
+	--engine growth ratio, per shot kick = base*(1 + (inc/base)*n)
+	np.increase_rate = op.cam_dispersion > 0 and op.cam_dispersion_inc / op.cam_dispersion or 0
+	--vanilla ads to hip recoil ratio, defaults to 1 when the ini omits zoom keys
+	np.zoom_ratio = op.cam_dispersion > 0
+			and utils.math_clamp(op.zoom_cam_dispersion / op.cam_dispersion, 0.25, 2)
+		or 1
 
 	np.force_yaw = np.force_pitch + np.force_yaw
 

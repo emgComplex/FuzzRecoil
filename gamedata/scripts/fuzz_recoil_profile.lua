@@ -22,23 +22,33 @@ local default_profile = {
 	is_bolt_action = false,
 	cam_recoil_power = 4,
 	cam_return_speed = 1,
-	--TODO:
-	--zoom_scale_ratio
+	--0 means uncapped, radians like cam angle
+	cam_max_angle = 0,
+	--1 means no per shot variance
+	pitch_frac = 1,
+	--ads kick relative to hip, from vanilla zoom_cam_dispersion/cam_dispersion
+	zoom_ratio = 1,
 
 	force_pitch = 15,
 	force_y = -0.04,
 	force_yaw = 15,
 	force_x = 0.0006,
+	--shoulder push, z pop per shot
+	force_z = 0.006,
 
 	pull_force = 1.5,
 	firing_damping = 1.0,
 	-- hud_return_speed = 1,
 
 	handling_speed = 0.5,
+	--per shot growth ratio, kick = base*(1 + increase_rate*burst_shot_index)
+	increase_rate = 0,
+	--deterministic weapon class, drives burst heat
+	burst_class = "other",
 
 	-- TODO: need a better name for shot_delay
 	-- shot_delay
-	should_shot_delay = false,
+	shot_delay_enabled = false,
 	shot_delay_time = 0.4,
 	shot_cam_impulse_factor = 0.2,
 
@@ -69,22 +79,41 @@ function M:new()
 	return ins
 end
 
+--belt or drum feed is the lmg tell
+local function classify_burst_class(kind, mag_size)
+	if kind == "w_smg" then
+		return "smg"
+	end
+	if kind == "w_pistol" then
+		return "pistol"
+	end
+	if kind == "w_rifle" then
+		return (mag_size or 30) >= 50 and "lmg" or "ar"
+	end
+	return "other"
+end
+
 function M:read_profile(wpn_sec, wpn_info)
 	local prf_sec = ini_sys:r_string_ex(wpn_sec, "fuzz_recoil", nil)
 	if prf_sec then
 		self.is_bolt_action = utils.get_bool(prf_sec, "is_bolt_action", false)
 		self.cam_recoil_power = utils.get_float(prf_sec, "cam_recoil_power", 4)
 		self.cam_return_speed = utils.get_float(prf_sec, "cam_return_speed", 1)
+		self.cam_max_angle = utils.get_float(prf_sec, "cam_max_angle", 0)
+		self.pitch_frac = utils.math_clamp(utils.get_float(prf_sec, "pitch_frac", 1), 0, 1)
+		self.zoom_ratio = utils.math_clamp(utils.get_float(prf_sec, "zoom_ratio", 1), 0.25, 2)
 
 		self.force_pitch = utils.get_float(prf_sec, "force_pitch", 15)
 		self.force_y = utils.get_float(prf_sec, "force_y", -0.04)
 		self.force_yaw = utils.get_float(prf_sec, "force_yaw", 15)
 		self.force_x = utils.get_float(prf_sec, "force_x", 0)
+		self.force_z = utils.get_float(prf_sec, "force_z", 0.006)
 
 		self.pull_force = utils.get_float(prf_sec, "pull_force", 1.5)
 		self.firing_damping = utils.get_float(prf_sec, "firing_damping", 1)
 
 		self.handling_speed = utils.get_float(prf_sec, "handling_speed", 0.5)
+		self.increase_rate = utils.get_float(prf_sec, "increase_rate", 0)
 		self.stamina_factor = utils.get_float(prf_sec, "stamina_factor", 0)
 	else
 		cvter.convert(wpn_info, self)
@@ -99,6 +128,7 @@ function M:load(wpn_sec, wpn_info)
 	self:read_profile(wpn_sec, wpn_info)
 
 	self:process_shot_delay(wpn_info)
+	self.burst_class = classify_burst_class(wpn_info.kind, wpn_info.mag_size)
 
 	local raw_table = {}
 	M.shallow_copy(raw_table, self)
@@ -132,6 +162,9 @@ function M:imgui_editor_drawer()
 	ImGui.Text("Camera recoil")
 	_, self.cam_recoil_power = ImGui.SliderFloat("Cam Recoil Power", self.cam_recoil_power, 0.1, 16.0, "%.2f")
 	_, self.cam_return_speed = ImGui.SliderFloat("Cam Return Speed", self.cam_return_speed, 0.5, 2, "%.2f")
+	_, self.cam_max_angle = ImGui.SliderFloat("Cam Max Angle", self.cam_max_angle, 0, 1, "%.3frad")
+	_, self.pitch_frac = ImGui.SliderFloat("Pitch Frac", self.pitch_frac, 0, 1, "%.2f")
+	_, self.zoom_ratio = ImGui.SliderFloat("Zoom Ratio", self.zoom_ratio, 0.25, 2, "%.2f")
 
 	ImGui.Text("Hud Recoil")
 	_, self.pull_force = ImGui.SliderFloat("Pull Force", self.pull_force, 0.1, 4.0, "%.2f")
@@ -142,6 +175,7 @@ function M:imgui_editor_drawer()
 	self.force_y = self.force_y
 	_, self.force_yaw = ImGui.SliderFloat("Yaw", self.force_yaw, 0, 60, "%.2f")
 	_, self.force_x = ImGui.SliderFloat("PosX", self.force_x, 0.0001, 0.0025, "%.4f")
+	_, self.force_z = ImGui.SliderFloat("PosZ (shoulder)", self.force_z, 0.0, 0.02, "%.4f")
 	self.force_x = self.force_x
 
 	ImGui.Text("Handling")
@@ -150,7 +184,6 @@ function M:imgui_editor_drawer()
 	if handle_speed_change then
 		fuzz_recoil.set_handling_speed(self.handling_speed)
 	end
-	ImGui.TextColored(vector4():set(1, 0, 0, 1), "NOT IMPLEMENTED YET")
 	_, self.increase_rate = ImGui.SliderFloat("Increase Rate", self.increase_rate, 0.0, 2.0, "%.2f")
 	ImGui.Separator()
 end

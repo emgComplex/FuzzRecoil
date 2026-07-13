@@ -35,16 +35,11 @@ This an Alpha test to collect bugs.
 ### Know Bugs And Limitations
 
 1. All recoil profile is converted from vanilla recoil data,strange behaviour is expected.
-2. The camera’s yaw sometimes locks ,dunno why,and can't reproduce it
-3. Switching scope will cause busy hand when ImGui is enabled
-4. Recoil does not respect upgrades,will be fixed soon
 
 ### TODO
 
-1. Better camera recoil
-2. Weapon weight affects recoil
-3. Upgrades affects recoil
-4. API for modder (skill,buff, etc.)
+1. Weapon weight affects recoil
+2. API for modder (skill,buff, etc.)
 
 ### Recoil profile Customization
 
