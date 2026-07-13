@@ -19,18 +19,34 @@ local shot_delay_table = {
 local M = {}
 _G.fuzz_recoil_profile = M
 M.__index = M
-M.name = "w_nil_profile"
 
+---@class FuzzRecoilProfile
+---@field name string
+---@field cam_recoil_power number
+---@field cam_return_speed number
+---@field force_pitch number
+---@field force_y number
+---@field force_yaw number
+---@field force_x number
+---@field force_z number
+---@field handling_speed number
+---@field pull_force number
+---@field firing_damping number
+---@field zoom_ratio number
+---@field is_bolt_action boolean
+---@field fire_interval number
+---@field pitch_frac number
+---@field burst_class string
+---@field shot_delay_enabled boolean
+---@field shot_delay_time number
+---@field shot_cam_impulse_factor number
+
+---@type FuzzRecoilProfile
 local default_profile = {
-	is_bolt_action = false,
+	name = "w_nil_profile",
+
 	cam_recoil_power = 4,
 	cam_return_speed = 1,
-	--0 means uncapped, radians like cam angle
-	cam_max_angle = 0,
-	--1 means no per shot variance
-	pitch_frac = 1,
-	--ads kick relative to hip, from vanilla zoom_cam_dispersion/cam_dispersion
-	zoom_ratio = 1,
 
 	force_pitch = 15,
 	force_y = -0.04,
@@ -39,11 +55,17 @@ local default_profile = {
 	--shoulder push, z pop per shot
 	force_z = 0.006,
 
+	handling_speed = 0.5,
 	pull_force = 1.5,
 	firing_damping = 1.0,
-	-- hud_return_speed = 1,
 
-	handling_speed = 0.5,
+	--ads kick relative to hip, from vanilla zoom_cam_dispersion/cam_dispersion
+	zoom_ratio = 1,
+	is_bolt_action = false,
+	fire_interval = 0.1,
+	--1 means no per shot variance
+	pitch_frac = 1,
+
 	--deterministic weapon class, drives burst heat
 	burst_class = "other",
 
@@ -53,11 +75,12 @@ local default_profile = {
 	shot_delay_time = 0.4,
 	shot_cam_impulse_factor = 0.2,
 
+	--NOTE: CONSIDER REMOVE
+	--0 means uncapped, radians like cam angle
+	cam_max_angle = 0,
+
 	--TODO:NOT IMPLEMENTED
 	stamina_factor = 1,
-	-- mass_inertia = -1,
-	-- hidden vars
-	fire_interval = 0.1,
 }
 setmetatable(M, { __index = default_profile })
 M.raw_profile = {}
