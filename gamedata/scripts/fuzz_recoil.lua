@@ -213,14 +213,11 @@ function on_fire()
 	--vanilla dispersion_frac as mean preserving per shot variance
 	local frac_factor = M.settings.use_pitch_frac and (1 + (math.random() * 2 - 1) * (1 - m_profile.pitch_frac)) or 1
 	--engine style expansion, kick grows linearly with burst length (EffectorShot Shot)
-	local expansion = M.settings.use_increase_rate
-			and (1 + m_profile.increase_rate * M.settings.increase_rate_scale * burst_shots)
-		or 1
+	local expansion = M.settings.use_increase_rate and (1 + m_profile.increase_rate * burst_shots) or 1
 	burst_shots = burst_shots + 1
 	local kick_scale = frac_factor
 		* expansion
 		* shot_cam_k
-		* M.settings.recoil_cam_scale
 		* (M.settings.hud_kick_v2 and hudrc.get_mode_kick_mul() or 1)
 	camrc.on_fire(handling_power, kick_scale)
 end
@@ -363,8 +360,8 @@ function M.init_weapon(wpn_sec)
 	bloom_applied = -1
 
 	-- inil some recoil paramete from here
-	firing_handling_ease:set_speed(m_profile.handling_speed * M.settings.handling_speed_scale)
-	idle_handling_ease:set_speed(m_profile.handling_speed * M.settings.handling_speed_scale)
+	firing_handling_ease:set_speed(m_profile.handling_speed)
+	idle_handling_ease:set_speed(m_profile.handling_speed)
 
 	if m_profile.is_bolt_action then
 		idle_handling_ease.intensity = sniper_idle_handling.intensity

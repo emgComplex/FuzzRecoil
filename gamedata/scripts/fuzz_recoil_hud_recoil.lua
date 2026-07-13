@@ -127,14 +127,10 @@ local cfg = {
 --Cahced settings
 --------------
 local bolt_action_Y_lift = true
-local recoil_v_scale = 1
-local recoil_h_scale = 1
 local use_zoom_ratio = false
 
 function M.load_settings(settings)
 	bolt_action_Y_lift = settings.bolt_action_Y_lift
-	recoil_v_scale = settings.recoil_v_scale
-	recoil_h_scale = settings.recoil_h_scale
 	use_zoom_ratio = settings.use_zoom_ratio
 end
 --------
@@ -412,8 +408,8 @@ local function on_fire_instant(handling_power, ads, cam_k, burst_shots)
 	local mode_mul = M.get_mode_kick_mul()
 	local jitter_mul = is_ads and 1 or cfg.hip_jitter_mul
 	local spread_mul = is_ads and 1 or cfg.hip_spread_mul
-	local v_scale = shot_cam_k * recoil_v_scale * mode_mul
-	local h_scale = recoil_h_scale * spread_mul
+	local v_scale = shot_cam_k * mode_mul
+	local h_scale = spread_mul
 
 	--burst heat, every shot past the class grace budget grows the variance
 	local hc = cfg.v2_heat[burst_class] or cfg.v2_heat.other
@@ -484,7 +480,7 @@ local function on_fire_instant(handling_power, ads, cam_k, burst_shots)
 	local d_yaw = (math.random() * 2 - 1) * force_yaw * cfg.v2_yaw_scale * h_scale
 	local d_pos_x = (math.random() * 2 - 1) * force_x * h_scale
 	--shoulder push
-	local d_pos_z = -force_z * shot_cam_k * recoil_v_scale
+	local d_pos_z = -force_z * shot_cam_k
 
 	rot_raw.y = rot_raw.y + d_pitch
 	rot_raw.x = rot_raw.x + d_yaw
