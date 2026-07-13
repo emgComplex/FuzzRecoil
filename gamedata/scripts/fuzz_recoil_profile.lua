@@ -15,6 +15,7 @@ local shot_delay_table = {
 ---------------
 ---object
 ---------------
+---@class fuzz_recoil_profile
 local M = {}
 _G.fuzz_recoil_profile = M
 
@@ -139,6 +140,12 @@ function M:load(wpn_sec, wpn_info)
 	M.shallow_copy(raw_table, self)
 	self.raw_profile = raw_table
 	-- logger.print_table(self)
+	-- self:apply_modifiers()
+	return self
+end
+
+function M:apply_modifiers()
+	fuzz_recoil_modifier.apply_modifiers(self)
 	return self
 end
 

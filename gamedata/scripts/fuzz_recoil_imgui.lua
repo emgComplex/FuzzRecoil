@@ -330,15 +330,15 @@ function renderConfig()
 		_, frm.settings.use_increase_rate = ImGui.Checkbox("Burst Expansion", frm.settings.use_increase_rate)
 		_, frm.settings.use_zoom_ratio = ImGui.Checkbox("ADS Zoom Ratio", frm.settings.use_zoom_ratio)
 		_, frm.settings.recoil_v_scale =
-			ImGui.SliderFloat("Recoil scale(Vert)", frm.settings.recoil_v_scale, 0.1, 2.0, "%.2f")
+			ImGui.SliderFloat("Recoil scale(Vert)", frm.settings.recoil_v_scale, -2, 2, "%.2f")
 		_, frm.settings.recoil_h_scale =
-			ImGui.SliderFloat("Recoil scale(Hori) ", frm.settings.recoil_h_scale, 0.1, 2.0, "%.2f")
+			ImGui.SliderFloat("Recoil scale(Hori) ", frm.settings.recoil_h_scale, -2, 2, "%.2f")
 		_, frm.settings.recoil_cam_scale =
-			ImGui.SliderFloat("Recoil scale(Cam)", frm.settings.recoil_cam_scale, 0.1, 2.0, "%.2f")
+			ImGui.SliderFloat("Recoil scale(Cam)", frm.settings.recoil_cam_scale, -2, 2, "%.2f")
 		_, frm.settings.increase_rate_scale =
-			ImGui.SliderFloat("Increase Rate", frm.settings.increase_rate_scale, 0.1, 2.0, "%.2f")
+			ImGui.SliderFloat("Increase Rate", frm.settings.increase_rate_scale, -2, 2, "%.2f")
 		_, frm.settings.handling_speed_scale =
-			ImGui.SliderFloat("Handling Speed", frm.settings.handling_speed_scale, 0.1, 2.0, "%.2f")
+			ImGui.SliderFloat("Handling Speed", frm.settings.handling_speed_scale, -2, 2, "%.2f")
 		ImGui.TreePop()
 		if ImGui.Button("Apply Settings", vector2():set(-1, 25)) then
 			frm.apply_settings()

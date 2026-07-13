@@ -8,6 +8,7 @@ local logger = fuzz_recoil_logger
 local Profile = fuzz_recoil_profile
 local camrc = fuzz_recoil_cam_recoil.awake()
 local hudrc = fuzz_recoil_hud_recoil.awake()
+local modi = fuzz_recoil_modifier
 ------------
 local cur_wpn = nil
 local cur_cast_wpn = nil
@@ -35,17 +36,16 @@ local cur_wpn_id = 0
 M.settings = {
 	debug_mode = fuzz_dev and true or false,
 
-	--TODO:
-	recoil_v_scale = 1,
-	recoil_h_scale = 1,
-	recoil_cam_scale = 1,
-	increase_rate_scale = 1,
-	handling_speed_scale = 1,
+	recoil_v_scale = 0,
+	recoil_h_scale = 0,
+	recoil_cam_scale = 0,
+	increase_rate_scale = 0,
+	handling_speed_scale = 0,
 	--The higher the sharper, the lower the smoother (and softer)
 	cam_drag = 12,
 	bolt_action_Y_lift = true,
 	--tarkov style hud kick, instant displacement with eased recovery
-	hud_kick_v2 = true,
+	hud_kick_v2 = false,
 
 	--vanilla data extras, off keeps stock feel
 	use_pitch_frac = false,
@@ -79,6 +79,7 @@ M.bloom = {
 function M.apply_settings()
 	hudrc.load_settings(M.settings)
 	camrc.load_settings(M.settings)
+	init_modifiers()
 	hudrc.switch_mode(M.settings.hud_kick_v2 and hudrc.MODE.INSTANT or hudrc.MODE.SPRING)
 end
 ------- config
@@ -94,6 +95,7 @@ local idle_handling_ease = utils.simple_ease:new(-1, -1, 0.2, 6)
 --NOGUI
 sniper_idle_handling = { offset = 0.2, intensity = 0.8 }
 
+---@type fuzz_recoil_profile
 local m_profile = Profile:new()
 local wpn_info = {
 	cam_dispersion = 0,
@@ -266,6 +268,9 @@ end
 --i think cached table is better ,but we still have to update the profile evertime
 function start_recoil()
 	active = true
+	get_actor_state()
+	init_modifiers()
+	m_profile:apply_modifiers()
 	camrc.start(m_profile)
 	hudrc.start(m_profile)
 	RemoveTimeEvent("fuzz_recoil", "bolt_delay_stop")
@@ -372,7 +377,6 @@ function M.init_weapon(wpn_sec)
 	hudrc.init(wpn_sec, cur_cast_wpn)
 
 	addon_sig = get_addon_sig()
-
 	logger.dbg("Initialize weapon")
 end
 --NOTE: engine getters return the live post-upgrade values in radians,
@@ -573,7 +577,57 @@ function set_vanilla_cam_recoil(cast_wpn, cam_disp, cam_disp_inc, zoom_cam_disp,
 	cast_wpn:SetZoomCamDispersion(zoom_cam_disp)
 	cast_wpn:SetZoomCamDispersionInc(zoom_cam_dis_inc)
 end
-
+--------------------
+---actor stats
+--------------------
+local actor_hunger = 1
+local actor_stamina = 1
+local actor_recoil_modi_val = 0
+function get_actor_state()
+	if not player then
+		player = db.actor
+		if not player then
+			return
+		end
+	end
+	local condition = db.actor:cast_Actor():conditions()
+	actor_hunger = condition:GetSatiety()
+	actor_stamina = player.power
+	actor_recoil_modi_val = 0
+	-- if actor_hunger < 0.6 then
+	actor_recoil_modi_val = actor_recoil_modi_val + (1 - actor_hunger) / 2
+	-- end
+	-- if actor_stamina < 0.6 then
+	actor_recoil_modi_val = actor_recoil_modi_val + (1 - actor_stamina) / 2
+	-- end
+	logger.dbg("hunger:%.4f,stamina:%.4f", actor_hunger, actor_stamina)
+end
+--------------------
+---modifiers
+--------------------
+function init_modifiers()
+	---@type ModiData[]
+	local basic_modi = {
+		{ name = "", param = "cam_recoil_power", type = 1, val = M.settings.recoil_cam_scale },
+		-- { name = "", param = "force_pitch", type = 1, val = M.settings.recoil_v_scale },
+		-- { name = "", param = "force_y", type = 1, val = M.settings.recoil_v_scale },
+		{ name = "", param = "force_yaw", type = 1, val = M.settings.recoil_h_scale },
+		-- { name = "", param = "force_x", type = 1, val = M.settings.recoil_h_scale },
+		{ name = "", param = "handling_speed", type = 1, val = M.settings.handling_speed_scale },
+		-- { name = "", param = "increase_rate", type = 1, val = M.settings.increase_rate_scale },
+		{ name = "", param = "cam_recoil_power", type = 1, val = actor_recoil_modi_val },
+		-- { name = "", param = "force_pitch", type = 1, val = actor_recoil_modi_val },
+		-- { name = "", param = "force_y", type = 1, val = actor_recoil_modi_val },
+		{ name = "", param = "force_yaw", type = 1, val = actor_recoil_modi_val },
+		-- { name = "", param = "force_x", type = 1, val = actor_recoil_modi_val },
+		-- { name = "", param = "handling_speed", type = 1, val = actor_recoil_modi_val },
+	}
+	for i, v in ipairs(basic_modi) do
+		local result = modi.add_modifier(i, v, true, true)
+		logger.dbg("%s:%s", i, result)
+	end
+	modi.refresh_modi_cache()
+end
 --------------------
 ---IMGUI
 --------------------
