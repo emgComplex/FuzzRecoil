@@ -15,6 +15,7 @@ M.static_modifiers = fuzz_recoil_modifier:new()
 M.dynamic_modifiers = fuzz_recoil_modifier:new()
 ---@type fuzz_recoil_profile
 local m_profile = Profile:new()
+local punchrc = fuzz_recoil_punch.awake()
 ------------
 local cur_wpn = nil
 local cur_cast_wpn = nil
@@ -63,6 +64,7 @@ function M.on_option_change()
 	m_profile:reload_modifiers()
 	hudrc.on_option_change()
 	camrc.on_option_change()
+	punchrc.on_option_change()
 	hudrc.switch_mode(options.hud_kick_v2 and hudrc.MODE.INSTANT or hudrc.MODE.SPRING)
 	logger.dbg("apply options to hud")
 end
@@ -212,6 +214,7 @@ function on_fire()
 	burst_shots = burst_shots + 1
 	local kick_scale = frac_factor * shot_cam_k * (options.hud_kick_v2 and hudrc.get_mode_kick_mul() or 1)
 	camrc.on_fire(hp, kick_scale)
+	punchrc.on_fire(kick_scale)
 end
 function on_update()
 	local dt = device().time_delta / 1000
@@ -241,7 +244,8 @@ function on_update()
 	update_bloom(dt)
 	local hud_returned = hudrc.update(dt, is_firing and handling_power or nil)
 	local cam_returned = camrc.update(dt, is_firing)
-	if handling_power <= 0 and hud_returned and cam_returned then
+	local punch_settled = punchrc.update(dt, is_firing, is_ads)
+	if handling_power <= 0 and hud_returned and cam_returned and punch_settled then
 		reset_recoil()
 	end
 end
@@ -261,6 +265,7 @@ function start_recoil()
 	m_profile:apply_dynamic_modifiers()
 	camrc.start(m_profile)
 	hudrc.start(m_profile)
+	punchrc.start(m_profile)
 	RemoveTimeEvent("fuzz_recoil", "bolt_delay_stop")
 	logger.dbg("Initialize Recoil")
 end
@@ -272,6 +277,8 @@ function reset_recoil()
 
 	camrc.remove_cam_fx()
 	hudrc.disable_hud_adjust()
+	punchrc.stop()
+	punchrc.remove_fx()
 	restore_vanilla_fire_disp()
 	RemoveTimeEvent("fuzz_recoil", "bolt_delay_stop")
 
@@ -280,6 +287,7 @@ end
 function M.force_reset_recoil()
 	camrc.stop()
 	hudrc.stop()
+	punchrc.stop()
 	reset_recoil()
 end
 function update_handling_power(dt)
@@ -348,6 +356,7 @@ function init_weapon(wpn_sec)
 
 	camrc.init(m_profile.shot_delay_enabled and "cubic" or "exp")
 	hudrc.init(wpn_sec, cur_cast_wpn)
+	punchrc.init()
 
 	addon_sig = get_addon_sig()
 	logger.dbg("Initialize weapon")
