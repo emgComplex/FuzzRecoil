@@ -124,6 +124,10 @@ function M.on_fire(handle, scale)
 end
 
 --vanilla cam_max_angle cap, 0 disables
+--NOTE: we use cam_fx which lerp from 0 to 1,
+--animation is a simle 0-57.3(one rad) pitch rotation
+--power glitch at 0 and 1, so i hard-clamp it in set_plyaer_angle
+--most weapon clamps at 51 degree ,
 local function clamp_angle()
 	if not use_cam_max_angle then
 		return
@@ -221,8 +225,10 @@ function M.imgui_info_drawer()
 end
 function M.imgui_config_drawer()
 	ImGui.Text("Cam Recoil Config")
-	_, cfg.base_cam_return_speed = ImGui.SliderFloat("Base Cam Return Speed", cfg.base_cam_return_speed, 0.1, 10, "%.2frad")
-	_, cfg.min_cam_return_step = ImGui.SliderFloat("Min Cam Return step", cfg.min_cam_return_step, 0.001, 0.01, "%.4frad")
+	_, cfg.base_cam_return_speed =
+		ImGui.SliderFloat("Base Cam Return Speed", cfg.base_cam_return_speed, 0.1, 10, "%.2frad")
+	_, cfg.min_cam_return_step =
+		ImGui.SliderFloat("Min Cam Return step", cfg.min_cam_return_step, 0.001, 0.01, "%.4frad")
 	_, cfg.cam_impulse_decay = ImGui.SliderFloat("Cam Impulse Decay", cfg.cam_impulse_decay, 1.0, 50.0, "%.2f")
 	_, cfg.cam_step_div = ImGui.SliderFloat("Cam Step Div", cfg.cam_step_div, 1.0, 50.0, "%.2f")
 end
