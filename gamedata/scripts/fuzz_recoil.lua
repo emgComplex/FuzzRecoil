@@ -577,17 +577,19 @@ end
 function M.imgui_config_drawer()
 	firing_handling_ease:draw_imgui("Handling inc")
 	idle_handling_ease:draw_imgui("Handling dec")
-	if ImGui.TreeNode("Fire Bloom") then
+	if ImGui.TreeNode("Fire Bloom Configs") then
 		ImGui.Text(string.format("heat %.2f, applied x%.2f, base %.4frad", bloom_heat, bloom_applied, orig_fire_disp))
 		_, M.bloom.variance = ImGui.SliderFloat("Variance", M.bloom.variance, 0.0, 3.0, "%.2f")
 		_, M.bloom.decay = ImGui.SliderFloat("Decay", M.bloom.decay, 0.2, 5.0, "%.2f")
 		_, M.bloom.ads_mul = ImGui.SliderFloat("ADS Mul", M.bloom.ads_mul, 0.0, 1.0, "%.2f")
 		_, M.bloom.ads_base = ImGui.SliderFloat("ADS Base Share", M.bloom.ads_base, 0.0, 1.0, "%.2f")
 		for _, class in ipairs({ "pistol", "smg", "ar", "lmg", "other" }) do
+			ImGui.PushID(class)
 			local bc = M.bloom.classes[class]
 			_, bc.base = ImGui.SliderFloat(class .. " base", bc.base, 0.0, 2.0, "%.2f")
 			_, bc.rate = ImGui.SliderFloat(class .. " rate", bc.rate, 0.0, 0.5, "%.3f")
 			_, bc.max = ImGui.SliderFloat(class .. " max", bc.max, 0.0, 3.0, "%.2f")
+			ImGui.PopID()
 		end
 		ImGui.TreePop()
 	end
