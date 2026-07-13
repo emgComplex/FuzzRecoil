@@ -60,15 +60,13 @@ end
 ----------
 ---Configs
 ----------
---tuning, public so imgui and the sim harness can reach it
-M.cfg = {
+local cfg = {
 	base_cam_return_speed = 4.0,
 	min_cam_return_step = 0.0045,
 	--auto fire impulse decay and step divisor
 	cam_impulse_decay = 12,
 	cam_step_div = 15,
 }
-local cfg = M.cfg
 ----------
 ---Settings
 ----------

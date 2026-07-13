@@ -68,8 +68,7 @@ local is_bolt_action = false
 local max_hud_rot = vector():set(3, 3, 0)
 local max_hud_pos = vector():set(0.0025, 0.0035, 0.02)
 
---tuning, public so imgui and the sim harness can reach it
-M.cfg = {
+local cfg = {
 	return_spring = 150,
 	return_damping = 15.0,
 	smooth_firing = 4.5,
@@ -123,7 +122,6 @@ M.cfg = {
 	v2_z_recover = 9.0,
 	smooth_firing_v2 = 25,
 }
-local cfg = M.cfg
 
 --------------
 --Cahced settings
