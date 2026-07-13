@@ -41,12 +41,82 @@ min_cam_return_step = 0.0045
 --auto fire impulse decay and step divisor
 cam_impulse_decay = 12
 cam_step_div = 15
+--2-axis yaw glide rate toward the hud target, higher is crisper
+yaw_smooth = 35
+--3-axis roll, view cant per radian of yaw whip
+roll_couple = 0.5
+--yaw/roll settle deadzone, teardown waits until both fall under this
+min_axis_return = 0.001
 ----------
 ---Options
 ----------
 local cam_drag = 12
 function M.on_option_change()
 	cam_drag = options.cam_drag
+	use_2axis = options.use_2axis
+	use_roll = options.use_roll
+end
+
+----------
+---YAW_FX, 2-axis camera recoil, signed factor drives the oneyaw effector
+----------
+local YAW_FX_ID = 7898
+--authored angle of oneyaw.anm H channel, on screen = atan(factor*sin), invert with tan/sin
+local ONEYAW_RAD = 0.994838
+local use_2axis = false
+local m_yaw = 0
+local yaw_target = 0
+local function create_yaw_effector()
+	if not level.check_cam_effector(YAW_FX_ID) then
+		level.add_cam_effector("camera_effects\\oneyaw.anm", YAW_FX_ID, true, "", 0, true, 0.0001)
+	end
+end
+local function remove_yaw_effector()
+	if level.check_cam_effector(YAW_FX_ID) then
+		level.remove_cam_effector(YAW_FX_ID)
+	end
+end
+--signed, oneyaw rotates both ways so no positive clamp like the pitch axis
+local function set_player_yaw(rad)
+	if level.check_cam_effector(YAW_FX_ID) then
+		level.set_cam_effector_factor(YAW_FX_ID, utils.math_clamp(math.tan(rad) / math.sin(ONEYAW_RAD), -0.999, 0.999))
+	end
+end
+--hudrc feeds the wander here each frame, camrc glides the effector toward it
+function M.set_yaw_target(rad)
+	yaw_target = rad
+end
+function M.get_yaw()
+	return m_yaw
+end
+
+----------
+---ROLL_FX, 3rd axis, cants the view into the yaw whip like tarkov
+----------
+local ROLL_FX_ID = 7899
+local ONEROLL_RAD = 0.994838
+local use_roll = false
+local m_roll = 0
+local function create_roll_effector()
+	if not level.check_cam_effector(ROLL_FX_ID) then
+		level.add_cam_effector("camera_effects\\oneroll.anm", ROLL_FX_ID, true, "", 0, true, 0.0001)
+	end
+end
+local function remove_roll_effector()
+	if level.check_cam_effector(ROLL_FX_ID) then
+		level.remove_cam_effector(ROLL_FX_ID)
+	end
+end
+local function set_player_roll(rad)
+	if level.check_cam_effector(ROLL_FX_ID) then
+		level.set_cam_effector_factor(
+			ROLL_FX_ID,
+			utils.math_clamp(math.tan(rad) / math.sin(ONEROLL_RAD), -0.999, 0.999)
+		)
+	end
+end
+function M.get_roll()
+	return m_roll
 end
 
 ----------
@@ -78,8 +148,9 @@ function M.remove_cam_fx()
 	if level.check_cam_effector(CAM_FX_ID) then
 		level.remove_cam_effector(CAM_FX_ID)
 	end
+	remove_yaw_effector()
+	remove_roll_effector()
 end
-
 ----------
 ---Module
 ----------
@@ -105,15 +176,26 @@ end
 function M.start(profile)
 	M.cache_profile(profile)
 	create_cam_effector()
+	if use_2axis then
+		create_yaw_effector()
+		if use_roll then
+			create_roll_effector()
+		end
+	end
 	is_returned = false
 end
 function M.stop()
 	-- NOTE: what if we don't remove cam effector at all?
 	-- M.remove_cam_fx()
 	set_player_angle(0.0001)
+	set_player_yaw(0)
+	set_player_roll(0)
 	is_returned = true
 	m_angle = 0
 	m_vel = 0
+	m_yaw = 0
+	yaw_target = 0
+	m_roll = 0
 end
 --scale carries the per shot koefs, frac variance, expansion and mode kick
 function M.on_fire(handle, scale)
@@ -168,6 +250,21 @@ function M.switch_mode(mode)
 	end
 end
 
+--yaw/roll home test, teardown waits for both under the deadzone so removal never snaps the view
+local function axes_settled()
+	if not use_2axis then
+		return true
+	end
+	local eps = min_axis_return
+	if math.abs(m_yaw) > eps or math.abs(yaw_target) > eps then
+		return false
+	end
+	if use_roll and math.abs(m_roll) > eps then
+		return false
+	end
+	return true
+end
+
 --NOTE: min_step is the best i can got...still can't get the final phase right.
 --TODO: --maybe try simple_ease and lerp the vel to a min value?,it could be more natrual when the angle is high.
 --i think it's fine for now, and maybe remove camera return in the future if we can get rid of cam_effector
@@ -175,7 +272,15 @@ end
 function M.do_return(dt)
 	--TODO:remove config and cache this when init
 	if m_angle <= min_cam_return_step then
-		M.stop()
+		if axes_settled() then
+			M.stop()
+			return
+		end
+		--TODO:!!! bad practise ,split stop
+		--pitch home, hold it while yaw/roll glide out
+		m_angle = 0
+		m_vel = 0
+		set_player_angle(0.0001)
 		return
 	end
 	local speed_factor = base_cam_return_speed + wepaon_cam_return_speed
@@ -190,8 +295,24 @@ function M.do_return(dt)
 	set_player_angle(m_angle)
 end
 
+--glide the yaw effector toward the hud target, home it when not firing
+--roll leans into the smoothed yaw, so the 3rd axis rides for free
+local function update_yaw(dt, firing)
+	if not firing then
+		yaw_target = yaw_target * math.exp(-8 * dt)
+	end
+	m_yaw = m_yaw + (yaw_target - m_yaw) * (1.0 - math.exp(-yaw_smooth * dt))
+	set_player_yaw(m_yaw)
+	if use_roll then
+		m_roll = m_yaw * roll_couple
+		set_player_roll(m_roll)
+	end
+end
 --FIXME: something feels off...
 function M.update(dt, is_firing)
+	if use_2axis then
+		update_yaw(dt, is_firing)
+	end
 	if is_firing then
 		_update_fn(dt)
 		return false
@@ -216,4 +337,6 @@ function M.imgui_config_drawer()
 	_, min_cam_return_step = ImGui.SliderFloat("Min Cam Return step", min_cam_return_step, 0.001, 0.01, "%.4frad")
 	_, cam_impulse_decay = ImGui.SliderFloat("Cam Impulse Decay", cam_impulse_decay, 1.0, 50.0, "%.2f")
 	_, cam_step_div = ImGui.SliderFloat("Cam Step Div", cam_step_div, 1.0, 50.0, "%.2f")
+	_, yaw_smooth = ImGui.SliderFloat("2-Axis Yaw Smooth", yaw_smooth, 8.0, 80.0, "%.1f")
+	_, roll_couple = ImGui.SliderFloat("3-Axis Roll Couple", roll_couple, 0.0, 1.5, "%.2f")
 end

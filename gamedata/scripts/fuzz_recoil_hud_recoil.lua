@@ -103,6 +103,9 @@ hip_jitter_mul = 2.0
 hip_recover_mul = 0.72
 --hip wander roams a wider box than ads
 hip_wander_box = 1.55
+--2-axis, the hud horizontal drives the camera yaw at this gain, hand keeps a fraction
+cam_yaw_scale = 5.0
+hand_horz_mul = 0.2
 --burst heat, sustained fire grows the variance, short bursts stay clean
 --grace is the free shot budget, rate is escalation per shot past it
 v2_heat = {
@@ -127,10 +130,12 @@ smooth_firing_v2 = 25
 --------------
 local bolt_action_Y_lift = true
 local use_zoom_ratio = false
+local use_2axis = false
 
 function M.on_option_change()
 	bolt_action_Y_lift = options.bolt_action_Y_lift
 	use_zoom_ratio = options.use_zoom_ratio
+	use_2axis = options.use_2axis
 end
 --------
 ---public getters
@@ -554,6 +559,13 @@ local function update_instant(dt, handling_power)
 
 	apply_simple_smooth(dt, handling_power and smooth_firing_v2 or smooth_return)
 	M.set_hud_offset(pos_smooth, rot_with_drift())
+	local hand_rot = rot_with_drift()
+	if use_2axis then
+		--the horizontal graduates to real camera yaw, the hand keeps a fraction as shake
+		camrc.set_yaw_target(math.rad(hand_rot.x) * cam_yaw_scale)
+		hand_rot.x = hand_rot.x * hand_horz_mul
+	end
+	M.set_hud_offset(pos_smooth, hand_rot)
 	return false
 end
 
@@ -696,6 +708,12 @@ function M.imgui_config_drawer()
 		_, hip_recover_mul = ImGui.SliderFloat("Hip Recover Mul", hip_recover_mul, 0.2, 1.5, "%.2f")
 		_, hip_wander_box = ImGui.SliderFloat("Hip Wander Box", hip_wander_box, 0.5, 3, "%.2f")
 		ImGui.TreePop()
+		if ImGui.TreeNode("2-Axis Camera") then
+			ImGui.Text("horizontal -> camera yaw (needs 2-Axis Camera setting on)")
+			_, cam_yaw_scale = ImGui.SliderFloat("Cam Yaw Scale", cam_yaw_scale, 0.0, 15.0, "%.2f")
+			_, hand_horz_mul = ImGui.SliderFloat("Hand Horz Mul", hand_horz_mul, 0.0, 1.0, "%.2f")
+			ImGui.TreePop()
+		end
 	end
 end
 ---------------

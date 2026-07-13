@@ -354,6 +354,8 @@ function renderOptions()
 		ImGui.Text("2Axis cam and Punch")
 		_, options.use_punch = ImGui.Checkbox("FOV Punch / Shove", options.use_punch)
 		_, options.punch_legacy = ImGui.Checkbox("Punch Legacy (console/PiP)", options.punch_legacy)
+		_, options.use_2axis = ImGui.Checkbox("2-Axis Camera (yaw)", options.use_2axis)
+		_, options.use_roll = ImGui.Checkbox("Camera Roll (3-axis)", options.use_roll)
 		-- _, options.recoil_v_scale =
 		-- 	ImGui.SliderFloat("Recoil scale(Vert)", options.recoil_v_scale, -0.9, 2, "%.2f")
 		if ImGui.Button("Apply Options", vector2():set(-1, 25)) then
