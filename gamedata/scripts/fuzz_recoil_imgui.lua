@@ -4,6 +4,7 @@ local logger = fuzz_recoil_logger
 local cvter = fuzz_recoil_converter
 local camrc = fuzz_recoil_cam_recoil.instance
 local hudrc = fuzz_recoil_hud_recoil.instance
+local punchrc = fuzz_recoil_punch
 local impacts = fuzz_recoil_impacts
 --stylua: ignore start
 --stylua: ignore end
@@ -313,12 +314,18 @@ function renderConfig()
 		camrc.imgui_config_drawer()
 		ImGui.Separator()
 		hudrc.imgui_config_drawer()
+		ImGui.Separator()
+		punchrc.imgui_config_drawer()
 		if ImGui.Button("Dump All Weapon datas(need json.lua)", vector2():set(-1, 25)) then
 			utils.get_all_weapon_sections()
 		end
 		ImGui.Separator()
 		ImGui.Text("Settings")
 		_, frm.settings.hud_kick_v2 = ImGui.Checkbox("Tarkov Kick (V2 instant)", frm.settings.hud_kick_v2)
+		_, frm.settings.use_2axis = ImGui.Checkbox("2-Axis Camera (yaw)", frm.settings.use_2axis)
+		_, frm.settings.use_roll = ImGui.Checkbox("Camera Roll (3-axis)", frm.settings.use_roll)
+		_, frm.settings.use_punch = ImGui.Checkbox("FOV Punch / Shove", frm.settings.use_punch)
+		_, frm.settings.punch_legacy = ImGui.Checkbox("Punch Legacy (console/PiP)", frm.settings.punch_legacy)
 		_, frm.settings.use_bloom = ImGui.Checkbox("Fire Bloom", frm.settings.use_bloom)
 		impacts.imgui_settings_drawer()
 		_, frm.settings.bolt_action_Y_lift = ImGui.Checkbox("Bolt-Action Lift", frm.settings.bolt_action_Y_lift)

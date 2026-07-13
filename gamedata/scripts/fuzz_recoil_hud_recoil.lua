@@ -103,6 +103,9 @@ local cfg = {
 	hip_recover_mul = 0.72,
 	--hip wander roams a wider box than ads
 	hip_wander_box = 1.55,
+	--2-axis, the hud horizontal drives the camera yaw at this gain, hand keeps a fraction
+	cam_yaw_scale = 5.0,
+	hand_horz_mul = 0.2,
 	--burst heat, sustained fire grows the variance, short bursts stay clean
 	--grace is the free shot budget, rate is escalation per shot past it
 	v2_heat = {
@@ -130,12 +133,14 @@ local bolt_action_Y_lift = true
 local recoil_v_scale = 1
 local recoil_h_scale = 1
 local use_zoom_ratio = false
+local use_2axis = false
 
 function M.load_settings(settings)
 	bolt_action_Y_lift = settings.bolt_action_Y_lift
 	recoil_v_scale = settings.recoil_v_scale
 	recoil_h_scale = settings.recoil_h_scale
 	use_zoom_ratio = settings.use_zoom_ratio
+	use_2axis = settings.use_2axis
 end
 --------
 ---public getters
@@ -316,6 +321,14 @@ local function init_offset(wpn_sec, cast_wpn)
 		local scope_sec = cast_wpn:GetScopeName()
 		if scope_sec and scope_sec ~= "" then
 			scope_zoom = utils.get_float(scope_sec, "scope_zoom_factor", scope_zoom)
+			--3D scope reads its aim offset from adjust slots 8/9, mirror the scope hud section
+			local scope_hud = utils.get_string(scope_sec, "hud")
+			if scope_hud ~= "" then
+				set_hud_vector(scope_hud, "aim_hud_offset_pos", { idxa = 0, idxb = 8 })
+				set_hud_vector(scope_hud, "aim_hud_offset_rot", { idxa = 1, idxb = 8 })
+				set_hud_vector(scope_hud, "aim_hud_offset_alt_pos", { def = vector():set(0, 0, 0), idxa = 0, idxb = 9 })
+				set_hud_vector(scope_hud, "aim_hud_offset_alt_rot", { def = vector():set(0, 0, 0), idxa = 1, idxb = 9 })
+			end
 		end
 	end
 	hud_adjust.set_value("scope_zoom_factor", scope_zoom)
@@ -539,7 +552,13 @@ local function update_instant(dt, handling_power)
 	pos_y_sync_with_cam()
 
 	apply_simple_smooth(dt, handling_power and cfg.smooth_firing_v2 or cfg.smooth_return)
-	M.set_hud_offset(pos_smooth, rot_with_drift())
+	local hand_rot = rot_with_drift()
+	if use_2axis then
+		--the horizontal graduates to real camera yaw, the hand keeps a fraction as shake
+		camrc.set_yaw_target(math.rad(hand_rot.x) * cfg.cam_yaw_scale)
+		hand_rot.x = hand_rot.x * cfg.hand_horz_mul
+	end
+	M.set_hud_offset(pos_smooth, hand_rot)
 	return false
 end
 
@@ -676,6 +695,12 @@ function M.imgui_config_drawer()
 		_, cfg.hip_jitter_mul = ImGui.SliderFloat("Hip Jitter Mul", cfg.hip_jitter_mul, 0.5, 4, "%.2f")
 		_, cfg.hip_recover_mul = ImGui.SliderFloat("Hip Recover Mul", cfg.hip_recover_mul, 0.2, 1.5, "%.2f")
 		_, cfg.hip_wander_box = ImGui.SliderFloat("Hip Wander Box", cfg.hip_wander_box, 0.5, 3, "%.2f")
+		ImGui.TreePop()
+	end
+	if ImGui.TreeNode("2-Axis Camera") then
+		ImGui.Text("horizontal -> camera yaw (needs 2-Axis Camera setting on)")
+		_, cfg.cam_yaw_scale = ImGui.SliderFloat("Cam Yaw Scale", cfg.cam_yaw_scale, 0.0, 15.0, "%.2f")
+		_, cfg.hand_horz_mul = ImGui.SliderFloat("Hand Horz Mul", cfg.hand_horz_mul, 0.0, 1.0, "%.2f")
 		ImGui.TreePop()
 	end
 end

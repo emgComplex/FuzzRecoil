@@ -8,6 +8,7 @@ local logger = fuzz_recoil_logger
 local Profile = fuzz_recoil_profile
 local camrc = fuzz_recoil_cam_recoil.awake()
 local hudrc = fuzz_recoil_hud_recoil.awake()
+local punchrc = fuzz_recoil_punch.awake()
 ------------
 local cur_wpn = nil
 local cur_cast_wpn = nil
@@ -56,6 +57,14 @@ M.settings = {
 	use_zoom_ratio = false,
 	--fire bloom, sustained fire and hip stance widen the real bullet cone
 	use_bloom = true,
+	--2-axis camera recoil, horizontal drives the camera not just the hand
+	use_2axis = false,
+	--3rd axis, camera rolls into the horizontal whip, needs 2-axis on
+	use_roll = false,
+	--per shot punch, fov widen at hip and a positional shove while aiming
+	use_punch = false,
+	--revert the punch to the prior system, console fov and shove only under true PiP
+	punch_legacy = false,
 }
 --bloom multiplies the weapons fire_dispersion_base, silencer, ammo and
 --condition koefs stack on top like vanilla (WeaponDispersion.cpp)
@@ -79,6 +88,7 @@ M.bloom = {
 function M.apply_settings()
 	hudrc.load_settings(M.settings)
 	camrc.load_settings(M.settings)
+	punchrc.load_settings(M.settings)
 	hudrc.switch_mode(M.settings.hud_kick_v2 and hudrc.MODE.INSTANT or hudrc.MODE.SPRING)
 end
 ------- config
@@ -222,6 +232,7 @@ function on_fire()
 		* M.settings.recoil_cam_scale
 		* (M.settings.hud_kick_v2 and hudrc.get_mode_kick_mul() or 1)
 	camrc.on_fire(handling_power, kick_scale)
+	punchrc.on_fire(kick_scale)
 end
 function on_update()
 	local dt = device().time_delta / 1000
@@ -248,7 +259,8 @@ function on_update()
 	update_bloom(dt)
 	local hud_returned = hudrc.update(dt, is_firing and handling_power or nil)
 	local cam_returned = camrc.update(dt, is_firing)
-	if handling_power <= 0 and hud_returned and cam_returned then
+	local punch_settled = punchrc.update(dt, is_firing, is_ads)
+	if handling_power <= 0 and hud_returned and cam_returned and punch_settled then
 		reset_recoil()
 	end
 end
@@ -269,6 +281,7 @@ function start_recoil()
 	active = true
 	camrc.start(m_profile)
 	hudrc.start(m_profile)
+	punchrc.start(m_profile)
 	RemoveTimeEvent("fuzz_recoil", "bolt_delay_stop")
 	logger.dbg("Initialize Recoil")
 end
@@ -280,6 +293,8 @@ function reset_recoil()
 
 	camrc.remove_cam_fx()
 	hudrc.disable_hud_adjust()
+	punchrc.stop()
+	punchrc.remove_fx()
 	restore_vanilla_fire_disp()
 	RemoveTimeEvent("fuzz_recoil", "bolt_delay_stop")
 
@@ -288,6 +303,7 @@ end
 function M.force_reset_recoil()
 	camrc.stop()
 	hudrc.stop()
+	punchrc.stop()
 	reset_recoil()
 end
 function update_handling_power(dt)
@@ -371,6 +387,7 @@ function M.init_weapon(wpn_sec)
 
 	camrc.init(m_profile.shot_delay_enabled and "cubic" or "exp")
 	hudrc.init(wpn_sec, cur_cast_wpn)
+	punchrc.init()
 
 	addon_sig = get_addon_sig()
 
