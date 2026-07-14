@@ -117,7 +117,9 @@ end
 function M.on_fire(handle, scale)
 	is_returned = false
 	handle = math.pow(1 - handle, 2)
-	local cam_impulse = lift_force * handle * impulse_factor * (scale or 1)
+	local raw_impulse = lift_force * impulse_factor * (scale or 1)
+	fuzz_recoil.add_handling_fatigue(raw_impulse)
+	local cam_impulse = raw_impulse * handle
 	m_vel = m_vel + cam_impulse
 end
 

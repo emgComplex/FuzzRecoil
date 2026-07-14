@@ -285,6 +285,8 @@ function info_overlay()
 
 		local hdl_power = frm.get_handling_power()
 		ImGui.ProgressBar(hdl_power, vector2():set(-1, 0), string.format("Handling power: %.1f%%", hdl_power * 100))
+		local hdl_fatigue = frm.get_handling_fatigue()
+		ImGui.ProgressBar(hdl_fatigue, vector2():set(-1, 0), string.format("Handling fatigue: %.2f", hdl_fatigue))
 		ImGui.Separator()
 		hudrc.imgui_info_drawer()
 		ImGui.Separator()
@@ -350,6 +352,8 @@ function renderSetttings()
 			ImGui.SliderFloat("Recoil scale(Hori) ", frm.settings.recoil_h_scale, -0.9, 2, "%.2f")
 		_, frm.settings.handling_speed_scale =
 			ImGui.SliderFloat("Handling Speed", frm.settings.handling_speed_scale, -0.9, 2, "%.2f")
+		_, frm.settings.impulse_fatigue_ratio =
+			ImGui.SliderFloat("Fatigue Increase Rate", frm.settings.impulse_fatigue_ratio, 0, 0.3, "%.3f")
 
 		_, frm.settings.bolt_action_Y_lift = ImGui.Checkbox("Bolt-Action Lift", frm.settings.bolt_action_Y_lift)
 		_, frm.settings.cam_drag = ImGui.SliderFloat("Cam Drag", frm.settings.cam_drag, 5.0, 20.0, "%.2f")
