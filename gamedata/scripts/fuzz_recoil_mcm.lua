@@ -33,7 +33,7 @@ local defaults = {
 	handling_speed_scale = 0,
 	--how fast fatigue increases,higher than 0.15 is recommanded,0 to turn it off
 	--(0-0.3)
-	impulse_fatigue_ratio = 0.25, --cam_impulse/2/10 most gun impulse landed around 2
+	impulse_fatigue_ratio = 0.20, --most gun impulse landed around 2-3
 	--Camera drag for bolt-action weapon
 	--The higher the sharper, the lower the smoother (and softer)
 	--(8-20)

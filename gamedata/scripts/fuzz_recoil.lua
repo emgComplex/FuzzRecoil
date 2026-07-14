@@ -24,6 +24,7 @@ local active = false
 local is_firing = false
 local handling_power = 0.0
 local handling_fatigue = 0
+local FATIGUE_MAX_POWER = 0.55
 --shots in the current burst, drives heat and recoil expansion
 local burst_shots = 0
 --refreshed per shot, addon koefs x ammo k_cam_dispersion and ads flag
@@ -77,8 +78,6 @@ local allowed_kinds = {
 }
 local firing_handling_ease = utils.simple_ease:new(1, 1, 0.2, 4)
 local idle_handling_ease = utils.simple_ease:new(-1, -1, 0.2, 6)
---NOTE: well do we still need ease?
-local fatigue_regen_ease = utils.simple_ease:new(-1, -1, 0.1, 0.05)
 --NOGUI
 sniper_idle_handling = { offset = 0.2, intensity = 0.8 }
 
@@ -205,7 +204,7 @@ function on_fire()
 
 	local fatigue_scale = 1
 	if handling_fatigue > 1 then
-		fatigue_scale = math.max(0.4, utils.lerp(handling_fatigue - 1, 1, 0.4))
+		fatigue_scale = 1 - utils.lerp_in(handling_fatigue - 1, 0, FATIGUE_MAX_POWER)
 	end
 	hudrc.on_fire(handling_power * fatigue_scale, is_ads, shot_cam_k, burst_shots)
 
@@ -646,7 +645,6 @@ end
 function M.imgui_config_drawer()
 	firing_handling_ease:draw_imgui("Handling inc")
 	idle_handling_ease:draw_imgui("Handling dec")
-	fatigue_regen_ease:draw_imgui("fatigue regen")
 	if ImGui.TreeNode("Fire Bloom Configs") then
 		ImGui.Text(string.format("heat %.2f, applied x%.2f, base %.4frad", bloom_heat, bloom_applied, orig_fire_disp))
 		_, M.bloom.variance = ImGui.SliderFloat("Variance", M.bloom.variance, 0.0, 3.0, "%.2f")

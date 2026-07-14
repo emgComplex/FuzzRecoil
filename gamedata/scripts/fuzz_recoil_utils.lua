@@ -60,6 +60,9 @@ end
 function M.math_clamp(val, min, max)
 	return math.max(min, math.min(max, val))
 end
+function M.lerp_in(val, from, to)
+	return M.math_clamp(M.lerp(val, from, to), from, to)
+end
 function M.lerp(val, from, to)
 	return val * (to - from) + from
 end
