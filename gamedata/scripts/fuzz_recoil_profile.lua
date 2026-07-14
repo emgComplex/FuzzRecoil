@@ -196,7 +196,7 @@ function M:apply_dynamic_modifiers()
 	return result
 end
 function M:reload_modifiers()
-	return self:apply_static_modifiers():apply_static_modifiers()
+	return self:apply_static_modifiers():apply_dynamic_modifiers()
 end
 
 function M:process_shot_delay(wpn_info)
