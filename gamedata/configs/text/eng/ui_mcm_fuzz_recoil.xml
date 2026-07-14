@@ -5,7 +5,7 @@
         <text>Fuzz Recoil</text>
     </string>
     <string id="ui_mcm_fuzz_recoil_title">
-        <text>Fuzz Recoil Settings</text>
+        <text>Fuzz Recoil Options</text>
     </string>
 
     <string id="ui_mcm_fuzz_recoil_debug_mode">

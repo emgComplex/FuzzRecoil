@@ -5,6 +5,7 @@ local cvter = fuzz_recoil_converter
 local camrc = fuzz_recoil_cam_recoil.instance
 local hudrc = fuzz_recoil_hud_recoil.instance
 local impacts = fuzz_recoil_impacts
+local options = fuzz_recoil_mcm
 --stylua: ignore start
 --stylua: ignore end
 -- local log_text = frm.log_text
@@ -153,7 +154,7 @@ function renderImguiTab()
 		end
 		--NOTE: useful move to root
 		renderProfile()
-		renderSetttings()
+		renderOptions()
 		if ImGui.TreeNode("Impact Marker") then
 			impacts.imgui_settings_drawer()
 			ImGui.TreePop()
@@ -344,30 +345,28 @@ function renderProfile()
 		ImGui.TreePop()
 	end
 end
-function renderSetttings()
-	if ImGui.TreeNode("Settings") then
-		_, frm.settings.recoil_cam_scale =
-			ImGui.SliderFloat("Recoil scale(Cam)", frm.settings.recoil_cam_scale, -0.9, 2, "%.2f")
-		_, frm.settings.recoil_h_scale =
-			ImGui.SliderFloat("Recoil scale(Hori) ", frm.settings.recoil_h_scale, -0.9, 2, "%.2f")
-		_, frm.settings.handling_speed_scale =
-			ImGui.SliderFloat("Handling Speed", frm.settings.handling_speed_scale, -0.9, 2, "%.2f")
-		_, frm.settings.impulse_fatigue_ratio =
-			ImGui.SliderFloat("Fatigue Increase Rate", frm.settings.impulse_fatigue_ratio, 0, 0.3, "%.3f")
+function renderOptions()
+	if ImGui.TreeNode("Options") then
+		_, options.recoil_cam_scale = ImGui.SliderFloat("Recoil scale(Cam)", options.recoil_cam_scale, -0.9, 2, "%.2f")
+		_, options.recoil_h_scale = ImGui.SliderFloat("Recoil scale(Hori) ", options.recoil_h_scale, -0.9, 2, "%.2f")
+		_, options.handling_speed_scale =
+			ImGui.SliderFloat("Handling Speed", options.handling_speed_scale, -0.9, 2, "%.2f")
+		_, options.impulse_fatigue_ratio =
+			ImGui.SliderFloat("Fatigue Increase Rate", options.impulse_fatigue_ratio, 0, 0.3, "%.3f")
 
-		_, frm.settings.bolt_action_Y_lift = ImGui.Checkbox("Bolt-Action Lift", frm.settings.bolt_action_Y_lift)
-		_, frm.settings.cam_drag = ImGui.SliderFloat("Cam Drag", frm.settings.cam_drag, 5.0, 20.0, "%.2f")
-		_, frm.settings.hud_kick_v2 = ImGui.Checkbox("Tarkov Kick (V2 instant)", frm.settings.hud_kick_v2)
-		_, frm.settings.use_bloom = ImGui.Checkbox("Fire Bloom", frm.settings.use_bloom)
+		_, options.bolt_action_Y_lift = ImGui.Checkbox("Bolt-Action Lift", options.bolt_action_Y_lift)
+		_, options.cam_drag = ImGui.SliderFloat("Cam Drag", options.cam_drag, 5.0, 20.0, "%.2f")
+		_, options.hud_kick_v2 = ImGui.Checkbox("Tarkov Kick (V2 instant)", options.hud_kick_v2)
+		_, options.use_bloom = ImGui.Checkbox("Fire Bloom", options.use_bloom)
 		ImGui.Text("Vanilla data extras")
-		_, frm.settings.use_pitch_frac = ImGui.Checkbox("Pitch Frac Variance", frm.settings.use_pitch_frac)
-		_, frm.settings.use_cam_max_angle = ImGui.Checkbox("Cam Max Angle Cap", frm.settings.use_cam_max_angle)
-		_, frm.settings.use_addon_ammo_koefs = ImGui.Checkbox("Addon & Ammo Koefs", frm.settings.use_addon_ammo_koefs)
-		_, frm.settings.use_zoom_ratio = ImGui.Checkbox("ADS Zoom Ratio", frm.settings.use_zoom_ratio)
-		-- _, frm.settings.recoil_v_scale =
-		-- 	ImGui.SliderFloat("Recoil scale(Vert)", frm.settings.recoil_v_scale, -0.9, 2, "%.2f")
-		if ImGui.Button("Apply Settings", vector2():set(-1, 25)) then
-			frm.apply_settings()
+		_, options.use_pitch_frac = ImGui.Checkbox("Pitch Frac Variance", options.use_pitch_frac)
+		_, options.use_cam_max_angle = ImGui.Checkbox("Cam Max Angle Cap", options.use_cam_max_angle)
+		_, options.use_addon_ammo_koefs = ImGui.Checkbox("Addon & Ammo Koefs", options.use_addon_ammo_koefs)
+		_, options.use_zoom_ratio = ImGui.Checkbox("ADS Zoom Ratio", options.use_zoom_ratio)
+		-- _, options.recoil_v_scale =
+		-- 	ImGui.SliderFloat("Recoil scale(Vert)", options.recoil_v_scale, -0.9, 2, "%.2f")
+		if ImGui.Button("Apply Options", vector2():set(-1, 25)) then
+			frm.on_option_change()
 		end
 		ImGui.TreePop()
 	end
