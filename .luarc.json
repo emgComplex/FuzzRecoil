@@ -31,7 +31,9 @@
         "MODDED_EXES_VERSION",
         "fuzz_dev",
         "CreateTimeEvent",
-        "ini_file_ex"
+        "ini_file_ex",
+        "ui_mcm",
+        "fuzz_recoil_mcm"
     ],
     "diagnostics.disable": [
         "unused-local",
