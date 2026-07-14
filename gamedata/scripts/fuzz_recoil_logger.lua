@@ -50,31 +50,29 @@ function M.export_internal_log()
 	file:write(log_text)
 	file:close()
 end
-local temp_text
-local function new_line(msg, ...)
-	new_text = string.format(msg, ...)
-	temp_text = temp_text .. "\n" .. new_text
-end
-function M.format_table(t, indent, keep)
-	if not keep then
-		temp_text = ""
-	end
-	if not indent then
-		indent = "  "
-	end
-	new_line("%s{", indent)
+
+function M.format_table(t, base_indent, level)
+	base_indent = base_indent or "| "
+	level = level or 0
+
+	local indent = string.rep(base_indent, level)
+	local out = indent .. "{\n"
+
 	for k, v in pairs(t) do
 		if type(v) == "table" then
-			new_line("%s%s=", indent, k)
-			M.format_table(v, indent .. indent, true)
+			out = out .. indent .. base_indent .. tostring(k) .. "=\n"
+			out = out .. M.format_table(v, base_indent, level + 1)
+			out = out .. ",\n"
 		else
-			new_line("%s%s=%s,", indent, k, v)
+			out = out .. indent .. base_indent .. tostring(k) .. "=" .. tostring(v) .. ",\n"
 		end
 	end
-	new_line("%s},", indent)
-	return temp_text
+
+	out = out .. indent .. "}"
+	return out
 end
-function M.print_table(t)
-	M.format_table(t)
-	m_log(temp_text)
+
+function M.print_table(t, label)
+	local text = M.format_table(t)
+	m_log(label .. "=\n" .. text)
 end
