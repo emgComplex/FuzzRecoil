@@ -220,7 +220,8 @@ end
 --------
 function M.imgui_info_drawer()
 	ImGui.TextColored(vector4():set(0, 1, 0.5, 1), "Camera recoil")
-	ImGui.Text(string.format("Cam angle: %.3frad,%.2fdeg", m_angle, math.deg(m_angle)))
+	local angle_text = string.format("Cam angle: %.3frad,%.2fdeg", m_angle, math.deg(m_angle))
+	ImGui.ProgressBar(m_angle, vector2():set(-1, 0), angle_text)
 	ImGui.Text(string.format("Cam velocity: %.3f", m_vel))
 end
 function M.imgui_config_drawer()
