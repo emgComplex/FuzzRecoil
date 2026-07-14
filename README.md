@@ -3,43 +3,43 @@
 Physics based 3D recoil system inspired by Escape from tarkov.\
 This an Alpha test to collect bugs.
 
-### NOTE
-
-- This mod is still in early stage of development,everything could be changed in the future.
-- Expecting bugs,I haven't done enough test definitely
-- It's safe to add or remove in mid-game
-- NO MCM configurations, it will be implented once the mod in a stable stage.Everything is in ImGui for now.
-
-## Compatibility
-
-- Out-of-the-box compatibility with any weapon pack
+## Feature
+* Physics-based 3D recoil system with camera movement, it replaced the vanilla recoil system completely
+* The system will auto adapts to vanilla weapon's data ,convert them to new recoil profile in runtime
+* Fully customizable per-weapon recoil profile with an ImGUI Editor
+* Safe to add or remove in mid-game
+* API for modders ,check `fuzz_recoil_modifier.lua`
 
 ### Installation
 
 1. Download mod from Release page,Install with MO2.Do NOT clone or download zip.
 2. Options
+<img width="172" height="111" alt="image" src="https://github.com/user-attachments/assets/ab2f0c14-58e9-43a7-bc35-661113348cd8" />
 
 - 01 disable shot_fx(camera-shake) from gboobs
 - 02 Imgui editor
 
 3. In-game settings
    <img width="2692" height="746" alt="swappy-20260708-185300" src="https://github.com/user-attachments/assets/5f2565a5-2159-4ca0-9d2c-909257b32ab9" />
-   <img width="3781" height="530" alt="swappy-20260708-185223" src="https://github.com/user-attachments/assets/f5382907-e53e-4c6a-ab9b-2b62fcf25557" />
 
-### Issue and bug report
-
-- Logs and how to reproduce
-- DO NOT DM
-- PR would be greatly appreciated.
 
 ### Know Bugs And Limitations
 
 1. All recoil profile is converted from vanilla recoil data,strange behaviour is expected.
 
-### TODO
+## Compatibility
 
-1. Weapon weight affects recoil
-2. API for modder (skill,buff, etc.)
+- Out-of-the-box compatibility with any weapon pack that supported 3DB(that means every gamma weapon)
+- dynamic viewmodel will break this mod
+- Unicoil is **conflicted** with this mod 
+### TODO
+- Better recoil for pistol and shotgun
+- ~~Better camera recoil~~ 
+- ~~Weapon weight affects recoil(won't be implemented, it should reflects on the recoil profile directly)~~
+- ~~Recoil scales with scope zoom factor~~
+- ~~Upgrades affects recoil~~
+- ~~Recoil still increase slowly in stable phase~~
+- ~~API for modders (skill,buff, etc.)~~
 
 ### Recoil profile Customization
 
@@ -51,6 +51,7 @@ This an Alpha test to collect bugs.
 6. Restart the game
 <img width="1091" height="1142" alt="swappy-20260709-012222" src="https://github.com/user-attachments/assets/30910141-071e-49ac-98f0-baafb67130b0" />
 
-###Performance
-<img width="1226" height="918" alt="fr-perf" src="https://github.com/user-attachments/assets/394c6149-3ee5-43d4-a737-b400ec3763e9" />
+### Performance
+<img width="1652" height="498" alt="image" src="https://github.com/user-attachments/assets/8b0f0234-cef7-43a0-bd8e-e57f86f61c01" />
+
 
