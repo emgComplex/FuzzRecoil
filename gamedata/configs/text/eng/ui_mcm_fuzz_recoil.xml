@@ -1,0 +1,83 @@
+<!-- Genrated by AI , im lazy on docs -->
+<?xml version="1.0" encoding="utf-8"?>
+<string_table>
+    <string id="ui_mcm_menu_fuzz_recoil">
+        <text>Fuzz Recoil</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_title">
+        <text>Fuzz Recoil Options</text>
+    </string>
+
+    <string id="ui_mcm_fuzz_recoil_debug_mode">
+        <text>Debug Mode</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_debug_mode_desc">
+        <text>Enable developer debug logs and tracking options.</text>
+    </string>
+    
+    <string id="ui_mcm_fuzz_recoil_recoil_cam_scale">
+        <text>Vertical Recoil Scale</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_recoil_cam_scale_desc">
+        <text>Global vertical recoil additional scale. Positive increases, negative decreases, 0 means default. Range:</text>
+    </string>
+    
+    <string id="ui_mcm_fuzz_recoil_recoil_h_scale">
+        <text>Horizontal Recoil Scale</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_recoil_h_scale_desc">
+        <text>Global horizontal recoil additional scale. Positive increases, negative decreases, 0 means default.</text>
+    </string>
+    
+    <string id="ui_mcm_fuzz_recoil_handling_speed_scale">
+        <text>Handling Speed Scale</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_handling_speed_scale_desc">
+        <text>Global recoil handling additional scale. Positive increases, negative decreases, 0 means default.</text>
+    </string>
+    
+    <string id="ui_mcm_fuzz_recoil_impulse_fatigue_ratio">
+        <text>Impulse Fatigue Ratio</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_impulse_fatigue_ratio_desc">
+        <text>How fast fatigue increases. Higher than 0.15 is recommended, 0 to turn it off.</text>
+    </string>
+    
+    <string id="ui_mcm_fuzz_recoil_experimental_group_title">
+        <text>Experimetnal Features</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_use_bloom">
+        <text>Fire Bloom</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_use_bloom_desc">
+        <text>Sustained fire and hip stance widen the real bullet cone.</text>
+    </string>
+    
+    <string id="ui_mcm_fuzz_recoil_use_zoom_ratio">
+        <text>Use Zoom Ratio</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_use_zoom_ratio_desc">
+        <text>GAMMA zoom values sit at 0.6-0.8 of hip, turning this on would weaken ADS below the tune.</text>
+    </string>
+    
+    <string id="ui_mcm_fuzz_recoil_cam_drag">
+        <text>Camera Drag</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_cam_drag_desc">
+        <text>Camera drag for bolt-action weapons. The higher the sharper, the lower the smoother (and softer).</text>
+    </string>
+    
+    <string id="ui_mcm_fuzz_recoil_bolt_action_Y_lift">
+        <text>Bolt Action Y-Lift</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_bolt_action_Y_lift_desc">
+        <text>Bolt action cameras will be lifted on the Y-axis during cycles.</text>
+    </string>
+    
+    <string id="ui_mcm_fuzz_recoil_hud_kick_v2">
+        <text>Instant Mode</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_hud_kick_v2_desc">
+        <text>NOTE: EXPERIMENTAL. Recoil with instant displacement and eased recovery.</text>
+    </string>
+</string_table>

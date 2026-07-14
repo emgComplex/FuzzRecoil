@@ -3,9 +3,13 @@ _G.fuzz_recoil_logger = M
 
 local log_text = "FuzzRecoilLog"
 local enable_internal_log = false
+local debug_enabled = fuzz_dev and true or false
 
 function M.on_game_start()
 	enable_internal_log = fuzz_recoil_imgui and true or false
+end
+function M.on_option_change()
+	debug_enabled = fuzz_recoil_mcm.debug_mode
 end
 local function m_log(msg, ...)
 	if msg == nil then
@@ -22,7 +26,7 @@ local function m_log(msg, ...)
 	end
 end
 function M.dbg(msg, ...)
-	if not fuzz_recoil.settings.debug_mode then
+	if not debug_enabled then
 		return
 	end
 	m_log(msg, ...)

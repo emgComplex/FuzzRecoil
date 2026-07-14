@@ -6,6 +6,7 @@ local utils = fuzz_recoil_utils
 local cvter = fuzz_recoil_converter
 local logger = fuzz_recoil_logger
 local Profile = fuzz_recoil_profile
+local options = fuzz_recoil_mcm
 local camrc = fuzz_recoil_cam_recoil.awake()
 local hudrc = fuzz_recoil_hud_recoil.awake()
 --NOTE:update when swithcing wepaon
@@ -23,6 +24,7 @@ local active = false
 local is_firing = false
 local handling_power = 0.0
 local handling_fatigue = 0
+local FATIGUE_MAX_POWER = 0.55
 --shots in the current burst, drives heat and recoil expansion
 local burst_shots = 0
 --refreshed per shot, addon koefs x ammo k_cam_dispersion and ads flag
@@ -38,50 +40,6 @@ local next_addon_check = 0
 --NOTE: need for scope scale?of just zoom_factor>1
 --cur_aim_state = 0
 local cur_wpn_id = 0
-------- Settitngs
-M.settings = {
-	debug_mode = fuzz_dev and true or false,
-	--Global vertical recoil additional scale,
-	--positive increases, negative decreases , 0 means default
-	---(-0,9---2.0)
-	recoil_cam_scale = 0,
-	--Global horizontal recoil additional scale,
-	--positive increases, negative decreases , 0 means default
-	---(-0,9---2.0)
-	recoil_h_scale = 0,
-	--Global recoil handling additional scale,
-	--positive increases, negative decreases , 0 means default
-	--(-0,9---2.0)
-	handling_speed_scale = 0,
-	--how fast fatigue increases
-	--(0-0.3)
-	impulse_fatigue_ratio = 0.25, --cam_impulse/2/10 most gun impulse landed around 2
-	--Camera drag for bolt-action weapon
-	--The higher the sharper, the lower the smoother (and softer)
-	--(8-20)
-	cam_drag = 12,
-	--Bolt Action will have be lifted on y-axis
-	bolt_action_Y_lift = true,
-	--tarkov style hud kick, instant displacement with eased recovery
-	hud_kick_v2 = false,
-	--NOTE: EXPERIMENTAL
-
-	--fire bloom, sustained fire and hip stance widen the real bullet cone
-	use_bloom = true,
-	--gamma zoom values sit at 0.6-0.8 of hip, on would weaken ads below the tune
-	use_zoom_ratio = false,
-	--NOTE: HIDDEN FROM MCM for now
-
-	--vanilla data extras, off keeps stock feel
-	use_pitch_frac = false,
-	use_addon_ammo_koefs = false,
-	--NOTE: CONSIDER REMOVE
-
-	--Does not fit in current recoil pattern,it looks weird visually
-	use_cam_max_angle = false,
-	-- verti recoil comes from cam recoil ,
-	recoil_v_scale = 0,
-}
 --bloom multiplies the weapons fire_dispersion_base, silencer, ammo and
 --condition koefs stack on top like vanilla (WeaponDispersion.cpp)
 --base is the flat hip penalty, rate grows per shot, heat caps at max
@@ -101,13 +59,14 @@ M.bloom = {
 	},
 }
 --TODO:MCM
-function M.apply_settings()
+function M.on_option_change()
 	init_static_modifiers()
 	init_dynamic_modifiers()
 	m_profile:reload_modifiers()
-	hudrc.load_settings(M.settings)
-	camrc.load_settings(M.settings)
-	hudrc.switch_mode(M.settings.hud_kick_v2 and hudrc.MODE.INSTANT or hudrc.MODE.SPRING)
+	hudrc.on_option_change()
+	camrc.on_option_change()
+	hudrc.switch_mode(options.hud_kick_v2 and hudrc.MODE.INSTANT or hudrc.MODE.SPRING)
+	logger.dbg("apply options to hud")
 end
 ------- config
 local allowed_kinds = {
@@ -119,8 +78,6 @@ local allowed_kinds = {
 }
 local firing_handling_ease = utils.simple_ease:new(1, 1, 0.2, 4)
 local idle_handling_ease = utils.simple_ease:new(-1, -1, 0.2, 6)
---NOTE: well do we still need ease?
-local fatigue_regen_ease = utils.simple_ease:new(-1, -1, 0.1, 0.05)
 --NOGUI
 sniper_idle_handling = { offset = 0.2, intensity = 0.8 }
 
@@ -190,7 +147,7 @@ function M.set_handling_speed(val)
 	idle_handling_ease:set_speed(val)
 end
 function M.add_handling_fatigue(val)
-	handling_fatigue = handling_fatigue + math.abs(val) * M.settings.impulse_fatigue_ratio
+	handling_fatigue = handling_fatigue + math.abs(val) * options.impulse_fatigue_ratio
 end
 --------------------
 ---HOOKS
@@ -240,21 +197,21 @@ function on_fire()
 	is_firing = true
 
 	update_shot_cam_k()
-	if M.settings.use_bloom then
+	if options.use_bloom then
 		local bc = M.bloom.classes[m_profile.burst_class] or M.bloom.classes.other
 		bloom_heat = math.min(bloom_heat + bc.rate * (is_ads and M.bloom.ads_mul or 1), bc.max)
 	end
 
 	local fatigue_scale = 1
 	if handling_fatigue > 1 then
-		fatigue_scale = math.max(0.4, utils.lerp(handling_fatigue - 1, 1, 0.4))
+		fatigue_scale = 1 - utils.lerp_in(handling_fatigue - 1, 0, FATIGUE_MAX_POWER)
 	end
 	hudrc.on_fire(handling_power * fatigue_scale, is_ads, shot_cam_k, burst_shots)
 
 	--vanilla dispersion_frac as mean preserving per shot variance
-	local frac_factor = M.settings.use_pitch_frac and (1 + (math.random() * 2 - 1) * (1 - m_profile.pitch_frac)) or 1
+	local frac_factor = options.use_pitch_frac and (1 + (math.random() * 2 - 1) * (1 - m_profile.pitch_frac)) or 1
 	burst_shots = burst_shots + 1
-	local kick_scale = frac_factor * shot_cam_k * (M.settings.hud_kick_v2 and hudrc.get_mode_kick_mul() or 1)
+	local kick_scale = frac_factor * shot_cam_k * (options.hud_kick_v2 and hudrc.get_mode_kick_mul() or 1)
 	camrc.on_fire(handling_power * fatigue_scale, kick_scale)
 end
 function on_update()
@@ -300,9 +257,6 @@ end
 ----------------------
 ---state
 ---------------------
---TODO: fallback to vanilla if something went wrong
---PERF:smart_cast everytime or cached table?
---i think cached table is better ,but we still have to update the profile evertime
 function start_recoil()
 	active = true
 	get_actor_state()
@@ -344,7 +298,7 @@ function update_bloom(dt)
 	if not cur_cast_wpn or orig_fire_disp <= 0 then
 		return
 	end
-	if not M.settings.use_bloom then
+	if not options.use_bloom then
 		if bloom_applied ~= 1 then
 			cur_cast_wpn:SetFireDispersion(orig_fire_disp)
 			bloom_applied = 1
@@ -419,6 +373,7 @@ function M.init_weapon(wpn_sec)
 	addon_sig = get_addon_sig()
 	logger.dbg("Initialize weapon")
 end
+--TODO:if using cached profile , we need check upgrades and call this agian
 --NOTE: engine getters return the live post-upgrade values in radians,
 --converter rules are tuned to ini degrees, so convert back with math.deg
 function collect_wpn_info(wpn_sec)
@@ -484,7 +439,7 @@ local function get_addon_koef(sec, key)
 end
 --NOTE: engine multiplies cam recoil by attached addon section koefs (EffectorShot.cpp)
 function collect_addon_koefs()
-	if not M.settings.use_addon_ammo_koefs then
+	if not options.use_addon_ammo_koefs then
 		wpn_info.addon_cam_k = 1
 		wpn_info.addon_cam_inc_k = 1
 		return
@@ -521,7 +476,7 @@ end
 --refresh per shot so addon attach, ammo switch and ads state apply without a weapon re draw
 function update_shot_cam_k()
 	is_ads = (cur_cast_wpn and cur_cast_wpn:IsZoomed()) and true or false
-	if not cur_cast_wpn or not M.settings.use_addon_ammo_koefs then
+	if not cur_cast_wpn or not options.use_addon_ammo_koefs then
 		shot_cam_k = 1
 		return
 	end
@@ -539,7 +494,9 @@ function get_addon_sig()
 		.. tostring(cur_cast_wpn:GetSilencerName())
 		.. (cur_cast_wpn:IsGrenadeLauncherAttached() and "g" or "")
 end
---TODO: call this when switching weapon
+--TODO: fallback to vanilla if something went wrong
+--PERF:smart_cast everytime or cached table?
+--i think cached table is better ,but we still have to update the profile evertime
 function M.check_current_weapon()
 	player = db.actor
 	if not player then
@@ -649,12 +606,12 @@ end
 function init_static_modifiers()
 	---@type ModiData[]
 	local basic_modi = {
-		{ name = "", param = "cam_recoil_power", type = 1, val = M.settings.recoil_cam_scale },
-		-- { name = "", param = "force_pitch", type = 1, val = M.settings.recoil_v_scale },
-		-- { name = "", param = "force_y", type = 1, val = M.settings.recoil_v_scale },
-		{ name = "", param = "force_yaw", type = 1, val = M.settings.recoil_h_scale },
-		-- { name = "", param = "force_x", type = 1, val = M.settings.recoil_h_scale },
-		{ name = "", param = "handling_speed", type = 1, val = M.settings.handling_speed_scale },
+		{ name = "", param = "cam_recoil_power", type = 1, val = options.recoil_cam_scale },
+		-- { name = "", param = "force_pitch", type = 1, val = options.recoil_v_scale },
+		-- { name = "", param = "force_y", type = 1, val = options.recoil_v_scale },
+		{ name = "", param = "force_yaw", type = 1, val = options.recoil_h_scale },
+		-- { name = "", param = "force_x", type = 1, val = options.recoil_h_scale },
+		{ name = "", param = "handling_speed", type = 1, val = options.handling_speed_scale },
 	}
 	for i, v in ipairs(basic_modi) do
 		local result = M.static_modifiers:add_modifier(i, v, true, true)
@@ -688,7 +645,6 @@ end
 function M.imgui_config_drawer()
 	firing_handling_ease:draw_imgui("Handling inc")
 	idle_handling_ease:draw_imgui("Handling dec")
-	fatigue_regen_ease:draw_imgui("fatigue regen")
 	if ImGui.TreeNode("Fire Bloom Configs") then
 		ImGui.Text(string.format("heat %.2f, applied x%.2f, base %.4frad", bloom_heat, bloom_applied, orig_fire_disp))
 		_, M.bloom.variance = ImGui.SliderFloat("Variance", M.bloom.variance, 0.0, 3.0, "%.2f")
@@ -719,6 +675,3 @@ M.debug_var = {
 }
 sim_firing = false
 sim_timer = 0.0
-
---defaults reach the modules without waiting for an imgui apply
-M.apply_settings()

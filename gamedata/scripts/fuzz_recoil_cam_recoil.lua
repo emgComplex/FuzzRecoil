@@ -1,5 +1,6 @@
 local utils = fuzz_recoil_utils
 local logger = fuzz_recoil_logger
+local options = fuzz_recoil_mcm
 
 local M = {}
 _G.fuzz_recoil_cam_recoil = M
@@ -66,13 +67,13 @@ min_cam_return_step = 0.0045
 cam_impulse_decay = 12
 cam_step_div = 15
 ----------
----Settings
+---Options
 ----------
 local cam_drag = 12
 local use_cam_max_angle = false
-function M.load_settings(settings)
-	cam_drag = settings.cam_drag
-	use_cam_max_angle = settings.use_cam_max_angle
+function M.on_option_change()
+	cam_drag = options.cam_drag
+	use_cam_max_angle = options.use_cam_max_angle
 end
 ----------
 ---Module
@@ -220,7 +221,8 @@ end
 --------
 function M.imgui_info_drawer()
 	ImGui.TextColored(vector4():set(0, 1, 0.5, 1), "Camera recoil")
-	ImGui.Text(string.format("Cam angle: %.3frad,%.2fdeg", m_angle, math.deg(m_angle)))
+	local angle_text = string.format("Cam angle: %.3frad,%.2fdeg", m_angle, math.deg(m_angle))
+	ImGui.ProgressBar(m_angle, vector2():set(-1, 0), angle_text)
 	ImGui.Text(string.format("Cam velocity: %.3f", m_vel))
 end
 function M.imgui_config_drawer()

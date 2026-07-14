@@ -1,6 +1,7 @@
 local utils = fuzz_recoil_utils
 local logger = fuzz_recoil_logger
 local iui = fuzz_recoil_imgui
+local options = fuzz_recoil_mcm
 
 local M = {}
 _G.fuzz_recoil_hud_recoil = M
@@ -122,14 +123,14 @@ v2_z_recover = 9.0
 smooth_firing_v2 = 25
 
 --------------
---Cahced settings
+--Cahced options
 --------------
 local bolt_action_Y_lift = true
 local use_zoom_ratio = false
 
-function M.load_settings(settings)
-	bolt_action_Y_lift = settings.bolt_action_Y_lift
-	use_zoom_ratio = settings.use_zoom_ratio
+function M.on_option_change()
+	bolt_action_Y_lift = options.bolt_action_Y_lift
+	use_zoom_ratio = options.use_zoom_ratio
 end
 --------
 ---public getters
@@ -348,10 +349,10 @@ local function on_fire_spring(handling_power)
 	vel_rot.y = vel_rot.y + force_pitch --/ mass_factor
 	vel_pos.y = vel_pos.y + force_y --/mass_factor
 
-	--TODO: settings for enabled and scales
+	--TODO: options for enabled and scales
 	local yaw_kick_enhancer = utils.lerp(math.random(), 0.5, 1)
-	if handling_power < 0.7 then
-		yaw_kick_enhancer = utils.lerp(math.random(), 0.3, 1) * yaw_sign
+	if handling_power < 0.7 and fuzz_recoil.get_handling_fatigue() < 1 then
+		yaw_kick_enhancer = utils.lerp(math.random(), 0.7, 1) * yaw_sign
 	else
 		M.pick_yaw_sign()
 		yaw_kick_enhancer = yaw_kick_enhancer * yaw_sign
@@ -629,16 +630,15 @@ function M.imgui_info_drawer()
 	iui.vector_imgui_text_drawer(vel_rot, "Vel Rot", true)
 	iui.vector_imgui_text_drawer(rot_smooth, "Smoothed Rot", true)
 	ImGui.Text(string.format("Raw Pitch: %.2f", math.deg(rot_raw.y)))
-	ImGui.Text(string.format("Raw Target:Y%.2f|P %.2f", rot_raw.x, rot_raw.y))
 	ImGui.Text(string.format("Drift Y:%.3f|P:%.3f", drift_yaw, drift_pitch))
 	ImGui.Text(string.format("ADS:%s, Shot cam k (addon x ammo): %.3f", tostring(is_ads), shot_cam_k))
 
 	local v_cap_ratio = math.abs(rot_smooth.y) / max_hud_rot.y
-	ImGui.ProgressBar(v_cap_ratio, vector2():set(-1, 0), string.format("Pitch %.1f%%", v_cap_ratio * 100))
+	ImGui.ProgressBar(v_cap_ratio, vector2():set(-1, 0), string.format("Pitch %.4f", rot_smooth.y))
 
-	local yaw_value = rot_smooth.x
-	local yaw_display = yaw_value
-	local _, _ = ImGui.SliderFloat("##yaw_slider", yaw_display, -0.5, 0.5, string.format("Yaw: %.4f", yaw_value))
+	local yaw_value = rot_smooth.x / 8 + 0.5
+	ImGui.ProgressBar(-1 * yaw_value, vector2():set(-1, 0), string.format("Yaw: %.4f", rot_smooth.x))
+	-- local _, _ = ImGui.SliderFloat("", yaw_value, -3, 3, string.format("Yaw: %.4f", yaw_value))
 end
 function M.imgui_config_drawer()
 	ImGui.Text("Hud Recoil Config")
