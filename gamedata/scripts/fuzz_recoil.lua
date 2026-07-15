@@ -145,7 +145,7 @@ function M.add_handling_fatigue(val)
 	handling_fatigue = handling_fatigue + math.abs(val) * options.impulse_fatigue_ratio
 end
 --------------------
----HOOKS
+---Engine HOOKS
 --------------------
 function M.on_game_start()
 	RegisterScriptCallback("actor_on_changed_slot", on_changed_slot)
@@ -245,12 +245,11 @@ end
 function on_fire_stop()
 	is_firing = false
 	burst_shots = 0
-	sim_firing = false
 	logger.dbg("Fire stopped")
 end
 
 ----------------------
----state
+---Recoil state
 ---------------------
 function start_recoil()
 	active = true
@@ -288,58 +287,36 @@ function update_handling_power(dt)
 		handling_power = utils.math_clamp(idle_handling_ease:update(handling_power, dt), 0, 1)
 	end
 end
---drives the live bullet cone, base hip penalty plus decaying heat
-function update_bloom(dt)
-	if not cur_cast_wpn or orig_fire_disp <= 0 then
-		return
-	end
-	if not options.use_bloom then
-		if bloom_applied ~= 1 then
-			cur_cast_wpn:SetFireDispersion(orig_fire_disp)
-			bloom_applied = 1
-		end
-		return
-	end
-	--stance can change without a shot, keep it current
-	is_ads = cur_cast_wpn:IsZoomed() and true or false
-	--heat only cools between bursts, sustained fire climbs all the way to the class cap
-	if not is_firing then
-		bloom_heat = bloom_heat * math.exp(-M.bloom.decay * dt)
-	end
-	local bc = M.bloom.classes[m_profile.burst_class] or M.bloom.classes.other
-	local mul = 1 + (bc.base * (is_ads and M.bloom.ads_base or 1) + bloom_heat) * M.bloom.variance
-	if math.abs(mul - bloom_applied) > 0.01 then
-		cur_cast_wpn:SetFireDispersion(orig_fire_disp * mul)
-		bloom_applied = mul
-	end
-end
-function restore_vanilla_fire_disp()
-	if not cur_cast_wpn or orig_fire_disp <= 0 then
-		return
-	end
-	cur_cast_wpn:SetFireDispersion(orig_fire_disp)
-	bloom_applied = -1
-	bloom_heat = 0
-end
-function update_sim_shooting(dt)
-	if sim_firing then
-		sim_timer = sim_timer - dt
-		if sim_timer <= 0 then
-			on_fire_stop()
-		else
-			if math.modf(sim_timer / 0.08) ~= math.modf((sim_timer + dt) / 0.08) then
-				on_fire()
-			end
-		end
-	end
-end
 
 ----------------------
----Feat
+---Vannilla Recoil Hanlder
 ---------------------
---=========Init Recoil and Info Collection============
+function remove_vanilla_cam_recoil()
+	set_vanilla_cam_recoil(cur_cast_wpn, 0, 0, 0, 0)
+end
+function restore_vanilla_cam_recoil()
+	if not cur_cast_wpn then
+		return
+	end
+	--NOTE: setters take raw radians, wpn_info is kept in ini degrees
+	set_vanilla_cam_recoil(
+		cur_cast_wpn,
+		math.rad(wpn_info.cam_dispersion),
+		math.rad(wpn_info.cam_dispersion_inc),
+		math.rad(wpn_info.zoom_cam_dispersion),
+		math.rad(wpn_info.zoom_cam_dispersion_inc)
+	)
+end
+function set_vanilla_cam_recoil(cast_wpn, cam_disp, cam_disp_inc, zoom_cam_disp, zoom_cam_dis_inc)
+	cast_wpn:SetCamDispersion(cam_disp)
+	cast_wpn:SetCamDispersionInc(cam_disp_inc)
+	cast_wpn:SetZoomCamDispersion(zoom_cam_disp)
+	cast_wpn:SetZoomCamDispersionInc(zoom_cam_dis_inc)
+end
+----------------------
+---Weapon Info
+---------------------
 ---@diagnostic disable: undefined-field,need-check-nil
-
 ---!!!!! DO NOT CALL THIS!!!!!!
 ---NOTE:no nil check for cast_wpn
 function init_weapon(wpn_sec)
@@ -411,6 +388,62 @@ function read_upgrade_wpn_info(wpn_sec)
 	}
 end
 ---@diagnostic enable: undefined-field,need-check-nil
+----------------------
+---Weapon Check
+---------------------
+--TODO: fallback to vanilla if something went wrong
+--PERF:smart_cast everytime or cached table?
+--i think cached table is better ,but we still have to update the profile evertime
+--TODO: use vannilla recoil for grende launcher
+function should_active(wpn_sec)
+	local kind = utils.get_string(wpn_sec, "kind")
+	return allowed_kinds[kind], kind
+end
+function M.check_current_weapon()
+	player = db.actor
+	if not player then
+		return false
+	end
+	cur_wpn = player:active_item()
+	if not cur_wpn then
+		return false
+	end
+	local new_id = cur_wpn:id()
+	if cur_wpn_id == new_id then
+		return active
+	end
+	--NOTE: give the previous weapon its vanilla cam recoil back,
+	--otherwise re-equipping it would collect our zeroed values
+	if cur_wpn_id ~= 0 then
+		restore_vanilla_cam_recoil()
+		restore_vanilla_fire_disp()
+	end
+	cur_wpn_id = new_id
+	local wpn_sec = cur_wpn:section()
+	local kind_flag, kind = should_active(wpn_sec)
+	if not kind_flag then
+		-- logger.dbg("Should not active:" .. kind)
+		cur_wpn_id = 0
+		return false
+		-- else
+		-- logger.dbg("active:" .. kind)
+	end
+	cur_cast_wpn = cur_wpn:cast_Weapon()
+	if not cur_cast_wpn then
+		logger.err("Cannot cast Weapon:%s(%s)", tostring(cur_wpn), cur_wpn_id)
+		return false
+	end
+	wpn_info.kind = kind
+	init_weapon(wpn_sec)
+	return true
+end
+function M.force_recheck_weapon()
+	cur_wpn_id = 0
+	M.check_current_weapon()
+end
+----------------------
+---Feat
+---------------------
 --engine clamps addon koefs to [0.01, 2.0], empty section means koef 1 like engine reset
 local function get_addon_koef(sec, key)
 	if not sec or sec == "" then
@@ -475,83 +508,55 @@ function get_addon_sig()
 		.. tostring(cur_cast_wpn:GetSilencerName())
 		.. (cur_cast_wpn:IsGrenadeLauncherAttached() and "g" or "")
 end
---TODO: fallback to vanilla if something went wrong
---PERF:smart_cast everytime or cached table?
---i think cached table is better ,but we still have to update the profile evertime
-function M.check_current_weapon()
-	player = db.actor
-	if not player then
-		return false
-	end
-	cur_wpn = player:active_item()
-	if not cur_wpn then
-		return false
-	end
-	local new_id = cur_wpn:id()
-	if cur_wpn_id == new_id then
-		return active
-	end
-	--NOTE: give the previous weapon its vanilla cam recoil back,
-	--otherwise re-equipping it would collect our zeroed values
-	if cur_wpn_id ~= 0 then
-		restore_vanilla_cam_recoil()
-		restore_vanilla_fire_disp()
-	end
-	cur_wpn_id = new_id
-	local wpn_sec = cur_wpn:section()
-	local kind_flag, kind = should_active(wpn_sec)
-	if not kind_flag then
-		-- logger.dbg("Should not active:" .. kind)
-		cur_wpn_id = 0
-		return false
-		-- else
-		-- logger.dbg("active:" .. kind)
-	end
-	cur_cast_wpn = cur_wpn:cast_Weapon()
-	if not cur_cast_wpn then
-		logger.err("Cannot cast Weapon:%s(%s)", tostring(cur_wpn), cur_wpn_id)
-		return false
-	end
-	wpn_info.kind = kind
-	init_weapon(wpn_sec)
-	return true
-end
-function M.force_recheck_weapon()
-	cur_wpn_id = 0
-	M.check_current_weapon()
-end
---TODO: use vannilla recoil for grende launcher
-function should_active(wpn_sec)
-	local kind = utils.get_string(wpn_sec, "kind")
-	return allowed_kinds[kind], kind
-end
 
---=========Vannilla recoil handler============
-function remove_vanilla_cam_recoil()
-	set_vanilla_cam_recoil(cur_cast_wpn, 0, 0, 0, 0)
-end
-function restore_vanilla_cam_recoil()
-	if not cur_cast_wpn then
+--================Bloom
+--drives the live bullet cone, base hip penalty plus decaying heat
+function update_bloom(dt)
+	if not cur_cast_wpn or orig_fire_disp <= 0 then
 		return
 	end
-	--NOTE: setters take raw radians, wpn_info is kept in ini degrees
-	set_vanilla_cam_recoil(
-		cur_cast_wpn,
-		math.rad(wpn_info.cam_dispersion),
-		math.rad(wpn_info.cam_dispersion_inc),
-		math.rad(wpn_info.zoom_cam_dispersion),
-		math.rad(wpn_info.zoom_cam_dispersion_inc)
-	)
+	if not options.use_bloom then
+		if bloom_applied ~= 1 then
+			cur_cast_wpn:SetFireDispersion(orig_fire_disp)
+			bloom_applied = 1
+		end
+		return
+	end
+	--stance can change without a shot, keep it current
+	is_ads = cur_cast_wpn:IsZoomed() and true or false
+	--heat only cools between bursts, sustained fire climbs all the way to the class cap
+	if not is_firing then
+		bloom_heat = bloom_heat * math.exp(-M.bloom.decay * dt)
+	end
+	local bc = M.bloom.classes[m_profile.burst_class] or M.bloom.classes.other
+	local mul = 1 + (bc.base * (is_ads and M.bloom.ads_base or 1) + bloom_heat) * M.bloom.variance
+	if math.abs(mul - bloom_applied) > 0.01 then
+		cur_cast_wpn:SetFireDispersion(orig_fire_disp * mul)
+		bloom_applied = mul
+	end
 end
-function set_vanilla_cam_recoil(cast_wpn, cam_disp, cam_disp_inc, zoom_cam_disp, zoom_cam_dis_inc)
-	cast_wpn:SetCamDispersion(cam_disp)
-	cast_wpn:SetCamDispersionInc(cam_disp_inc)
-	cast_wpn:SetZoomCamDispersion(zoom_cam_disp)
-	cast_wpn:SetZoomCamDispersionInc(zoom_cam_dis_inc)
+function restore_vanilla_fire_disp()
+	if not cur_cast_wpn or orig_fire_disp <= 0 then
+		return
+	end
+	cur_cast_wpn:SetFireDispersion(orig_fire_disp)
+	bloom_applied = -1
+	bloom_heat = 0
 end
---------------------
----actor stats
---------------------
+function update_sim_shooting(dt)
+	if sim_firing then
+		sim_timer = sim_timer - dt
+		if sim_timer <= 0 then
+			on_fire_stop()
+		else
+			if math.modf(sim_timer / 0.08) ~= math.modf((sim_timer + dt) / 0.08) then
+				on_fire()
+			end
+		end
+	end
+end
+
+--================actor stats
 local actor_hunger = 1
 local actor_stamina = 1
 local actor_recoil_modi_val = 0
