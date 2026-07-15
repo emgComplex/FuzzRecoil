@@ -531,6 +531,10 @@ function M.check_current_weapon()
 	M.init_weapon(wpn_sec)
 	return true
 end
+function M.force_recheck_weapon()
+	cur_wpn_id = 0
+	M.check_current_weapon()
+end
 --TODO: use vannilla recoil for grende launcher
 function should_active(wpn_sec)
 	local kind = utils.get_string(wpn_sec, "kind")
