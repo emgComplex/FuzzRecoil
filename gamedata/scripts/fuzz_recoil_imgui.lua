@@ -341,23 +341,6 @@ function renderExtra()
 		local modi_text = "\nstatic_modifiers =" .. tostring(fuzz_recoil.static_modifiers)
 		modi_text = modi_text .. "\n dynamic_modifiers=" .. tostring(fuzz_recoil.dynamic_modifiers)
 		logger.dbg(modi_text)
-		local tbl = {
-			tbla = {
-				a = 1,
-				b = 2,
-				c = "string",
-			},
-			tblb = {
-				a = 3,
-				b = 4,
-				f = "tblb",
-				depth3 = {
-					ddd = "hellow",
-					depth = 3,
-				},
-			},
-		}
-		logger.dbg(logger.format_table(tbl))
 	end
 end
 function renderConfig()
