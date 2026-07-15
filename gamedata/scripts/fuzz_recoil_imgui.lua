@@ -376,18 +376,6 @@ function renderConfig()
 	end
 	--TODO:refactor this to base
 	ImGui.Separator()
-	-- if not sim_firing then
-	-- 	if ImGui.Button("SIMULATE", vector2():set(-1, 40)) then
-	-- 		sim_firing = true
-	-- 		sim_timer = 5.0
-	-- 		frm.on_before_fire()
-	-- 	end
-	-- else
-	-- 	ImGui.TextColored(vector4():set(1, 0, 0, 1), "FIRING IN PROGRESS... SIMULATING 750 RPM BURST")
-	-- 	if ImGui.Button("FORCE STOP SIMULATION", vector2():set(-1, 30)) then
-	-- 		frm.on_fire_stop()
-	-- 	end
-	-- end
 end
 function renderDebugVars()
 	vars = frm.debug_var

@@ -232,7 +232,6 @@ function on_update()
 	if is_firing and cur_wpn:get_state() ~= 5 then
 		on_fire_stop()
 	end
-	-- update_sim_shooting(dt)
 
 	update_handling_power(dt)
 	update_bloom(dt)
@@ -543,19 +542,6 @@ function restore_vanilla_fire_disp()
 	bloom_applied = -1
 	bloom_heat = 0
 end
-function update_sim_shooting(dt)
-	if sim_firing then
-		sim_timer = sim_timer - dt
-		if sim_timer <= 0 then
-			on_fire_stop()
-		else
-			if math.modf(sim_timer / 0.08) ~= math.modf((sim_timer + dt) / 0.08) then
-				on_fire()
-			end
-		end
-	end
-end
-
 --================actor stats
 local actor_hunger = 1
 local actor_stamina = 1
@@ -653,5 +639,3 @@ M.debug_var = {
 	float_x1 = 0,
 	float_x2 = 0,
 }
-sim_firing = false
-sim_timer = 0.0
