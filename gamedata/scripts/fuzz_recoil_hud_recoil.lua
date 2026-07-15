@@ -60,7 +60,7 @@ local zoom_ratio = 1
 --deterministic weapon class, drives burst heat
 local burst_class = "other"
 local shot_delay_enabled = false
-local is_bolt_action = false
+local use_Y_lift = false
 
 --------------
 --Cahced configs
@@ -229,7 +229,7 @@ end
 local function pos_y_sync_with_cam()
 	if bolt_action_Y_lift and shot_delay_enabled then
 		--PERF: should cached once code is stablelized
-		y_impulse = is_bolt_action and math.abs(force_y) * 2 or force_y
+		y_impulse = use_Y_lift and math.abs(force_y) * 2 or force_y
 		pos_raw.y = camrc.get_angle() * y_impulse
 	end
 end
@@ -331,7 +331,7 @@ function M.cache_profile(profile)
 	zoom_ratio = profile.zoom_ratio or 1
 	burst_class = profile.burst_class or "other"
 
-	is_bolt_action = profile.is_bolt_action
+	use_Y_lift = profile.is_bolt_action
 	shot_delay_enabled = profile.shot_delay_enabled
 end
 --------------
