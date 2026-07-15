@@ -6,6 +6,7 @@ local camrc = fuzz_recoil_cam_recoil.instance
 local hudrc = fuzz_recoil_hud_recoil.instance
 local impacts = fuzz_recoil_impacts
 local options = fuzz_recoil_mcm
+local modifier = fuzz_recoil_modifier
 --stylua: ignore start
 --stylua: ignore end
 -- local log_text = frm.log_text
@@ -121,6 +122,7 @@ function renderImguiTab()
 			ImGui.Text("Not in dev mode,advanced configs disabled")
 			return
 		end
+		renderExtra()
 		if ImGui.TreeNode("Recoil Config") then
 			renderConfig()
 			ImGui.TreePop()
@@ -255,6 +257,7 @@ function info_overlay()
 end
 
 local _prf_type = "raw"
+local modi_enabled = true
 --TODO:! load and apply modifier
 --don't forget sort this out ,man
 function renderProfile()
@@ -282,15 +285,18 @@ function renderProfile()
 			selected_prf = prf
 		end
 		prf.imgui_editor_drawer(selected_prf, _prf_type)
-		-- if ImGui.Button("Apply Direct", vector2():set(200, 25)) then
-		-- 	prf.shallow_copy(selected_prf, prf)
-		-- 	hudrc.cache_profile(prf)
-		-- 	camrc.cache_profile(prf)
-		-- end
-		if ImGui.Button("Apply with Modi", vector2():set(200, 25)) then
+
+		ImGui.Text("Edit without modifier if you want to share your recoil profile")
+		if ImGui.Button("Apply profile", vector2():set(200, 25)) then
 			prf:reload_modifiers()
 			hudrc.cache_profile(prf)
 			camrc.cache_profile(prf)
+		end
+		ImGui.SameLine()
+		modi_enabled_change, modi_enabled = ImGui.Checkbox("With Modifier", modi_enabled)
+		if modi_enabled_change then
+			fuzz_recoil.static_modifiers.enabled(modi_enabled)
+			fuzz_recoil.dynamic_modifiers.enabled(modi_enabled)
 		end
 		ImGui.Text(export_hint)
 		if ImGui.Button("Export to LTX", vector2():set(200, 25)) then
@@ -298,7 +304,8 @@ function renderProfile()
 		end
 		ImGui.SameLine()
 		if ImGui.Button("Reload Profile", vector2():set(200, 25)) then
-			frm.init_weapon(wpn_sec)
+			logger.dbg(wpn_sec)
+			frm.force_recheck_weapon()
 		end
 		ImGui.TreePop()
 	end
@@ -327,6 +334,30 @@ function renderOptions()
 			frm.on_option_change()
 		end
 		ImGui.TreePop()
+	end
+end
+function renderExtra()
+	if ImGui.Button("Log Modi") then
+		local modi_text = "\nstatic_modifiers =" .. tostring(fuzz_recoil.static_modifiers)
+		modi_text = modi_text .. "\n dynamic_modifiers=" .. tostring(fuzz_recoil.dynamic_modifiers)
+		logger.dbg(modi_text)
+		local tbl = {
+			tbla = {
+				a = 1,
+				b = 2,
+				c = "string",
+			},
+			tblb = {
+				a = 3,
+				b = 4,
+				f = "tblb",
+				depth3 = {
+					ddd = "hellow",
+					depth = 3,
+				},
+			},
+		}
+		logger.dbg(logger.format_table(tbl))
 	end
 end
 function renderConfig()
