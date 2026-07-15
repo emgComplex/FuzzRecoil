@@ -98,13 +98,6 @@ local wpn_info = {
 	addon_cam_k = 1,
 	addon_cam_inc_k = 1,
 	inv_weight = 0,
-	--NOTE: should remove
-	zoom_cam_relax_speed = 0,
-	zoom_cam_max_angle = 0,
-	cam_max_angle_horz = 0,
-	zoom_cam_dispersion_frac = 0.7,
-	zoom_cam_max_angle_horz = 0,
-	zoom_cam_step_angle_horz = 0,
 }
 
 --------------------
@@ -388,47 +381,33 @@ function collect_wpn_info(wpn_sec)
 		wpn_info.cam_dispersion_inc = math.deg(cur_cast_wpn:GetCamDispersionInc())
 		wpn_info.cam_dispersion_frac = cur_cast_wpn:GetCamDispersionFrac()
 		wpn_info.cam_max_angle = math.deg(cur_cast_wpn:GetCamMaxAngleVert())
-		wpn_info.cam_max_angle_horz = math.deg(cur_cast_wpn:GetCamMaxAngleHorz())
 		wpn_info.cam_step_angle_horz = math.deg(cur_cast_wpn:GetCamStepAngleHorz())
 		wpn_info.cam_relax_speed = math.deg(cur_cast_wpn:GetCamRelaxSpeed())
 		wpn_info.zoom_cam_dispersion = math.deg(cur_cast_wpn:GetZoomCamDispersion())
 		wpn_info.zoom_cam_dispersion_inc = math.deg(cur_cast_wpn:GetZoomCamDispersionInc())
-		wpn_info.zoom_cam_dispersion_frac = cur_cast_wpn:GetZoomCamDispersionFrac()
-		wpn_info.zoom_cam_max_angle = math.deg(cur_cast_wpn:GetZoomCamMaxAngleVert())
-		wpn_info.zoom_cam_max_angle_horz = math.deg(cur_cast_wpn:GetZoomCamMaxAngleHorz())
-		wpn_info.zoom_cam_step_angle_horz = math.deg(cur_cast_wpn:GetZoomCamStepAngleHorz())
-		wpn_info.zoom_cam_relax_speed = math.deg(cur_cast_wpn:GetZoomCamRelaxSpeed())
 		wpn_info.rpm = cur_cast_wpn:RealRPM()
 		wpn_info.mag_size = cur_cast_wpn:GetAmmoMagSize()
 		--live weight includes attached addons
 		wpn_info.inv_weight = cur_cast_wpn:Weight()
 		collect_addon_koefs()
 	else
+		--stylua: ignore start
 		--fallback: base section values, no upgrades
 		wpn_info.cam_dispersion = utils.get_float(wpn_sec, "cam_dispersion")
 		wpn_info.cam_dispersion_inc = utils.get_float(wpn_sec, "cam_dispersion_inc")
 		wpn_info.cam_dispersion_frac = utils.get_float(wpn_sec, "cam_dispersion_frac", 0.7)
 		wpn_info.cam_max_angle = utils.get_float(wpn_sec, "cam_max_angle")
-		wpn_info.cam_max_angle_horz = utils.get_float(wpn_sec, "cam_max_angle_horz")
 		wpn_info.cam_step_angle_horz = utils.get_float(wpn_sec, "cam_step_angle_horz")
 		wpn_info.cam_relax_speed = utils.get_float(wpn_sec, "cam_relax_speed")
 		--NOTE: engine copies hip values to zoom when the ini omits the zoom keys
 		wpn_info.zoom_cam_dispersion = utils.get_float(wpn_sec, "zoom_cam_dispersion", wpn_info.cam_dispersion)
-		wpn_info.zoom_cam_dispersion_inc =
-			utils.get_float(wpn_sec, "zoom_cam_dispersion_inc", wpn_info.cam_dispersion_inc)
-		wpn_info.zoom_cam_dispersion_frac =
-			utils.get_float(wpn_sec, "zoom_cam_dispersion_frac", wpn_info.cam_dispersion_frac)
-		wpn_info.zoom_cam_max_angle = utils.get_float(wpn_sec, "zoom_cam_max_angle", wpn_info.cam_max_angle)
-		wpn_info.zoom_cam_max_angle_horz =
-			utils.get_float(wpn_sec, "zoom_cam_max_angle_horz", wpn_info.cam_max_angle_horz)
-		wpn_info.zoom_cam_step_angle_horz =
-			utils.get_float(wpn_sec, "zoom_cam_step_angle_horz", wpn_info.cam_step_angle_horz)
-		wpn_info.zoom_cam_relax_speed = utils.get_float(wpn_sec, "zoom_cam_relax_speed", wpn_info.cam_relax_speed)
+		wpn_info.zoom_cam_dispersion_inc = utils.get_float(wpn_sec, "zoom_cam_dispersion_inc", wpn_info.cam_dispersion_inc)
 		wpn_info.rpm = utils.get_float(wpn_sec, "rpm", 600)
 		wpn_info.mag_size = utils.get_float(wpn_sec, "ammo_mag_size", 30)
 		wpn_info.inv_weight = utils.get_float(wpn_sec, "inv_weight", 3)
 		wpn_info.addon_cam_k = 1
 		wpn_info.addon_cam_inc_k = 1
+		--stylua: ignore end
 	end
 	-- for k, v in pairs(wpn_info) do
 	-- 	logger.dbg(type(v) == "number" and "%s:%.6f" or "%s:%s", k, v)
