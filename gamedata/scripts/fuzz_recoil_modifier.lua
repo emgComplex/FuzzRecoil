@@ -3,6 +3,7 @@ local logger = fuzz_recoil_logger
 local M = {}
 M.__index = M
 _G.fuzz_recoil_modifier = M
+local enabled = true
 ---------------
 ---modifier
 ---------------
@@ -124,6 +125,9 @@ end
 ---@param target fuzz_recoil_profile
 ---Internal calls for fuzz_recoil,don't use
 function M:apply_modifiers(source, target, extra_target)
+	if not enabled then
+		return
+	end
 	--NOTE: we can use ... isntead of extra_target
 	if not target then
 		logger.err("can't find profile when applying modifiers")
@@ -139,6 +143,27 @@ function M:apply_modifiers(source, target, extra_target)
 	for _, func in pairs(self.cached_modifiers.funcs) do
 		func(target)
 	end
+end
+
+---@param flag boolean
+---set modifier enabled state
+function M.enabled(flag)
+	enabled = flag
+end
+
+function M.is_enabled()
+	return enabled
+end
+
+function M:__tostring()
+	local temp = {
+		m_modifiers = self.m_modifiers,
+		cached_modifiers = self.cached_modifiers,
+	}
+	return logger.format_table(temp)
+	-- return logger.format_table(self)
+	-- 	.. "\n m_modifiers = \n"
+	-- 	.. (self.m_modifiers and logger.format_table(self.m_modifiers) or "no modi")
 end
 
 ---------------

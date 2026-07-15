@@ -426,9 +426,9 @@ function collect_wpn_info(wpn_sec)
 		wpn_info.addon_cam_k = 1
 		wpn_info.addon_cam_inc_k = 1
 	end
-	for k, v in pairs(wpn_info) do
-		logger.dbg(type(v) == "number" and "%s:%.6f" or "%s:%s", k, v)
-	end
+	-- for k, v in pairs(wpn_info) do
+	-- 	logger.dbg(type(v) == "number" and "%s:%.6f" or "%s:%s", k, v)
+	-- end
 end
 --engine clamps addon koefs to [0.01, 2.0], empty section means koef 1 like engine reset
 local function get_addon_koef(sec, key)
@@ -530,6 +530,10 @@ function M.check_current_weapon()
 	end
 	M.init_weapon(wpn_sec)
 	return true
+end
+function M.force_recheck_weapon()
+	cur_wpn_id = 0
+	M.check_current_weapon()
 end
 --TODO: use vannilla recoil for grende launcher
 function should_active(wpn_sec)

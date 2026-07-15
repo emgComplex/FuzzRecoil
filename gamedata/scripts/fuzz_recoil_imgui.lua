@@ -6,6 +6,7 @@ local camrc = fuzz_recoil_cam_recoil.instance
 local hudrc = fuzz_recoil_hud_recoil.instance
 local impacts = fuzz_recoil_impacts
 local options = fuzz_recoil_mcm
+local modifier = fuzz_recoil_modifier
 --stylua: ignore start
 --stylua: ignore end
 -- local log_text = frm.log_text
@@ -21,48 +22,6 @@ local showPlots = fuzz_dev and true or false
 local debug_text1 = "Weapon profile won't refresh untill you shot a bullet"
 local auto_scroll_logs = true
 local export_hint = "Export profile to your game's bin folder"
-
---NOTE: we have to updadte all raw vector and nullable ref here
---silly but work for debuging
-
-local LinePlot = {}
-LinePlot.__index = LinePlot
-function LinePlot.new(label, max_size, min_val, max_val, width, height)
-	local self = setmetatable({}, LinePlot)
-
-	self.label = label or "Plot"
-	self.max_size = max_size or 100
-	self.min_val = min_val or -1.0
-	self.max_val = max_val or 1.0
-	self.width = width or 300
-	self.height = height or 150
-
-	self.history_data = {}
-	for i = 1, self.max_size do
-		table.insert(self.history_data, 0)
-	end
-
-	return self
-end
-function LinePlot:draw(new_value)
-	table.remove(self.history_data, 1)
-	table.insert(self.history_data, new_value)
-
-	local min_y = self.min_val or nil
-	local max_y = self.max_val or nil
-
-	--NOTE: sadly no lua bindings for plot...
-	ImGui.PlotLines(
-		self.label,
-		self.history_data,
-		self.max_size,
-		0,
-		nil,
-		min_y,
-		max_y,
-		vector2():set(self.width, self.height)
-	)
-end
 
 local LinePlotHack = {}
 LinePlotHack.__index = LinePlotHack
@@ -163,6 +122,7 @@ function renderImguiTab()
 			ImGui.Text("Not in dev mode,advanced configs disabled")
 			return
 		end
+		renderExtra()
 		if ImGui.TreeNode("Recoil Config") then
 			renderConfig()
 			ImGui.TreePop()
@@ -297,6 +257,7 @@ function info_overlay()
 end
 
 local _prf_type = "raw"
+local modi_enabled = true
 --TODO:! load and apply modifier
 --don't forget sort this out ,man
 function renderProfile()
@@ -324,15 +285,18 @@ function renderProfile()
 			selected_prf = prf
 		end
 		prf.imgui_editor_drawer(selected_prf, _prf_type)
-		-- if ImGui.Button("Apply Direct", vector2():set(200, 25)) then
-		-- 	prf.shallow_copy(selected_prf, prf)
-		-- 	hudrc.cache_profile(prf)
-		-- 	camrc.cache_profile(prf)
-		-- end
-		if ImGui.Button("Apply with Modi", vector2():set(200, 25)) then
+
+		ImGui.Text("Edit without modifier if you want to share your recoil profile")
+		if ImGui.Button("Apply profile", vector2():set(200, 25)) then
 			prf:reload_modifiers()
 			hudrc.cache_profile(prf)
 			camrc.cache_profile(prf)
+		end
+		ImGui.SameLine()
+		modi_enabled_change, modi_enabled = ImGui.Checkbox("With Modifier", modi_enabled)
+		if modi_enabled_change then
+			fuzz_recoil.static_modifiers.enabled(modi_enabled)
+			fuzz_recoil.dynamic_modifiers.enabled(modi_enabled)
 		end
 		ImGui.Text(export_hint)
 		if ImGui.Button("Export to LTX", vector2():set(200, 25)) then
@@ -340,7 +304,8 @@ function renderProfile()
 		end
 		ImGui.SameLine()
 		if ImGui.Button("Reload Profile", vector2():set(200, 25)) then
-			frm.init_weapon(wpn_sec)
+			logger.dbg(wpn_sec)
+			frm.force_recheck_weapon()
 		end
 		ImGui.TreePop()
 	end
@@ -369,6 +334,30 @@ function renderOptions()
 			frm.on_option_change()
 		end
 		ImGui.TreePop()
+	end
+end
+function renderExtra()
+	if ImGui.Button("Log Modi") then
+		local modi_text = "\nstatic_modifiers =" .. tostring(fuzz_recoil.static_modifiers)
+		modi_text = modi_text .. "\n dynamic_modifiers=" .. tostring(fuzz_recoil.dynamic_modifiers)
+		logger.dbg(modi_text)
+		local tbl = {
+			tbla = {
+				a = 1,
+				b = 2,
+				c = "string",
+			},
+			tblb = {
+				a = 3,
+				b = 4,
+				f = "tblb",
+				depth3 = {
+					ddd = "hellow",
+					depth = 3,
+				},
+			},
+		}
+		logger.dbg(logger.format_table(tbl))
 	end
 end
 function renderConfig()

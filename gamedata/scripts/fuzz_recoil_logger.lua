@@ -51,18 +51,28 @@ function M.export_internal_log()
 	file:close()
 end
 
-function M.print_table(t, indent)
-	if not indent then
-		indent = ""
-	end
-	M.dbg("%s={", indent)
+function M.format_table(t, base_indent, level)
+	base_indent = base_indent or "| "
+	level = level or 0
+
+	local indent = string.rep(base_indent, level)
+	local out = indent .. "{\n"
+
 	for k, v in pairs(t) do
 		if type(v) == "table" then
-			M.dbg("%s%s=", indent, k)
-			M.print_table(v, indent .. "  ")
+			out = out .. indent .. base_indent .. tostring(k) .. "=\n"
+			out = out .. M.format_table(v, base_indent, level + 1)
+			out = out .. ",\n"
 		else
-			M.dbg("%s%s=%s,", indent, k, v)
+			out = out .. indent .. base_indent .. tostring(k) .. "=" .. tostring(v) .. ",\n"
 		end
 	end
-	M.dbg("%s},", indent)
+
+	out = out .. indent .. "}"
+	return out
+end
+
+function M.print_table(t, label)
+	local text = M.format_table(t)
+	m_log(label .. "=\n" .. text)
 end
