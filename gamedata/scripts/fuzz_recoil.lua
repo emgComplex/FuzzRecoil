@@ -37,8 +37,6 @@ local bloom_applied = -1
 --attached addon fingerprint, throttled check in on_update
 local addon_sig = ""
 local next_addon_check = 0
---NOTE: need for scope scale?of just zoom_factor>1
---cur_aim_state = 0
 local cur_wpn_id = 0
 --bloom multiplies the weapons fire_dispersion_base, silencer, ammo and
 --condition koefs stack on top like vanilla (WeaponDispersion.cpp)
@@ -413,22 +411,6 @@ function read_upgrade_wpn_info(wpn_sec)
 		cam_step_angle_horz = utils.get_float(wpn_sec, "cam_step_angle_horz"),
 	}
 end
---NOTE: we should never use this since if you can't smart cast a weapon,then something is wrong with the weapon
--- function read_basic_wpn_info(wpn_sec)
--- 	--NOTE: engine copies hip values to zoom when the ini omits the zoom keys
--- 	wpn_info.zoom_cam_dispersion = utils.get_float(wpn_sec, "zoom_cam_dispersion", wpn_info.cam_dispersion)
--- 	wpn_info.zoom_cam_dispersion_inc = utils.get_float(wpn_sec, "zoom_cam_dispersion_inc", wpn_info.cam_dispersion_inc)
--- 	wpn_info.mag_size = utils.get_float(wpn_sec, "ammo_mag_size", 30)
--- 	wpn_info.rpm = utils.get_float(wpn_sec, "rpm", 600)
--- 	wpn_info.cam_relax_speed = utils.get_float(wpn_sec, "cam_relax_speed")
--- end
--- function read_feat_wpn_info(wpn_sec)
--- 	wpn_info.cam_dispersion_frac = utils.get_float(wpn_sec, "cam_dispersion_frac", 0.7)
--- 	wpn_info.cam_max_angle = utils.get_float(wpn_sec, "cam_max_angle")
--- 	wpn_info.inv_weight = utils.get_float(wpn_sec, "inv_weight", 3)
--- 	wpn_info.addon_cam_k = 1
--- 	wpn_info.addon_cam_inc_k = 1
--- end
 ---@diagnostic enable: undefined-field,need-check-nil
 --engine clamps addon koefs to [0.01, 2.0], empty section means koef 1 like engine reset
 local function get_addon_koef(sec, key)
@@ -541,20 +523,6 @@ function should_active(wpn_sec)
 	return allowed_kinds[kind], kind
 end
 
---TODO: fix this
---
--- local function get_aim_state()
--- 	-- local is_gl = weapon:weapon_in_grenade_mode()
--- 	if not cur_cast_wpn:IsZoomed() then
--- 		cur_aim_state = 0
--- 		return
--- 	end
--- 	cur_aim_state = cur_cast_wpn:GetZoomType() + 1
--- 	if cur_aim_state > 3 then
--- 		logger.err("Unknown aim state(out of bound):" .. cur_aim_state)
--- 		cur_aim_state = 0
--- 	end
--- end
 --=========Vannilla recoil handler============
 function remove_vanilla_cam_recoil()
 	set_vanilla_cam_recoil(cur_cast_wpn, 0, 0, 0, 0)
