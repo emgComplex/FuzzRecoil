@@ -41,6 +41,8 @@ M.__index = M
 ---@field shot_delay_time number
 ---@field shot_cam_impulse_factor number
 
+--WARN:don forget the convert_list,i know this sucks
+
 ---@type FuzzRecoilProfile
 local default_profile = {
 
@@ -126,32 +128,58 @@ local function classify_burst_class(kind, mag_size)
 	return "other"
 end
 
---TODO: fallback to converter if missing parameter?
-function M:read_profile(wpn_sec, wpn_info)
-	local prf_sec = ini_sys:r_string_ex(wpn_sec, "fuzz_recoil", nil)
+function M:read_profile(wpn_sec, wpn_info, prf_sec)
 	if prf_sec then
-		self.is_bolt_action = utils.get_bool(prf_sec, "is_bolt_action", false)
-		self.cam_recoil_power = utils.get_float(prf_sec, "cam_recoil_power", 4)
-		self.cam_return_speed = utils.get_float(prf_sec, "cam_return_speed", 1)
-		self.cam_max_angle = utils.get_float(prf_sec, "cam_max_angle", 0)
-		self.pitch_frac = utils.math_clamp(utils.get_float(prf_sec, "pitch_frac", 1), 0, 1)
-		self.zoom_ratio = utils.math_clamp(utils.get_float(prf_sec, "zoom_ratio", 1), 0.25, 2)
-		self.force_pitch = utils.get_float(prf_sec, "force_pitch", 15)
-		self.force_y = utils.get_float(prf_sec, "force_y", -0.04)
-		self.force_yaw = utils.get_float(prf_sec, "force_yaw", 15)
-		self.force_x = utils.get_float(prf_sec, "force_x", 0)
-		self.force_z = utils.get_float(prf_sec, "force_z", 0.006)
-		self.pull_force = utils.get_float(prf_sec, "pull_force", 1.5)
-		self.firing_damping = utils.get_float(prf_sec, "firing_damping", 1)
-		self.handling_speed = utils.get_float(prf_sec, "handling_speed", 0.5)
+		------------Basic reading---------------------
+		local convert_list = {
+			--stylua: ignore start
+			cam_recoil_power = { type = 2, read = false },
+			cam_return_speed = { type = 2, read = false },
+
+			force_pitch      = { type = 2, read = false },
+			force_y          = { type = 2, read = false },
+			force_z          = { type = 2, read = false },
+			force_x          = { type = 2, read = false },
+			force_yaw        = { type = 2, read = false },
+
+			pull_force       = { type = 2, read = false },
+			firing_damping   = { type = 2, read = false },
+			handling_speed   = { type = 2, read = false },
+
+			is_bolt_action   = { type = 1, read = false },
+			zoom_ratio       = { type = 2, read = false },
+
+			pitch_frac       = { type = 2, read = false },
+			cam_max_angle    = { type = 2, read = false },
+			--stylua: ignore end
+		}
+		---@diagnostic disable: need-check-nil
+		for param, v in pairs(convert_list) do
+			local result = SYS_GetParam(v.type, prf_sec, param)
+			v.read = not (result == nil)
+			self[param] = result
+		end
+		---@diagnostic enable: need-check-nil
+
+		for param, v in pairs(convert_list) do
+			if not v.read then
+				local cvt_result = cvter.convert(param, wpn_info)
+				if cvt_result ~= nil then
+					self[param] = cvt_result
+				else
+					logger.err("convertion failed at param %s", param)
+					-- NOTE:
+					-- NO ERROR handling and can't throw ,good luck...
+				end
+			end
+		end
+		---------------------------------
 
 		self.info.is_converted = false
 	else
 		cvter.convert(wpn_info, self)
-		cvter.convert(wpn_info, self:new())
 		self.info.is_converted = true
 	end
-	return self
 end
 
 function M:load(wpn_sec, wpn_info)
@@ -159,9 +187,10 @@ function M:load(wpn_sec, wpn_info)
 
 	self.fire_interval = 60 / wpn_info.rpm
 
-	self:read_profile(wpn_sec, wpn_info)
+	local prf_sec = ini_sys:r_string_ex(wpn_sec, "fuzz_recoil", nil)
+	self:read_profile(wpn_sec, wpn_info, prf_sec)
 
-	self:process_shot_delay(wpn_info)
+	self:process_shot_delay(wpn_info, prf_sec)
 	self.burst_class = classify_burst_class(wpn_info.kind, wpn_info.mag_size)
 
 	local raw_table = {}
@@ -208,7 +237,20 @@ function M:reload_modifiers()
 	return self:apply_static_modifiers():apply_dynamic_modifiers()
 end
 
-function M:process_shot_delay(wpn_info)
+function M:process_shot_delay(wpn_info, prf_sec)
+	local read = true
+	--NOTE: all 3 param must be declare to make it work
+	if prf_sec then
+		local e = SYS_GetParam(1, prf_sec, "shot_delay_enabled")
+		local t = SYS_GetParam(2, prf_sec, "shot_delay_time")
+		local f = SYS_GetParam(2, prf_sec, "shot_cam_impulse_factor")
+		if e ~= nil and t and f then
+			self.shot_delay_enabled = e
+			self.shot_delay_time = t
+			self.shot_cam_impulse_factor = f
+			return
+		end
+	end
 	-- NOTE: or we can just check available firemodes?
 	local skind = shot_delay_table[wpn_info.kind]
 	if skind and wpn_info.rpm <= skind.rpm then
