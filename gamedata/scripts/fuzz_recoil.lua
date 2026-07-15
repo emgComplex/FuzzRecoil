@@ -376,7 +376,6 @@ end
 --NOTE: engine getters return the live post-upgrade values in radians,
 --converter rules are tuned to ini degrees, so convert back with math.deg
 function collect_wpn_info(wpn_sec)
-	wpn_info.kind = utils.get_string(wpn_sec, "kind")
 	get_upgrade_wpn_info()
 	get_basic_wpn_info()
 	get_feat_wpn_info()
@@ -494,22 +493,26 @@ function M.check_current_weapon()
 	end
 	--NOTE: give the previous weapon its vanilla cam recoil back,
 	--otherwise re-equipping it would collect our zeroed values
-	restore_vanilla_cam_recoil()
-	restore_vanilla_fire_disp()
+	if cur_wpn_id ~= 0 then
+		restore_vanilla_cam_recoil()
+		restore_vanilla_fire_disp()
+	end
 	cur_wpn_id = new_id
 	local wpn_sec = cur_wpn:section()
-	local flag, kind = should_active(wpn_sec)
-	if flag then
-		logger.dbg("active:" .. kind)
-	else
-		logger.dbg("Should not active:" .. kind)
+	local kind_flag, kind = should_active(wpn_sec)
+	if not kind_flag then
+		-- logger.dbg("Should not active:" .. kind)
+		cur_wpn_id = 0
 		return false
+		-- else
+		-- logger.dbg("active:" .. kind)
 	end
 	cur_cast_wpn = cur_wpn:cast_Weapon()
 	if not cur_cast_wpn then
 		logger.err("Cannot cast Weapon:%s(%s)", tostring(cur_wpn), cur_wpn_id)
 		return false
 	end
+	wpn_info.kind = kind
 	init_weapon(wpn_sec)
 	return true
 end
