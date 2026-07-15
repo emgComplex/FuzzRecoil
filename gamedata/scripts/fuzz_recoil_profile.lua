@@ -21,7 +21,6 @@ _G.fuzz_recoil_profile = M
 M.__index = M
 
 ---@class FuzzRecoilProfile
----@field name string
 ---@field cam_recoil_power number
 ---@field cam_return_speed number
 ---@field force_pitch number
@@ -36,6 +35,7 @@ M.__index = M
 ---@field is_bolt_action boolean
 ---@field fire_interval number
 ---@field pitch_frac number
+---
 ---@field burst_class string
 ---@field shot_delay_enabled boolean
 ---@field shot_delay_time number
@@ -43,7 +43,6 @@ M.__index = M
 
 ---@type FuzzRecoilProfile
 local default_profile = {
-	name = "w_nil_profile",
 
 	cam_recoil_power = 4,
 	cam_return_speed = 1,
@@ -82,6 +81,10 @@ local default_profile = {
 setmetatable(M, { __index = default_profile })
 M.raw_profile = {}
 M.static_profile = {}
+M.info = {
+	name = "w_nil_profile",
+	is_converted = true,
+}
 
 ---------------
 ---intenal functions
@@ -123,6 +126,7 @@ local function classify_burst_class(kind, mag_size)
 	return "other"
 end
 
+--TODO: fallback to converter if missing parameter?
 function M:read_profile(wpn_sec, wpn_info)
 	local prf_sec = ini_sys:r_string_ex(wpn_sec, "fuzz_recoil", nil)
 	if prf_sec then
@@ -132,26 +136,26 @@ function M:read_profile(wpn_sec, wpn_info)
 		self.cam_max_angle = utils.get_float(prf_sec, "cam_max_angle", 0)
 		self.pitch_frac = utils.math_clamp(utils.get_float(prf_sec, "pitch_frac", 1), 0, 1)
 		self.zoom_ratio = utils.math_clamp(utils.get_float(prf_sec, "zoom_ratio", 1), 0.25, 2)
-
 		self.force_pitch = utils.get_float(prf_sec, "force_pitch", 15)
 		self.force_y = utils.get_float(prf_sec, "force_y", -0.04)
 		self.force_yaw = utils.get_float(prf_sec, "force_yaw", 15)
 		self.force_x = utils.get_float(prf_sec, "force_x", 0)
 		self.force_z = utils.get_float(prf_sec, "force_z", 0.006)
-
 		self.pull_force = utils.get_float(prf_sec, "pull_force", 1.5)
 		self.firing_damping = utils.get_float(prf_sec, "firing_damping", 1)
-
 		self.handling_speed = utils.get_float(prf_sec, "handling_speed", 0.5)
+
+		self.info.is_converted = false
 	else
 		cvter.convert(wpn_info, self)
 		cvter.convert(wpn_info, self:new())
+		self.info.is_converted = true
 	end
 	return self
 end
 
 function M:load(wpn_sec, wpn_info)
-	self.name = utils.get_base_weapon(wpn_sec)
+	self.info.name = utils.get_base_weapon(wpn_sec)
 
 	self.fire_interval = 60 / wpn_info.rpm
 
@@ -175,7 +179,7 @@ end
 ---@param modi fuzz_recoil_modifier
 function M:_apply_modifiers(modi, label, source, target, extra_target)
 	if not modi then
-		logger.err("no %s modifier found for %s", label, self.name)
+		logger.err("no %s modifier found for %s", label, self.info.name)
 		return self
 	end
 	modi:apply_modifiers(source, target, extra_target)
@@ -219,10 +223,10 @@ end
 ---IMGUI
 ---------------
 
-function M.imgui_editor_drawer(_prf, _prf_type)
-	ImGui.PushID(_prf.name .. _prf_type)
+function M.imgui_editor_drawer(_prf, _prf_type, _prf_name)
+	ImGui.PushID("profile" .. _prf_type)
 	ImGui.BeginDisabled(_prf_type ~= "raw")
-
+	ImGui.Text(_prf_name)
 	ImGui.Separator()
 	_, _prf.is_bolt_action = ImGui.Checkbox("Bolt Action", _prf.is_bolt_action)
 

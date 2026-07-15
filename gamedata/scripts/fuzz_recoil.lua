@@ -37,8 +37,6 @@ local bloom_applied = -1
 --attached addon fingerprint, throttled check in on_update
 local addon_sig = ""
 local next_addon_check = 0
---NOTE: need for scope scale?of just zoom_factor>1
---cur_aim_state = 0
 local cur_wpn_id = 0
 --bloom multiplies the weapons fire_dispersion_base, silencer, ammo and
 --condition koefs stack on top like vanilla (WeaponDispersion.cpp)
@@ -82,25 +80,22 @@ local idle_handling_ease = utils.simple_ease:new(-1, -1, 0.2, 6)
 sniper_idle_handling = { offset = 0.2, intensity = 0.8 }
 
 local wpn_info = {
+	--NOTE: upgrade needed
 	cam_dispersion = 0,
-	cam_dispersion_inc = 0,
-	cam_dispersion_frac = 0.7,
-	cam_max_angle = 0,
-	cam_max_angle_horz = 0,
 	cam_step_angle_horz = 0,
-	cam_relax_speed = 0,
+	cam_dispersion_inc = 0,
+	--NOTE: always needed
 	zoom_cam_dispersion = 0,
 	zoom_cam_dispersion_inc = 0,
-	zoom_cam_dispersion_frac = 0.7,
-	zoom_cam_max_angle = 0,
-	zoom_cam_max_angle_horz = 0,
-	zoom_cam_step_angle_horz = 0,
-	zoom_cam_relax_speed = 0,
+	rpm = 600,
+	cam_relax_speed = 0,
+	mag_size = 30,
+	--NOTE: feature needed
+	cam_dispersion_frac = 0.7,
+	cam_max_angle = 0,
 	addon_cam_k = 1,
 	addon_cam_inc_k = 1,
 	inv_weight = 0,
-	mag_size = 30,
-	rpm = 600,
 }
 
 --------------------
@@ -150,7 +145,7 @@ function M.add_handling_fatigue(val)
 	handling_fatigue = handling_fatigue + math.abs(val) * options.impulse_fatigue_ratio
 end
 --------------------
----HOOKS
+---Engine HOOKS
 --------------------
 function M.on_game_start()
 	RegisterScriptCallback("actor_on_changed_slot", on_changed_slot)
@@ -237,7 +232,6 @@ function on_update()
 	if is_firing and cur_wpn:get_state() ~= 5 then
 		on_fire_stop()
 	end
-	-- update_sim_shooting(dt)
 
 	update_handling_power(dt)
 	update_bloom(dt)
@@ -250,12 +244,11 @@ end
 function on_fire_stop()
 	is_firing = false
 	burst_shots = 0
-	sim_firing = false
 	logger.dbg("Fire stopped")
 end
 
 ----------------------
----state
+---Recoil state
 ---------------------
 function start_recoil()
 	active = true
@@ -293,57 +286,39 @@ function update_handling_power(dt)
 		handling_power = utils.math_clamp(idle_handling_ease:update(handling_power, dt), 0, 1)
 	end
 end
---drives the live bullet cone, base hip penalty plus decaying heat
-function update_bloom(dt)
-	if not cur_cast_wpn or orig_fire_disp <= 0 then
-		return
-	end
-	if not options.use_bloom then
-		if bloom_applied ~= 1 then
-			cur_cast_wpn:SetFireDispersion(orig_fire_disp)
-			bloom_applied = 1
-		end
-		return
-	end
-	--stance can change without a shot, keep it current
-	is_ads = cur_cast_wpn:IsZoomed() and true or false
-	--heat only cools between bursts, sustained fire climbs all the way to the class cap
-	if not is_firing then
-		bloom_heat = bloom_heat * math.exp(-M.bloom.decay * dt)
-	end
-	local bc = M.bloom.classes[m_profile.burst_class] or M.bloom.classes.other
-	local mul = 1 + (bc.base * (is_ads and M.bloom.ads_base or 1) + bloom_heat) * M.bloom.variance
-	if math.abs(mul - bloom_applied) > 0.01 then
-		cur_cast_wpn:SetFireDispersion(orig_fire_disp * mul)
-		bloom_applied = mul
-	end
-end
-function restore_vanilla_fire_disp()
-	if not cur_cast_wpn or orig_fire_disp <= 0 then
-		return
-	end
-	cur_cast_wpn:SetFireDispersion(orig_fire_disp)
-	bloom_applied = -1
-	bloom_heat = 0
-end
-function update_sim_shooting(dt)
-	if sim_firing then
-		sim_timer = sim_timer - dt
-		if sim_timer <= 0 then
-			on_fire_stop()
-		else
-			if math.modf(sim_timer / 0.08) ~= math.modf((sim_timer + dt) / 0.08) then
-				on_fire()
-			end
-		end
-	end
-end
 
 ----------------------
----Feat
+---Vannilla Recoil Hanlder
 ---------------------
---=========Init Recoil and Info Collection============
-function M.init_weapon(wpn_sec)
+function remove_vanilla_cam_recoil()
+	set_vanilla_cam_recoil(cur_cast_wpn, 0, 0, 0, 0)
+end
+function restore_vanilla_cam_recoil()
+	if not cur_cast_wpn then
+		return
+	end
+	--NOTE: setters take raw radians, wpn_info is kept in ini degrees
+	set_vanilla_cam_recoil(
+		cur_cast_wpn,
+		math.rad(wpn_info.cam_dispersion),
+		math.rad(wpn_info.cam_dispersion_inc),
+		math.rad(wpn_info.zoom_cam_dispersion),
+		math.rad(wpn_info.zoom_cam_dispersion_inc)
+	)
+end
+function set_vanilla_cam_recoil(cast_wpn, cam_disp, cam_disp_inc, zoom_cam_disp, zoom_cam_dis_inc)
+	cast_wpn:SetCamDispersion(cam_disp)
+	cast_wpn:SetCamDispersionInc(cam_disp_inc)
+	cast_wpn:SetZoomCamDispersion(zoom_cam_disp)
+	cast_wpn:SetZoomCamDispersionInc(zoom_cam_dis_inc)
+end
+----------------------
+---Weapon Info
+---------------------
+---@diagnostic disable: undefined-field,need-check-nil
+---!!!!! DO NOT CALL THIS!!!!!!
+---NOTE:no nil check for cast_wpn
+function init_weapon(wpn_sec)
 	collect_wpn_info(wpn_sec)
 	--TODO: better entry point needed
 	init_static_modifiers()
@@ -377,59 +352,97 @@ end
 --NOTE: engine getters return the live post-upgrade values in radians,
 --converter rules are tuned to ini degrees, so convert back with math.deg
 function collect_wpn_info(wpn_sec)
-	wpn_info.kind = utils.get_string(wpn_sec, "kind")
-	if cur_cast_wpn then
-		--NOTE: dispersion_frac is a unitless fraction, no deg conversion
-		wpn_info.cam_dispersion = math.deg(cur_cast_wpn:GetCamDispersion())
-		wpn_info.cam_dispersion_inc = math.deg(cur_cast_wpn:GetCamDispersionInc())
-		wpn_info.cam_dispersion_frac = cur_cast_wpn:GetCamDispersionFrac()
-		wpn_info.cam_max_angle = math.deg(cur_cast_wpn:GetCamMaxAngleVert())
-		wpn_info.cam_max_angle_horz = math.deg(cur_cast_wpn:GetCamMaxAngleHorz())
-		wpn_info.cam_step_angle_horz = math.deg(cur_cast_wpn:GetCamStepAngleHorz())
-		wpn_info.cam_relax_speed = math.deg(cur_cast_wpn:GetCamRelaxSpeed())
-		wpn_info.zoom_cam_dispersion = math.deg(cur_cast_wpn:GetZoomCamDispersion())
-		wpn_info.zoom_cam_dispersion_inc = math.deg(cur_cast_wpn:GetZoomCamDispersionInc())
-		wpn_info.zoom_cam_dispersion_frac = cur_cast_wpn:GetZoomCamDispersionFrac()
-		wpn_info.zoom_cam_max_angle = math.deg(cur_cast_wpn:GetZoomCamMaxAngleVert())
-		wpn_info.zoom_cam_max_angle_horz = math.deg(cur_cast_wpn:GetZoomCamMaxAngleHorz())
-		wpn_info.zoom_cam_step_angle_horz = math.deg(cur_cast_wpn:GetZoomCamStepAngleHorz())
-		wpn_info.zoom_cam_relax_speed = math.deg(cur_cast_wpn:GetZoomCamRelaxSpeed())
-		wpn_info.rpm = cur_cast_wpn:RealRPM()
-		wpn_info.mag_size = cur_cast_wpn:GetAmmoMagSize()
-		--live weight includes attached addons
-		wpn_info.inv_weight = cur_cast_wpn:Weight()
-		collect_addon_koefs()
-	else
-		--fallback: base section values, no upgrades
-		wpn_info.cam_dispersion = utils.get_float(wpn_sec, "cam_dispersion")
-		wpn_info.cam_dispersion_inc = utils.get_float(wpn_sec, "cam_dispersion_inc")
-		wpn_info.cam_dispersion_frac = utils.get_float(wpn_sec, "cam_dispersion_frac", 0.7)
-		wpn_info.cam_max_angle = utils.get_float(wpn_sec, "cam_max_angle")
-		wpn_info.cam_max_angle_horz = utils.get_float(wpn_sec, "cam_max_angle_horz")
-		wpn_info.cam_step_angle_horz = utils.get_float(wpn_sec, "cam_step_angle_horz")
-		wpn_info.cam_relax_speed = utils.get_float(wpn_sec, "cam_relax_speed")
-		--NOTE: engine copies hip values to zoom when the ini omits the zoom keys
-		wpn_info.zoom_cam_dispersion = utils.get_float(wpn_sec, "zoom_cam_dispersion", wpn_info.cam_dispersion)
-		wpn_info.zoom_cam_dispersion_inc =
-			utils.get_float(wpn_sec, "zoom_cam_dispersion_inc", wpn_info.cam_dispersion_inc)
-		wpn_info.zoom_cam_dispersion_frac =
-			utils.get_float(wpn_sec, "zoom_cam_dispersion_frac", wpn_info.cam_dispersion_frac)
-		wpn_info.zoom_cam_max_angle = utils.get_float(wpn_sec, "zoom_cam_max_angle", wpn_info.cam_max_angle)
-		wpn_info.zoom_cam_max_angle_horz =
-			utils.get_float(wpn_sec, "zoom_cam_max_angle_horz", wpn_info.cam_max_angle_horz)
-		wpn_info.zoom_cam_step_angle_horz =
-			utils.get_float(wpn_sec, "zoom_cam_step_angle_horz", wpn_info.cam_step_angle_horz)
-		wpn_info.zoom_cam_relax_speed = utils.get_float(wpn_sec, "zoom_cam_relax_speed", wpn_info.cam_relax_speed)
-		wpn_info.rpm = utils.get_float(wpn_sec, "rpm", 600)
-		wpn_info.mag_size = utils.get_float(wpn_sec, "ammo_mag_size", 30)
-		wpn_info.inv_weight = utils.get_float(wpn_sec, "inv_weight", 3)
-		wpn_info.addon_cam_k = 1
-		wpn_info.addon_cam_inc_k = 1
-	end
+	get_upgrade_wpn_info()
+	get_basic_wpn_info()
+	get_feat_wpn_info()
 	-- for k, v in pairs(wpn_info) do
 	-- 	logger.dbg(type(v) == "number" and "%s:%.6f" or "%s:%s", k, v)
 	-- end
 end
+function get_upgrade_wpn_info()
+	wpn_info.cam_dispersion = math.deg(cur_cast_wpn:GetCamDispersion())
+	wpn_info.cam_dispersion_inc = math.deg(cur_cast_wpn:GetCamDispersionInc())
+	wpn_info.cam_step_angle_horz = math.deg(cur_cast_wpn:GetCamStepAngleHorz())
+end
+function get_basic_wpn_info()
+	wpn_info.zoom_cam_dispersion = math.deg(cur_cast_wpn:GetZoomCamDispersion())
+	wpn_info.zoom_cam_dispersion_inc = math.deg(cur_cast_wpn:GetZoomCamDispersionInc())
+	wpn_info.rpm = cur_cast_wpn:RealRPM()
+	wpn_info.mag_size = cur_cast_wpn:GetAmmoMagSize()
+	wpn_info.cam_relax_speed = math.deg(cur_cast_wpn:GetCamRelaxSpeed())
+end
+function get_feat_wpn_info()
+	--NOTE: dispersion_frac is a unitless fraction, no deg conversion
+	wpn_info.cam_dispersion_frac = cur_cast_wpn:GetCamDispersionFrac()
+	wpn_info.cam_max_angle = math.deg(cur_cast_wpn:GetCamMaxAngleVert())
+	--live weight includes attached addons
+	wpn_info.inv_weight = cur_cast_wpn:Weight()
+	collect_addon_koefs()
+end
+function read_upgrade_wpn_info(wpn_sec)
+	return {
+		cam_dispersion = utils.get_float(wpn_sec, "cam_dispersion"),
+		cam_dispersion_inc = utils.get_float(wpn_sec, "cam_dispersion_inc"),
+		cam_step_angle_horz = utils.get_float(wpn_sec, "cam_step_angle_horz"),
+	}
+end
+---@diagnostic enable: undefined-field,need-check-nil
+----------------------
+---Weapon Check
+---------------------
+--TODO: fallback to vanilla if something went wrong
+--PERF:smart_cast everytime or cached table?
+--i think cached table is better ,but we still have to update the profile evertime
+--TODO: use vannilla recoil for grende launcher
+function should_active(wpn_sec)
+	local kind = utils.get_string(wpn_sec, "kind")
+	return allowed_kinds[kind], kind
+end
+function M.check_current_weapon()
+	player = db.actor
+	if not player then
+		return false
+	end
+	cur_wpn = player:active_item()
+	if not cur_wpn then
+		return false
+	end
+	local new_id = cur_wpn:id()
+	if cur_wpn_id == new_id then
+		return active
+	end
+	--NOTE: give the previous weapon its vanilla cam recoil back,
+	--otherwise re-equipping it would collect our zeroed values
+	if cur_wpn_id ~= 0 then
+		restore_vanilla_cam_recoil()
+		restore_vanilla_fire_disp()
+	end
+	cur_wpn_id = new_id
+	local wpn_sec = cur_wpn:section()
+	local kind_flag, kind = should_active(wpn_sec)
+	if not kind_flag then
+		-- logger.dbg("Should not active:" .. kind)
+		cur_wpn_id = 0
+		return false
+		-- else
+		-- logger.dbg("active:" .. kind)
+	end
+	cur_cast_wpn = cur_wpn:cast_Weapon()
+	if not cur_cast_wpn then
+		logger.err("Cannot cast Weapon:%s(%s)", tostring(cur_wpn), cur_wpn_id)
+		return false
+	end
+	wpn_info.kind = kind
+	init_weapon(wpn_sec)
+	return true
+end
+function M.force_recheck_weapon()
+	cur_wpn_id = 0
+	M.check_current_weapon()
+end
+----------------------
+---Feat
+---------------------
 --engine clamps addon koefs to [0.01, 2.0], empty section means koef 1 like engine reset
 local function get_addon_koef(sec, key)
 	if not sec or sec == "" then
@@ -494,93 +507,42 @@ function get_addon_sig()
 		.. tostring(cur_cast_wpn:GetSilencerName())
 		.. (cur_cast_wpn:IsGrenadeLauncherAttached() and "g" or "")
 end
---TODO: fallback to vanilla if something went wrong
---PERF:smart_cast everytime or cached table?
---i think cached table is better ,but we still have to update the profile evertime
-function M.check_current_weapon()
-	player = db.actor
-	if not player then
-		return false
-	end
-	cur_wpn = player:active_item()
-	if not cur_wpn then
-		return false
-	end
-	local new_id = cur_wpn:id()
-	if cur_wpn_id == new_id then
-		return active
-	end
-	--NOTE: give the previous weapon its vanilla cam recoil back,
-	--otherwise re-equipping it would collect our zeroed values
-	restore_vanilla_cam_recoil()
-	restore_vanilla_fire_disp()
-	cur_wpn_id = new_id
-	local wpn_sec = cur_wpn:section()
-	local flag, kind = should_active(wpn_sec)
-	if flag then
-		logger.dbg("active:" .. kind)
-	else
-		logger.dbg("Should not active:" .. kind)
-		return false
-	end
-	cur_cast_wpn = cur_wpn:cast_Weapon()
-	if not cur_cast_wpn then
-		logger.err("Cannot cast Weapon:%s(%s)", tostring(cur_wpn), cur_wpn_id)
-		return false
-	end
-	M.init_weapon(wpn_sec)
-	return true
-end
-function M.force_recheck_weapon()
-	cur_wpn_id = 0
-	M.check_current_weapon()
-end
---TODO: use vannilla recoil for grende launcher
-function should_active(wpn_sec)
-	local kind = utils.get_string(wpn_sec, "kind")
-	return allowed_kinds[kind], kind
-end
 
---TODO: fix this
---
--- local function get_aim_state()
--- 	-- local is_gl = weapon:weapon_in_grenade_mode()
--- 	if not cur_cast_wpn:IsZoomed() then
--- 		cur_aim_state = 0
--- 		return
--- 	end
--- 	cur_aim_state = cur_cast_wpn:GetZoomType() + 1
--- 	if cur_aim_state > 3 then
--- 		logger.err("Unknown aim state(out of bound):" .. cur_aim_state)
--- 		cur_aim_state = 0
--- 	end
--- end
---=========Vannilla recoil handler============
-function remove_vanilla_cam_recoil()
-	set_vanilla_cam_recoil(cur_cast_wpn, 0, 0, 0, 0)
-end
-function restore_vanilla_cam_recoil()
-	if not cur_cast_wpn then
+--================Bloom
+--drives the live bullet cone, base hip penalty plus decaying heat
+function update_bloom(dt)
+	if not cur_cast_wpn or orig_fire_disp <= 0 then
 		return
 	end
-	--NOTE: setters take raw radians, wpn_info is kept in ini degrees
-	set_vanilla_cam_recoil(
-		cur_cast_wpn,
-		math.rad(wpn_info.cam_dispersion),
-		math.rad(wpn_info.cam_dispersion_inc),
-		math.rad(wpn_info.zoom_cam_dispersion),
-		math.rad(wpn_info.zoom_cam_dispersion_inc)
-	)
+	if not options.use_bloom then
+		if bloom_applied ~= 1 then
+			cur_cast_wpn:SetFireDispersion(orig_fire_disp)
+			bloom_applied = 1
+		end
+		return
+	end
+	--stance can change without a shot, keep it current
+	is_ads = cur_cast_wpn:IsZoomed() and true or false
+	--heat only cools between bursts, sustained fire climbs all the way to the class cap
+	if not is_firing then
+		bloom_heat = bloom_heat * math.exp(-M.bloom.decay * dt)
+	end
+	local bc = M.bloom.classes[m_profile.burst_class] or M.bloom.classes.other
+	local mul = 1 + (bc.base * (is_ads and M.bloom.ads_base or 1) + bloom_heat) * M.bloom.variance
+	if math.abs(mul - bloom_applied) > 0.01 then
+		cur_cast_wpn:SetFireDispersion(orig_fire_disp * mul)
+		bloom_applied = mul
+	end
 end
-function set_vanilla_cam_recoil(cast_wpn, cam_disp, cam_disp_inc, zoom_cam_disp, zoom_cam_dis_inc)
-	cast_wpn:SetCamDispersion(cam_disp)
-	cast_wpn:SetCamDispersionInc(cam_disp_inc)
-	cast_wpn:SetZoomCamDispersion(zoom_cam_disp)
-	cast_wpn:SetZoomCamDispersionInc(zoom_cam_dis_inc)
+function restore_vanilla_fire_disp()
+	if not cur_cast_wpn or orig_fire_disp <= 0 then
+		return
+	end
+	cur_cast_wpn:SetFireDispersion(orig_fire_disp)
+	bloom_applied = -1
+	bloom_heat = 0
 end
---------------------
----actor stats
---------------------
+--================actor stats
 local actor_hunger = 1
 local actor_stamina = 1
 local actor_recoil_modi_val = 0
@@ -677,5 +639,3 @@ M.debug_var = {
 	float_x1 = 0,
 	float_x2 = 0,
 }
-sim_firing = false
-sim_timer = 0.0
