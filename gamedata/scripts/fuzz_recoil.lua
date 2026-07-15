@@ -340,7 +340,11 @@ end
 ---Feat
 ---------------------
 --=========Init Recoil and Info Collection============
-function M.init_weapon(wpn_sec)
+---@diagnostic disable: undefined-field,need-check-nil
+
+---!!!!! DO NOT CALL THIS!!!!!!
+---NOTE:no nil check for cast_wpn
+function init_weapon(wpn_sec)
 	collect_wpn_info(wpn_sec)
 	--TODO: better entry point needed
 	init_static_modifiers()
@@ -375,44 +379,57 @@ end
 --converter rules are tuned to ini degrees, so convert back with math.deg
 function collect_wpn_info(wpn_sec)
 	wpn_info.kind = utils.get_string(wpn_sec, "kind")
-	if cur_cast_wpn then
-		--NOTE: dispersion_frac is a unitless fraction, no deg conversion
-		wpn_info.cam_dispersion = math.deg(cur_cast_wpn:GetCamDispersion())
-		wpn_info.cam_dispersion_inc = math.deg(cur_cast_wpn:GetCamDispersionInc())
-		wpn_info.cam_dispersion_frac = cur_cast_wpn:GetCamDispersionFrac()
-		wpn_info.cam_max_angle = math.deg(cur_cast_wpn:GetCamMaxAngleVert())
-		wpn_info.cam_step_angle_horz = math.deg(cur_cast_wpn:GetCamStepAngleHorz())
-		wpn_info.cam_relax_speed = math.deg(cur_cast_wpn:GetCamRelaxSpeed())
-		wpn_info.zoom_cam_dispersion = math.deg(cur_cast_wpn:GetZoomCamDispersion())
-		wpn_info.zoom_cam_dispersion_inc = math.deg(cur_cast_wpn:GetZoomCamDispersionInc())
-		wpn_info.rpm = cur_cast_wpn:RealRPM()
-		wpn_info.mag_size = cur_cast_wpn:GetAmmoMagSize()
-		--live weight includes attached addons
-		wpn_info.inv_weight = cur_cast_wpn:Weight()
-		collect_addon_koefs()
-	else
-		--stylua: ignore start
-		--fallback: base section values, no upgrades
-		wpn_info.cam_dispersion = utils.get_float(wpn_sec, "cam_dispersion")
-		wpn_info.cam_dispersion_inc = utils.get_float(wpn_sec, "cam_dispersion_inc")
-		wpn_info.cam_dispersion_frac = utils.get_float(wpn_sec, "cam_dispersion_frac", 0.7)
-		wpn_info.cam_max_angle = utils.get_float(wpn_sec, "cam_max_angle")
-		wpn_info.cam_step_angle_horz = utils.get_float(wpn_sec, "cam_step_angle_horz")
-		wpn_info.cam_relax_speed = utils.get_float(wpn_sec, "cam_relax_speed")
-		--NOTE: engine copies hip values to zoom when the ini omits the zoom keys
-		wpn_info.zoom_cam_dispersion = utils.get_float(wpn_sec, "zoom_cam_dispersion", wpn_info.cam_dispersion)
-		wpn_info.zoom_cam_dispersion_inc = utils.get_float(wpn_sec, "zoom_cam_dispersion_inc", wpn_info.cam_dispersion_inc)
-		wpn_info.rpm = utils.get_float(wpn_sec, "rpm", 600)
-		wpn_info.mag_size = utils.get_float(wpn_sec, "ammo_mag_size", 30)
-		wpn_info.inv_weight = utils.get_float(wpn_sec, "inv_weight", 3)
-		wpn_info.addon_cam_k = 1
-		wpn_info.addon_cam_inc_k = 1
-		--stylua: ignore end
-	end
+	get_upgrade_wpn_info()
+	get_basic_wpn_info()
+	get_feat_wpn_info()
 	-- for k, v in pairs(wpn_info) do
 	-- 	logger.dbg(type(v) == "number" and "%s:%.6f" or "%s:%s", k, v)
 	-- end
 end
+function get_upgrade_wpn_info()
+	wpn_info.cam_dispersion = math.deg(cur_cast_wpn:GetCamDispersion())
+	wpn_info.cam_dispersion_inc = math.deg(cur_cast_wpn:GetCamDispersionInc())
+	wpn_info.cam_step_angle_horz = math.deg(cur_cast_wpn:GetCamStepAngleHorz())
+end
+function get_basic_wpn_info()
+	wpn_info.zoom_cam_dispersion = math.deg(cur_cast_wpn:GetZoomCamDispersion())
+	wpn_info.zoom_cam_dispersion_inc = math.deg(cur_cast_wpn:GetZoomCamDispersionInc())
+	wpn_info.rpm = cur_cast_wpn:RealRPM()
+	wpn_info.mag_size = cur_cast_wpn:GetAmmoMagSize()
+	wpn_info.cam_relax_speed = math.deg(cur_cast_wpn:GetCamRelaxSpeed())
+end
+function get_feat_wpn_info()
+	--NOTE: dispersion_frac is a unitless fraction, no deg conversion
+	wpn_info.cam_dispersion_frac = cur_cast_wpn:GetCamDispersionFrac()
+	wpn_info.cam_max_angle = math.deg(cur_cast_wpn:GetCamMaxAngleVert())
+	--live weight includes attached addons
+	wpn_info.inv_weight = cur_cast_wpn:Weight()
+	collect_addon_koefs()
+end
+function read_upgrade_wpn_info(wpn_sec)
+	return {
+		cam_dispersion = utils.get_float(wpn_sec, "cam_dispersion"),
+		cam_dispersion_inc = utils.get_float(wpn_sec, "cam_dispersion_inc"),
+		cam_step_angle_horz = utils.get_float(wpn_sec, "cam_step_angle_horz"),
+	}
+end
+--NOTE: we should never use this since if you can't smart cast a weapon,then something is wrong with the weapon
+-- function read_basic_wpn_info(wpn_sec)
+-- 	--NOTE: engine copies hip values to zoom when the ini omits the zoom keys
+-- 	wpn_info.zoom_cam_dispersion = utils.get_float(wpn_sec, "zoom_cam_dispersion", wpn_info.cam_dispersion)
+-- 	wpn_info.zoom_cam_dispersion_inc = utils.get_float(wpn_sec, "zoom_cam_dispersion_inc", wpn_info.cam_dispersion_inc)
+-- 	wpn_info.mag_size = utils.get_float(wpn_sec, "ammo_mag_size", 30)
+-- 	wpn_info.rpm = utils.get_float(wpn_sec, "rpm", 600)
+-- 	wpn_info.cam_relax_speed = utils.get_float(wpn_sec, "cam_relax_speed")
+-- end
+-- function read_feat_wpn_info(wpn_sec)
+-- 	wpn_info.cam_dispersion_frac = utils.get_float(wpn_sec, "cam_dispersion_frac", 0.7)
+-- 	wpn_info.cam_max_angle = utils.get_float(wpn_sec, "cam_max_angle")
+-- 	wpn_info.inv_weight = utils.get_float(wpn_sec, "inv_weight", 3)
+-- 	wpn_info.addon_cam_k = 1
+-- 	wpn_info.addon_cam_inc_k = 1
+-- end
+---@diagnostic enable: undefined-field,need-check-nil
 --engine clamps addon koefs to [0.01, 2.0], empty section means koef 1 like engine reset
 local function get_addon_koef(sec, key)
 	if not sec or sec == "" then
@@ -511,7 +528,7 @@ function M.check_current_weapon()
 		logger.err("Cannot cast Weapon:%s(%s)", tostring(cur_wpn), cur_wpn_id)
 		return false
 	end
-	M.init_weapon(wpn_sec)
+	init_weapon(wpn_sec)
 	return true
 end
 function M.force_recheck_weapon()
