@@ -284,7 +284,7 @@ function renderProfile()
 		elseif _prf_type == "dynamic" then
 			selected_prf = prf
 		end
-		prf.imgui_editor_drawer(selected_prf, _prf_type)
+		prf.imgui_editor_drawer(selected_prf, _prf_type, prf.info.name)
 
 		ImGui.Text("Edit without modifier if you want to share your recoil profile")
 		if ImGui.Button("Apply profile", vector2():set(200, 25)) then
