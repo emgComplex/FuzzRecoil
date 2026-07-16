@@ -332,7 +332,6 @@ function renderOptions()
 		_, options.use_bloom = ImGui.Checkbox("Fire Bloom", options.use_bloom)
 		ImGui.Text("Vanilla data extras")
 		_, options.use_pitch_frac = ImGui.Checkbox("Pitch Frac Variance", options.use_pitch_frac)
-		_, options.use_cam_max_angle = ImGui.Checkbox("Cam Max Angle Cap", options.use_cam_max_angle)
 		_, options.use_addon_ammo_koefs = ImGui.Checkbox("Addon & Ammo Koefs", options.use_addon_ammo_koefs)
 		_, options.use_zoom_ratio = ImGui.Checkbox("ADS Zoom Ratio", options.use_zoom_ratio)
 		-- _, options.recoil_v_scale =

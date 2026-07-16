@@ -57,7 +57,8 @@ local special_converter = {
 		return op.rpm <= 60
 	end,
 	["cam_max_angle"] = function(op)
-		return op.cam_max_angle > 0 and math.rad(op.cam_max_angle) or 0
+		--TODO: shotgun and pistol rule here
+		return 0.9999
 	end,
 	["pitch_frac"] = function(op)
 		return utils.math_clamp(op.cam_dispersion_frac or 1, 0, 1)

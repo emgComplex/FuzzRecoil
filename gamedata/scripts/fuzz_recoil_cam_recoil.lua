@@ -20,7 +20,7 @@ local _update_fn = M.update_exp
 local lift_force = 0
 local impulse_factor = 0
 --vanilla cam_max_angle cap in radians, 0 means uncapped
-local max_angle = 0
+local max_angle = 0.9999
 ----------
 ---Pulibc Getters
 ----------
@@ -45,10 +45,8 @@ cam_step_div = 15
 ---Options
 ----------
 local cam_drag = 12
-local use_cam_max_angle = false
 function M.on_option_change()
 	cam_drag = options.cam_drag
-	use_cam_max_angle = options.use_cam_max_angle
 end
 
 ----------
@@ -81,6 +79,7 @@ function M.remove_cam_fx()
 		level.remove_cam_effector(CAM_FX_ID)
 	end
 end
+
 ----------
 ---Module
 ----------
@@ -100,7 +99,7 @@ function M.cache_profile(profile)
 	lift_force = profile.cam_recoil_power
 	impulse_factor = profile.shot_cam_impulse_factor
 	wepaon_cam_return_speed = profile.cam_return_speed
-	max_angle = profile.cam_max_angle or 0
+	max_angle = profile.cam_max_angle or 0.9999
 	hud_sync_with_cam = not profile.desync_hud
 end
 function M.start(profile)

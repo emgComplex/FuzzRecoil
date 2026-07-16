@@ -12,7 +12,6 @@ local logger = fuzz_recoil_logger
 ---@field use_zoom_ratio boolean
 ---@field use_pitch_frac boolean
 ---@field use_addon_ammo_koefs boolean
----@field use_cam_max_angle boolean
 ---@field recoil_v_scale number
 local M = {}
 _G.fuzz_recoil_mcm = M
@@ -54,8 +53,6 @@ local defaults = {
 	use_addon_ammo_koefs = false,
 	--NOTE: CONSIDER REMOVE
 
-	--Does not fit in current recoil pattern,it looks weird visually
-	use_cam_max_angle = false,
 	-- verti recoil comes from cam recoil ,
 	recoil_v_scale = 0,
 }

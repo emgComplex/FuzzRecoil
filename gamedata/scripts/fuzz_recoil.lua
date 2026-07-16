@@ -92,7 +92,6 @@ local wpn_info = {
 	mag_size = 30,
 	--NOTE: feature needed
 	cam_dispersion_frac = 0.7,
-	cam_max_angle = 0,
 	addon_cam_k = 1,
 	addon_cam_inc_k = 1,
 	inv_weight = 0,
@@ -374,7 +373,6 @@ end
 function get_feat_wpn_info()
 	--NOTE: dispersion_frac is a unitless fraction, no deg conversion
 	wpn_info.cam_dispersion_frac = cur_cast_wpn:GetCamDispersionFrac()
-	wpn_info.cam_max_angle = math.deg(cur_cast_wpn:GetCamMaxAngleVert())
 	--live weight includes attached addons
 	wpn_info.inv_weight = cur_cast_wpn:Weight()
 	collect_addon_koefs()

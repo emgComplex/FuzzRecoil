@@ -56,7 +56,7 @@ local default_profile = {
 	cam_recoil_power = 4,
 	cam_return_speed = 1,
 	--0 means uncapped, radians like cam angle
-	cam_max_angle = 0,
+	cam_max_angle = 0.9999,
 
 	force_pitch = 15,
 	force_y = -0.04,
