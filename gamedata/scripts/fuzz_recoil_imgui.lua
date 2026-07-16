@@ -259,6 +259,7 @@ end
 local _prf_type = "raw"
 local modi_enabled = true
 local export_to_gamedata = fuzz_dev and true or false
+local force_convert = false
 --TODO:! load and apply modifier
 --don't forget sort this out ,man
 function renderProfile()
@@ -285,6 +286,7 @@ function renderProfile()
 		elseif _prf_type == "dynamic" then
 			selected_prf = prf
 		end
+		---@diagnostic disable: param-type-mismatch
 		prf.imgui_editor_drawer(selected_prf, _prf_type, prf.info.name)
 
 		ImGui.Text("Edit without modifier if you want to share your recoil profile")
@@ -293,6 +295,7 @@ function renderProfile()
 			hudrc.cache_profile(prf)
 			camrc.cache_profile(prf)
 		end
+		---@diagnostic enable: param-type-mismatch
 		ImGui.SameLine()
 		modi_enabled_change, modi_enabled = ImGui.Checkbox("With Modifier", modi_enabled)
 		if modi_enabled_change then
@@ -300,7 +303,7 @@ function renderProfile()
 			fuzz_recoil.dynamic_modifiers.enabled(modi_enabled)
 		end
 		ImGui.Text(export_hint)
-		if ImGui.Button("Export to LTX", vector2():set(200, 25)) then
+		if ImGui.Button("Export to LTX", vector2():set(150, 25)) then
 			export_profile_to_ltx(prf, wpn_sec, export_to_gamedata)
 		end
 		ImGui.SameLine()
@@ -310,10 +313,14 @@ function renderProfile()
 			export_hint = string.format("Export profile to your %s folder", dest)
 		end
 		ImGui.SameLine()
-		if ImGui.Button("Reload Profile", vector2():set(200, 25)) then
+		if ImGui.Button("Reload Profile", vector2():set(150, 25)) then
 			logger.dbg(wpn_sec)
+			fuzz_recoil_profile.set_force_convert(force_convert)
 			frm.force_recheck_weapon()
+			fuzz_recoil_profile.set_force_convert(false)
 		end
+		ImGui.SameLine()
+		_, force_convert = ImGui.Checkbox("Convert", force_convert)
 		ImGui.TreePop()
 	end
 end

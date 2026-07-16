@@ -97,6 +97,10 @@ M.info = {
 ---------------
 ---intenal functions
 ---------------
+local force_convert = false
+function M.set_force_convert(flag)
+	force_convert = flag
+end
 function M.shallow_copy(source, target)
 	target = target or {}
 	--NOTE: use default_profile as indexer to make sure we copied everything
@@ -135,7 +139,7 @@ local function classify_burst_class(kind, mag_size)
 end
 
 function M:read_profile(wpn_sec, wpn_info, prf_sec)
-	if prf_sec then
+	if prf_sec and not force_convert then
 		------------Basic reading---------------------
 		local convert_list = {
 			--stylua: ignore start
