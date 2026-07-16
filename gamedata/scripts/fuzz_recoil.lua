@@ -187,6 +187,7 @@ function on_fire()
 	end
 	if m_profile.shot_delay_enabled then
 		--create is a no op while one is pending, reset makes the delay count from the last shot
+		--PERF: maybe a local timer could be faster?
 		CreateTimeEvent("fuzz_recoil", "bolt_delay_stop", m_profile.shot_delay_time, function()
 			on_fire_stop()
 			return true

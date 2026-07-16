@@ -67,7 +67,11 @@ local special_converter = {
 		return (desync_hud_list[op.kind] and true or false) or is_bolt_action(op)
 	end,
 	["cam_max_angle"] = function(op)
-		--TODO: shotgun and pistol rule here
+		--TODO: pistol rule here
+		local kind = op.kind
+		if kind == "w_shotgun" then
+			return 0.17
+		end
 		return 0.9999
 	end,
 	["pitch_frac"] = function(op)
@@ -105,5 +109,20 @@ M.convert = function(first, second)
 			np[param_name] = convert_single(param_name, op)
 		end
 		return np
+	end
+end
+
+local shot_delay_list = {
+	w_sniper = { rpm = 60, cam_impulse = 1, mul = 1 },
+	w_shotgun = { rpm = 1000, cam_impulse = 0.7, mul = 0.25 },
+	w_pistol = { rpm = 340, cam_impulse = 0.4, mul = 0.5 },
+}
+-- NOTE: or we can just check available firemodes?
+function M.get_shot_delay(prf, wpn_info)
+	local skind = shot_delay_list[wpn_info.kind]
+	if skind and wpn_info.rpm <= skind.rpm then
+		prf.shot_delay_enabled = true
+		prf.shot_delay_time = utils.math_clamp(prf.fire_interval * skind.mul, 0.04, 0.5)
+		prf.shot_cam_impulse_factor = skind.cam_impulse
 	end
 end

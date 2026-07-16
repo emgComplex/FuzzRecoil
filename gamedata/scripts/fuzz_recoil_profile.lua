@@ -7,11 +7,6 @@ local logger = fuzz_recoil_logger
 ---------------
 ---config
 ---------------
-local shot_delay_table = {
-	w_sniper = { rpm = 60, cam_impulse = 1 },
-	w_shotgun = { rpm = 250, cam_impulse = 0.7 },
-	w_pistol = { rpm = 340, cam_impulse = 0.4 },
-}
 ---------------
 ---object
 ---------------
@@ -249,27 +244,24 @@ function M:reload_modifiers()
 end
 
 function M:process_shot_delay(wpn_info, prf_sec)
-	local read = true
-	--NOTE: all 3 param must be declare to make it work
+	--EVEN worse,i guess
 	if prf_sec then
 		local e = SYS_GetParam(1, prf_sec, "shot_delay_enabled")
-		local t = SYS_GetParam(2, prf_sec, "shot_delay_time")
-		local f = SYS_GetParam(2, prf_sec, "shot_cam_impulse_factor")
-		if e ~= nil and t and f then
+		if e ~= nil then
 			self.shot_delay_enabled = e
-			self.shot_delay_time = t
-			self.shot_cam_impulse_factor = f
-			return
+			if not e then
+				return self
+			end
+			local t = SYS_GetParam(2, prf_sec, "shot_delay_time")
+			local f = SYS_GetParam(2, prf_sec, "shot_cam_impulse_factor")
+			if t and f then
+				self.shot_delay_time = t
+				self.shot_cam_impulse_factor = f
+				return self
+			end
 		end
 	end
-	-- NOTE: or we can just check available firemodes?
-	-- TODO:move this to converter
-	local skind = shot_delay_table[wpn_info.kind]
-	if skind and wpn_info.rpm <= skind.rpm then
-		self.shot_delay_enabled = true
-		self.shot_delay_time = utils.math_clamp(self.fire_interval, 0.1, 0.5)
-		self.shot_cam_impulse_factor = skind.cam_impulse
-	end
+	cvter.get_shot_delay(self, wpn_info)
 	return self
 end
 
