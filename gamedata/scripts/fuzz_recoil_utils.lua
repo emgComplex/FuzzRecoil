@@ -119,20 +119,25 @@ end
 --Credit:@verdatim
 local dumped_weapons = {}
 local ini_loadouts = ini_file_ex("items\\settings\\npc_loadouts\\npc_loadouts.ltx")
-local allowed_kinds = {
+local disallowed_sections = {}
+local allowed_sections = {}
+local should_spawn_wpn = false
+local m_allowed_kinds = {
 	w_pistol = true,
 	w_rifle = true,
 	w_shotgun = true,
 	w_sniper = true,
 	w_smg = true,
 }
-local disallowed_sections = {}
-local allowed_sections = {}
-function M.get_all_weapon_sections()
+function M.get_all_weapon_sections(allowed_kinds, spawn)
 	json = require("json")
 	if not json then
 		logger.err("Cannot find json.lua")
 	end
+
+	should_spawn_wpn = spawn
+	m_allowed_kinds = allowed_kinds
+
 	local scripted_loadouts = ini_loadouts:collect_section("loadouts_per_name")
 	for i, v in pairs(scripted_loadouts) do
 		local primary_loadout = ini_loadouts:r_string_ex(v, "primary") or "nil"
@@ -149,7 +154,9 @@ function M.get_all_weapon_sections()
 	ini_loadouts:section_for_each(loadout_exists_iterator)
 
 	ini_loadouts:section_for_each(iterator)
-
+	if should_spawn_wpn then
+		return
+	end
 	local f = io.open("dumped_weapons.json", "w")
 	if not f then
 		logger.err("Failed to open file")
@@ -168,23 +175,28 @@ function loadout_exists_iterator(section)
 	allowed_sections[extra] = true
 end
 function iterator(section)
-	logger.dbg("iterator called")
+	-- logger.dbg("iterator called")
 
 	--checks if loadout is a 'scripted' loadout, i.e. probably not 'valid'
 	if disallowed_sections[section] or not allowed_sections[section] then
-		logger.dbg("section %s is a scripted_loadout", section)
+		-- logger.dbg("section %s is a scripted_loadout", section)
 		return
 	end
 	local key_to_dik = ini_loadouts:collect_section(section)
-	logger.dbg("section is %s", section)
-	print_r(key_to_dik)
+	-- logger.dbg("section is %s", section)
+	-- logger.print_table(key_to_dik, section)
 	for key, value in pairs(key_to_dik) do
 		local wpn_sec_name = str_explode(key, ":")[1]
 		wpn_sec_name = ini_sys:r_string_ex(wpn_sec_name, "parent_section") or wpn_sec_name
-		logger.dbg("wpn_sec_name is %s", wpn_sec_name)
+		-- logger.dbg("wpn_sec_name is %s", wpn_sec_name)
 		if ini_sys:section_exist(wpn_sec_name) and not dumped_weapons[wpn_sec_name] then
 			local kind = ini_sys:r_string_ex(wpn_sec_name, "kind")
-			if allowed_kinds[kind] then
+			if m_allowed_kinds[kind] then
+				if should_spawn_wpn then
+					give_object_to_actor(wpn_sec_name)
+					dumped_weapons[wpn_sec_name] = true
+					goto continue
+				end
 				dumped_weapons[wpn_sec_name] = {
 					kind = ini_sys:r_string_ex(wpn_sec_name, "kind"),
 					inv_weight = ini_sys:r_string_ex(wpn_sec_name, "inv_weight"),
@@ -194,9 +206,9 @@ function iterator(section)
 					cam_relax_speed = ini_sys:r_string_ex(wpn_sec_name, "cam_relax_speed"),
 					rpm = ini_sys:r_string_ex(wpn_sec_name, "rpm"),
 				}
-				--give_object_to_actor(wpn_sec_name)
 			end
 		end
+		::continue::
 	end
 end
 

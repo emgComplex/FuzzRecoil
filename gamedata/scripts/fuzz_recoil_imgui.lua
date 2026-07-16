@@ -118,6 +118,7 @@ function renderImguiTab()
 			impacts.imgui_settings_drawer()
 			ImGui.TreePop()
 		end
+		renderWeaponSpawner()
 		if not fuzz_dev then
 			ImGui.Text("Not in dev mode,advanced configs disabled")
 			return
@@ -375,6 +376,40 @@ function renderExtra()
 	ImGui.SameLine()
 	_, cheat_mag = ImGui.Checkbox("InfAmmo", cheat_mag)
 end
+local allowed_kinds = {
+	w_pistol = false,
+	w_rifle = false,
+	w_shotgun = false,
+	w_sniper = false,
+	w_smg = false,
+}
+function renderWeaponSpawner()
+	if ImGui.TreeNode("Weapon Spawner") then
+		ImGui.Text("Kind")
+		local i = 1
+		for k, v in pairs(allowed_kinds) do
+			if i ~= 4 then
+				ImGui.SameLine()
+			end
+			_, allowed_kinds[k] = ImGui.Checkbox(k, v)
+			i = i + 1
+		end
+		ImGui.SameLine()
+		if ImGui.Button("Toogle all", vector2():set(120, 25)) then
+			for k, v in pairs(allowed_kinds) do
+				allowed_kinds[k] = not v
+			end
+		end
+		if ImGui.Button("Spawn Weapons", vector2():set(120, 25)) then
+			utils.get_all_weapon_sections(allowed_kinds, true)
+		end
+		ImGui.SameLine()
+		if ImGui.Button("Dump  Weapons datas (need json.lua)", vector2():set(-1, 25)) then
+			utils.get_all_weapon_sections(allowed_kinds)
+		end
+		ImGui.TreePop()
+	end
+end
 function renderConfig()
 	ImGui.TextColored(vector4():set(1, 0, 0, 1), "vvvvv DO NOT TOUCH THIS vvvvv")
 	if ImGui.TreeNode("Config") then
@@ -383,10 +418,6 @@ function renderConfig()
 		camrc.imgui_config_drawer()
 		ImGui.Separator()
 		hudrc.imgui_config_drawer()
-		ImGui.Separator()
-		if ImGui.Button("Dump All Weapon datas(need json.lua)", vector2():set(-1, 25)) then
-			utils.get_all_weapon_sections()
-		end
 		ImGui.TreePop()
 	end
 	--TODO:refactor this to base

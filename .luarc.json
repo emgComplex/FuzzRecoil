@@ -34,7 +34,8 @@
         "ini_file_ex",
         "ui_mcm",
         "fuzz_recoil_mcm",
-        "weight"
+        "weight",
+        "give_object_to_actor"
     ],
     "diagnostics.disable": [
         "unused-local",
