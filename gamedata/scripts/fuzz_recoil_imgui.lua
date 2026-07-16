@@ -112,7 +112,10 @@ function renderImguiTab()
 			frm.force_reset_recoil()
 		end
 		--NOTE: useful move to root
-		renderProfile()
+		if ImGui.TreeNode("Weapon profile") then
+			renderProfile()
+			ImGui.TreePop()
+		end
 		renderOptions()
 		if ImGui.TreeNode("Impact Marker") then
 			impacts.imgui_settings_drawer()
@@ -213,14 +216,28 @@ function profile_overlay()
 	local cur_wpn = frm.get_cur_wpn()
 	if expanded and cur_wpn then
 		ImGui.Text(cur_wpn:section() .. ":" .. frm.get_cur_wpn_id())
-		local wpn_info = frm.get_wpn_info()
-		for k, v in pairs(wpn_info) do
-			text_drawer(k, v)
+		if ImGui.TreeNode("Vanilla profile") then
+			local wpn_info = frm.get_wpn_info()
+			for k, v in pairs(wpn_info) do
+				text_drawer(k, v)
+			end
+			ImGui.TreePop()
 		end
 		ImGui.Separator()
-		ImGui.TextColored(vector4():set(0, 1, 0.5, 1), "Converted")
-		for k, v in pairs(frm.get_recoil_profile().raw_profile) do
-			text_drawer(k, v)
+		if ImGui.TreeNode("New profile") then
+			ImGui.TextColored(vector4():set(0, 1, 0.5, 1), "Converted")
+			for k, v in pairs(frm.get_recoil_profile().raw_profile) do
+				text_drawer(k, v)
+			end
+			ImGui.TreePop()
+		end
+		if ImGui.TreeNode("Weapon profile viewer") then
+			ImGui.PushID("prf_viewer")
+			ImGui.BeginDisabled(true)
+			renderProfile()
+			ImGui.EndDisabled()
+			ImGui.PopID()
+			ImGui.TreePop()
 		end
 	end
 	ImGui.End()
@@ -268,56 +285,53 @@ local force_convert = false
 --TODO:! load and apply modifier
 --don't forget sort this out ,man
 function renderProfile()
-	if ImGui.TreeNode("Weapon profile") then
-		local prf = frm.get_recoil_profile()
-		local wpn_sec = frm.get_cur_wpn():section()
-		ImGui.Text("To input a value directly,You can crlt+click on the slider")
-		ImGui.Text("Profile:")
-		for i, v in ipairs({ "Raw(Edit this)", "Static", "Dynamic" }) do
-			ImGui.SameLine()
-			if ImGui.RadioButton(v, _prf_type == i) then
-				_prf_type = i
-			end
-		end
-		local available_prf = { prf.raw_profile, prf.static_profile, prf }
-		---@diagnostic disable: param-type-mismatch
-		prf.imgui_editor_drawer(available_prf[_prf_type], _prf_type, prf.info.name)
-
-		ImGui.Separator()
-		ImGui.Text("Edit without modifier if you want to share your recoil profile")
-		if ImGui.Button("Apply profile", vector2():set(200, 25)) then
-			prf:reload_modifiers()
-			hudrc.cache_profile(prf)
-			camrc.cache_profile(prf)
-		end
-		---@diagnostic enable: param-type-mismatch
+	local prf = frm.get_recoil_profile()
+	local wpn_sec = frm.get_cur_wpn():section()
+	ImGui.Text("To input a value directly,You can crlt+click on the slider")
+	ImGui.Text("Profile:")
+	for i, v in ipairs({ "Raw(Edit this)", "Static", "Dynamic" }) do
 		ImGui.SameLine()
-		modi_enabled_change, modi_enabled = ImGui.Checkbox("With Modifier", modi_enabled)
-		if modi_enabled_change then
-			fuzz_recoil.static_modifiers.enabled(modi_enabled)
-			fuzz_recoil.dynamic_modifiers.enabled(modi_enabled)
+		if ImGui.RadioButton(v, _prf_type == i) then
+			_prf_type = i
 		end
-		ImGui.Text(export_hint)
-		if ImGui.Button("Export to LTX", vector2():set(150, 25)) then
-			export_profile_to_ltx(prf, wpn_sec, export_to_gamedata)
-		end
-		ImGui.SameLine()
-		export_folder_change, export_to_gamedata = ImGui.Checkbox("Gamedata", export_to_gamedata)
-		if export_folder_change then
-			local dest = export_to_gamedata and "gamedata" or "game's bin"
-			export_hint = string.format("Export profile to your %s folder", dest)
-		end
-		ImGui.SameLine()
-		if ImGui.Button("Reload Profile", vector2():set(150, 25)) then
-			logger.dbg(wpn_sec)
-			fuzz_recoil_profile.set_force_convert(force_convert)
-			frm.force_recheck_weapon()
-			fuzz_recoil_profile.set_force_convert(false)
-		end
-		ImGui.SameLine()
-		_, force_convert = ImGui.Checkbox("Convert", force_convert)
-		ImGui.TreePop()
 	end
+	local available_prf = { prf.raw_profile, prf.static_profile, prf }
+	---@diagnostic disable: param-type-mismatch
+	prf.imgui_editor_drawer(available_prf[_prf_type], _prf_type, prf.info.name)
+
+	ImGui.Separator()
+	ImGui.Text("Edit without modifier if you want to share your recoil profile")
+	if ImGui.Button("Apply profile", vector2():set(200, 25)) then
+		prf:reload_modifiers()
+		hudrc.cache_profile(prf)
+		camrc.cache_profile(prf)
+	end
+	---@diagnostic enable: param-type-mismatch
+	ImGui.SameLine()
+	modi_enabled_change, modi_enabled = ImGui.Checkbox("With Modifier", modi_enabled)
+	if modi_enabled_change then
+		fuzz_recoil.static_modifiers.enabled(modi_enabled)
+		fuzz_recoil.dynamic_modifiers.enabled(modi_enabled)
+	end
+	ImGui.Text(export_hint)
+	if ImGui.Button("Export to LTX", vector2():set(150, 25)) then
+		export_profile_to_ltx(prf, wpn_sec, export_to_gamedata)
+	end
+	ImGui.SameLine()
+	export_folder_change, export_to_gamedata = ImGui.Checkbox("Gamedata", export_to_gamedata)
+	if export_folder_change then
+		local dest = export_to_gamedata and "gamedata" or "game's bin"
+		export_hint = string.format("Export profile to your %s folder", dest)
+	end
+	ImGui.SameLine()
+	if ImGui.Button("Reload Profile", vector2():set(150, 25)) then
+		logger.dbg(wpn_sec)
+		fuzz_recoil_profile.set_force_convert(force_convert)
+		frm.force_recheck_weapon()
+		fuzz_recoil_profile.set_force_convert(false)
+	end
+	ImGui.SameLine()
+	_, force_convert = ImGui.Checkbox("Convert", force_convert)
 end
 function renderOptions()
 	if ImGui.TreeNode("Options") then
