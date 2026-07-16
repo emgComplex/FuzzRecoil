@@ -28,9 +28,9 @@ local fov_on = false
 local shove_on = false
 
 --peak fov widen in degrees at full punch
-local punch_fov_deg = 4.0
+local punch_fov_deg = 6.0
 --peak shove in meters at full punch, sign set in game
-local punch_shove = 0.03
+local punch_shove = 0.06
 --impulse added per shot and the auto fire ceiling
 local punch_impulse = 0.6
 local punch_max = 1.2
