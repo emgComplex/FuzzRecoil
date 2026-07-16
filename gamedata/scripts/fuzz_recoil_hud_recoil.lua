@@ -311,6 +311,14 @@ local function init_offset(wpn_sec, cast_wpn)
 		local scope_sec = cast_wpn:GetScopeName()
 		if scope_sec and scope_sec ~= "" then
 			scope_zoom = utils.get_float(scope_sec, "scope_zoom_factor", scope_zoom)
+			--3D scope reads its aim offset from adjust slots 8/9, mirror the scope hud section
+			local scope_hud = utils.get_string(scope_sec, "hud")
+			if scope_hud ~= "" then
+				set_hud_vector(scope_hud, "aim_hud_offset_pos", { idxa = 0, idxb = 8 })
+				set_hud_vector(scope_hud, "aim_hud_offset_rot", { idxa = 1, idxb = 8 })
+				set_hud_vector(scope_hud, "aim_hud_offset_alt_pos", { def = vector():set(0, 0, 0), idxa = 0, idxb = 9 })
+				set_hud_vector(scope_hud, "aim_hud_offset_alt_rot", { def = vector():set(0, 0, 0), idxa = 1, idxb = 9 })
+			end
 		end
 	end
 	hud_adjust.set_value("scope_zoom_factor", scope_zoom)
