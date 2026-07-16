@@ -12,8 +12,6 @@ local logger = fuzz_recoil_logger
 ---@field use_zoom_ratio boolean
 ---@field use_punch boolean
 ---@field punch_legacy boolean
----@field use_2axis boolean
----@field use_roll boolean
 ---@field use_pitch_frac boolean
 ---@field use_addon_ammo_koefs boolean
 ---@field recoil_v_scale number
@@ -54,11 +52,6 @@ local defaults = {
 	use_punch = false,
 	--revert the punch to the prior system, console fov and shove only under true PiP
 	punch_legacy = false,
-	--NOTE: 2 axis cam
-	--2-axis camera recoil, horizontal drives the camera not just the hand
-	use_2axis = false,
-	--3rd axis, camera rolls into the horizontal whip, needs 2-axis on
-	use_roll = false,
 	--NOTE: HIDDEN FROM MCM for now
 
 	--vanilla data extras, off keeps stock feel
