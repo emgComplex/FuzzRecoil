@@ -244,48 +244,6 @@ end
 ------------------------------------------
 ---3DB offsets
 ------------------------------------------
-local function patch_scope(cast_wpn)
-	if cast_wpn and cast_wpn["IsScopeAttached"](cast_wpn) then
-		local scope = cast_wpn["GetScopeName"](cast_wpn)
-		if scope then
-			local hud_section = ini_sys:r_string_ex(scope, "hud")
-			if hud_section then
-				local pos = ini_sys:r_string_ex(hud_section, "aim_hud_offset_pos")
-				if pos then
-					pos = str_explode(pos, ",")
-					pos[1] = tonumber(pos[1])
-					pos[2] = tonumber(pos[2])
-					pos[3] = tonumber(pos[3])
-					hud_adjust.set_vector(0, 8, pos[1], pos[2], pos[3])
-				end
-				local rot = ini_sys:r_string_ex(hud_section, "aim_hud_offset_rot")
-				if rot then
-					rot = str_explode(rot, ",")
-					rot[1] = tonumber(rot[1])
-					rot[2] = tonumber(rot[2])
-					rot[3] = tonumber(rot[3])
-					hud_adjust.set_vector(1, 8, rot[1], rot[2], rot[3])
-				end
-				local altpos = ini_sys:r_string_ex(hud_section, "aim_hud_offset_alt_pos")
-				if altpos then
-					altpos = str_explode(altpos, ",")
-					altpos[1] = tonumber(altpos[1])
-					altpos[2] = tonumber(altpos[2])
-					altpos[3] = tonumber(altpos[3])
-					hud_adjust.set_vector(0, 9, altpos[1], altpos[2], altpos[3])
-				end
-				local altrot = ini_sys:r_string_ex(hud_section, "aim_hud_offset_alt_rot")
-				if altrot then
-					altrot = str_explode(altrot, ",")
-					altrot[1] = tonumber(altrot[1])
-					altrot[2] = tonumber(altrot[2])
-					altrot[3] = tonumber(altrot[3])
-					hud_adjust.set_vector(1, 9, altrot[1], altrot[2], altrot[3])
-				end
-			end
-		end
-	end
-end
 local function init_offset(wpn_sec, cast_wpn)
 	hud_adjust.enabled(true)
 	local hud = utils.get_string(wpn_sec, "hud")
@@ -353,12 +311,19 @@ local function init_offset(wpn_sec, cast_wpn)
 		local scope_sec = cast_wpn:GetScopeName()
 		if scope_sec and scope_sec ~= "" then
 			scope_zoom = utils.get_float(scope_sec, "scope_zoom_factor", scope_zoom)
+			--3D scope reads its aim offset from adjust slots 8/9, mirror the scope hud section
+			local scope_hud = utils.get_string(scope_sec, "hud")
+			if scope_hud ~= "" then
+				set_hud_vector(scope_hud, "aim_hud_offset_pos", { idxa = 0, idxb = 8 })
+				set_hud_vector(scope_hud, "aim_hud_offset_rot", { idxa = 1, idxb = 8 })
+				set_hud_vector(scope_hud, "aim_hud_offset_alt_pos", { def = vector():set(0, 0, 0), idxa = 0, idxb = 9 })
+				set_hud_vector(scope_hud, "aim_hud_offset_alt_rot", { def = vector():set(0, 0, 0), idxa = 1, idxb = 9 })
+			end
 		end
 	end
 	hud_adjust.set_value("scope_zoom_factor", scope_zoom)
 	hud_adjust.set_value("gl_zoom_factor", utils.get_float(wpn_sec, "gl_zoom_factor"))
 	hud_adjust.set_value("scope_zoom_factor_alt", utils.get_float(wpn_sec, "scope_zoom_factor_alt"))
-	patch_scope(cast_wpn)
 	hud_adjust.enabled(false)
 end
 function M.cache_profile(profile)

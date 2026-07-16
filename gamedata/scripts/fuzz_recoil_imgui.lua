@@ -4,6 +4,7 @@ local logger = fuzz_recoil_logger
 local cvter = fuzz_recoil_converter
 local camrc = fuzz_recoil_cam_recoil.instance
 local hudrc = fuzz_recoil_hud_recoil.instance
+local punchrc = fuzz_recoil_punch
 local impacts = fuzz_recoil_impacts
 local options = fuzz_recoil_mcm
 local modifier = fuzz_recoil_modifier
@@ -350,6 +351,9 @@ function renderOptions()
 		_, options.use_pitch_frac = ImGui.Checkbox("Pitch Frac Variance", options.use_pitch_frac)
 		_, options.use_addon_ammo_koefs = ImGui.Checkbox("Addon & Ammo Koefs", options.use_addon_ammo_koefs)
 		_, options.use_zoom_ratio = ImGui.Checkbox("ADS Zoom Ratio", options.use_zoom_ratio)
+		ImGui.Text("2Axis cam and Punch")
+		_, options.use_punch = ImGui.Checkbox("FOV Punch / Shove", options.use_punch)
+		_, options.punch_legacy = ImGui.Checkbox("Punch Legacy (console/PiP)", options.punch_legacy)
 		-- _, options.recoil_v_scale =
 		-- 	ImGui.SliderFloat("Recoil scale(Vert)", options.recoil_v_scale, -0.9, 2, "%.2f")
 		if ImGui.Button("Apply Options", vector2():set(-1, 25)) then
@@ -432,6 +436,8 @@ function renderConfig()
 	camrc.imgui_config_drawer()
 	ImGui.Separator()
 	hudrc.imgui_config_drawer()
+	ImGui.Separator()
+	punchrc.imgui_config_drawer()
 	-- 	ImGui.TreePop()
 	-- end
 	--TODO:refactor this to base

@@ -59,6 +59,19 @@
     <string id="ui_mcm_fuzz_recoil_use_zoom_ratio_desc">
         <text>GAMMA zoom values sit at 0.6-0.8 of hip, turning this on would weaken ADS below the tune.</text>
     </string>
+
+    <string id="ui_mcm_fuzz_recoil_use_punch">
+        <text>Use Camera Punch(Camera Shake)</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_use_punch_desc">
+        <text>per shot punch, fov widen at hip and a positional shove while aiming</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_punch_legacy">
+        <text>Legcy Punch(PiP)</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_punch_legacy_desc">
+        <text>revert the punch to the prior system, console fov and shove only under true PiP</text>
+    </string>
     
     <string id="ui_mcm_fuzz_recoil_cam_drag">
         <text>Camera Drag</text>

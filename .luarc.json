@@ -35,7 +35,10 @@
         "ui_mcm",
         "fuzz_recoil_mcm",
         "weight",
-        "give_object_to_actor"
+        "give_object_to_actor",
+        "is_svp_active",
+        "exec_console_cmd",
+        "get_console_cmd"
     ],
     "diagnostics.disable": [
         "unused-local",
