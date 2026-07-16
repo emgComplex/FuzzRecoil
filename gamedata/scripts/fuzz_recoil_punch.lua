@@ -27,17 +27,15 @@ local base_fov = nil
 local fov_on = false
 local shove_on = false
 
-local cfg = {
-	--peak fov widen in degrees at full punch
-	punch_fov_deg = 4.0,
-	--peak shove in meters at full punch, sign set in game
-	punch_shove = 0.03,
-	--impulse added per shot and the auto fire ceiling
-	punch_impulse = 0.6,
-	punch_max = 1.2,
-	--exponential decay rate, higher is snappier
-	punch_decay = 18,
-}
+--peak fov widen in degrees at full punch
+local punch_fov_deg = 4.0
+--peak shove in meters at full punch, sign set in game
+local punch_shove = 0.03
+--impulse added per shot and the auto fire ceiling
+local punch_impulse = 0.6
+local punch_max = 1.2
+--exponential decay rate, higher is snappier
+local punch_decay = 18
 
 ----------
 ---Punch effector, factor is the shove, m_fov is the hip fov punch
@@ -142,7 +140,7 @@ function M.on_fire(scale)
 	if base_fov == nil then
 		base_fov = get_console_cmd(2, "fov")
 	end
-	m_punch = math.min(m_punch + cfg.punch_impulse * (scale or 1), cfg.punch_max)
+	m_punch = math.min(m_punch + punch_impulse * (scale or 1), punch_max)
 end
 
 --returns true once the punch has fully settled so the caller can tear down
@@ -159,7 +157,7 @@ function M.update(dt, is_firing, is_ads)
 		end
 		return true
 	end
-	m_punch = m_punch * math.exp(-cfg.punch_decay * dt)
+	m_punch = m_punch * math.exp(-punch_decay * dt)
 	--legacy shoves on true PiP and fov punches everywhere else, default shoves on any aim
 	local shove_here
 	if legacy then
@@ -170,13 +168,13 @@ function M.update(dt, is_firing, is_ads)
 	if shove_here then
 		--positional shove leaves the scope image and ads zoom untouched
 		clear_fov()
-		set_shove(m_punch * cfg.punch_shove)
+		set_shove(m_punch * punch_shove)
 		shove_on = true
 	else
 		--absolute fov punch on top of the cached base
 		clear_shove()
 		if base_fov then
-			push_fov(base_fov + m_punch * cfg.punch_fov_deg)
+			push_fov(base_fov + m_punch * punch_fov_deg)
 			fov_on = true
 		end
 	end
@@ -194,9 +192,9 @@ function M.imgui_config_drawer()
 			legacy and "legacy console/PiP" or "effector hip/ads"
 		)
 	)
-	_, cfg.punch_fov_deg = ImGui.SliderFloat("Punch FOV deg", cfg.punch_fov_deg, 0.0, 12.0, "%.2f")
-	_, cfg.punch_shove = ImGui.SliderFloat("Punch Shove m", cfg.punch_shove, -0.1, 0.1, "%.3f")
-	_, cfg.punch_impulse = ImGui.SliderFloat("Punch Impulse", cfg.punch_impulse, 0.1, 2.0, "%.2f")
-	_, cfg.punch_max = ImGui.SliderFloat("Punch Max", cfg.punch_max, 0.2, 3.0, "%.2f")
-	_, cfg.punch_decay = ImGui.SliderFloat("Punch Decay", cfg.punch_decay, 4.0, 40.0, "%.1f")
+	_, punch_fov_deg = ImGui.SliderFloat("Punch FOV deg", punch_fov_deg, 0.0, 12.0, "%.2f")
+	_, punch_shove = ImGui.SliderFloat("Punch Shove m", punch_shove, -0.1, 0.1, "%.3f")
+	_, punch_impulse = ImGui.SliderFloat("Punch Impulse", punch_impulse, 0.1, 2.0, "%.2f")
+	_, punch_max = ImGui.SliderFloat("Punch Max", punch_max, 0.2, 3.0, "%.2f")
+	_, punch_decay = ImGui.SliderFloat("Punch Decay", punch_decay, 4.0, 40.0, "%.1f")
 end
