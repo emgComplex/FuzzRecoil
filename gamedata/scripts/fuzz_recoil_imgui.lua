@@ -303,7 +303,7 @@ function renderProfile()
 	ImGui.Separator()
 	ImGui.Text("Edit without modifier if you want to share your recoil profile")
 	if ImGui.Button("Apply profile", vector2():set(200, 25)) then
-		prf:reload_modifiers()
+		prf:reload_all_modifiers()
 		hudrc.cache_profile(prf)
 		camrc.cache_profile(prf)
 	end

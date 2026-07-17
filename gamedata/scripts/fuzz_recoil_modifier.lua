@@ -9,6 +9,7 @@ local enabled = true
 ---------------
 --TODO: UNIT TEST for modifier
 ---NOTE: weapons shares modifier so we make it local
+---@type ModiData[]
 M.m_modifiers = {}
 M.cached_modifiers = {
 	simple = {},
@@ -86,6 +87,7 @@ end
 
 ---@param m ModiData
 local function cache_simple_modi(t, m)
+	-- logger.print_table(m, "modi table")
 	if not t[m.param] then
 		t[m.param] = { add = 0, scale = 1, mul = 1 }
 	end
@@ -94,7 +96,7 @@ local function cache_simple_modi(t, m)
 	elseif m.type == 1 then
 		t[m.param].scale = t[m.param].scale + m.val
 	elseif m.type == 2 then
-		t[m.param].mul = t[m.param].mul + m.val
+		t[m.param].mul = t[m.param].mul * m.val
 	end
 end
 function M:refresh_modi_cache()
@@ -103,7 +105,7 @@ function M:refresh_modi_cache()
 		simple = {},
 		funcs = {},
 	}
-	for id, mod in ipairs(self.m_modifiers) do
+	for id, mod in pairs(self.m_modifiers) do
 		if mod.type < 3 then
 			cache_simple_modi(self.cached_modifiers.simple, mod)
 		else
@@ -119,6 +121,11 @@ end
 function M:new()
 	local ins = {}
 	setmetatable(ins, M)
+	ins.m_modifiers = {}
+	ins.cached_modifiers = {
+		simple = {},
+		funcs = {},
+	}
 	return ins
 end
 
