@@ -79,11 +79,13 @@ local default_profile = {
 	fire_interval = 0.1,
 }
 setmetatable(M, { __index = default_profile })
+
 M.raw_profile = {}
 M.static_profile = {}
 M.info = {
 	name = "w_nil_profile",
 	is_converted = true,
+	upgrade_count = 0,
 }
 
 ---------------
@@ -101,6 +103,20 @@ function M.shallow_copy(source, target)
 			target[k] = source[k]
 		end
 	end
+end
+---------------
+---Public
+---------------
+function M:is_converted()
+	return self.info.is_converted
+end
+function M:checkUpgrades(val)
+	local info = self.info
+	if info.upgrade_count ~= val then
+		info.upgrade_count = val
+		return true
+	end
+	return false
 end
 ---------------
 ---Methods
@@ -135,32 +151,33 @@ local function classify_burst_class(kind, mag_size)
 	return "other"
 end
 
+local convert_list = {
+	--stylua: ignore start
+	cam_recoil_power = { type = 2, read = false },
+	cam_return_speed = { type = 2, read = false },
+
+	force_pitch      = { type = 2, read = false },
+	force_y          = { type = 2, read = false },
+	force_z          = { type = 2, read = false },
+	force_x          = { type = 2, read = false },
+	force_yaw        = { type = 2, read = false },
+
+	pull_force       = { type = 2, read = false },
+	firing_damping   = { type = 2, read = false },
+	handling_speed   = { type = 2, read = false },
+
+	is_bolt_action   = { type = 1, read = false },
+	desync_hud       = { type = 1, read = false },
+	zoom_ratio       = { type = 2, read = false },
+
+	pitch_frac       = { type = 2, read = false },
+	cam_max_angle    = { type = 2, read = false },
+	--stylua: ignore end
+}
+
 function M:read_profile(wpn_sec, wpn_info, prf_sec)
 	if prf_sec and not force_convert then
 		------------Basic reading---------------------
-		local convert_list = {
-			--stylua: ignore start
-			cam_recoil_power = { type = 2, read = false },
-			cam_return_speed = { type = 2, read = false },
-
-			force_pitch      = { type = 2, read = false },
-			force_y          = { type = 2, read = false },
-			force_z          = { type = 2, read = false },
-			force_x          = { type = 2, read = false },
-			force_yaw        = { type = 2, read = false },
-
-			pull_force       = { type = 2, read = false },
-			firing_damping   = { type = 2, read = false },
-			handling_speed   = { type = 2, read = false },
-
-			is_bolt_action   = { type = 1, read = false },
-			desync_hud       = { type = 1, read = false },
-			zoom_ratio       = { type = 2, read = false },
-
-			pitch_frac       = { type = 2, read = false },
-			cam_max_angle    = { type = 2, read = false },
-			--stylua: ignore end
-		}
 		---@diagnostic disable: need-check-nil
 		for param, v in pairs(convert_list) do
 			local result = SYS_GetParam(v.type, prf_sec, param)
@@ -168,7 +185,6 @@ function M:read_profile(wpn_sec, wpn_info, prf_sec)
 			self[param] = result
 		end
 		---@diagnostic enable: need-check-nil
-
 		for param, v in pairs(convert_list) do
 			if not v.read then
 				local cvt_result = cvter.convert(param, wpn_info)
@@ -190,10 +206,26 @@ function M:read_profile(wpn_sec, wpn_info, prf_sec)
 	end
 end
 
+local upgrade_list = {
+	"cam_recoil_power",
+	"force_pitch",
+	"force_yaw",
+	"pull_force",
+	"handling_speed",
+}
+function M:apply_converted_upgrade(wpn_info)
+	for _, param in ipairs(upgrade_list) do
+		self.raw_profile[param] = cvter.convert(param, wpn_info)
+	end
+end
+
+---@param wpn_sec any
+---@param wpn_info fuzz_recoil_wpn_info
+---@return fuzz_recoil_profile
 function M:load(wpn_sec, wpn_info)
 	self.info.name = utils.get_base_weapon(wpn_sec)
 
-	self.fire_interval = 60 / wpn_info.rpm
+	self:set_fire_interval(wpn_info.rpm)
 
 	local prf_sec = ini_sys:r_string_ex(wpn_sec, "fuzz_recoil", nil)
 	self:read_profile(wpn_sec, wpn_info, prf_sec)
@@ -248,6 +280,9 @@ function M:reload_static_modier()
 	return self:apply_static_modifiers()
 end
 
+function M:set_fire_interval(rpm)
+	self.fire_interval = 60 / rpm
+end
 function M:process_shot_delay(wpn_info, prf_sec)
 	--EVEN worse,i guess
 	if prf_sec then

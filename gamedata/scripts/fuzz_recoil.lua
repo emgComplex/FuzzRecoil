@@ -341,14 +341,19 @@ function init_weapon(wpn_sec)
 		m_wpn_info = cache.wpn_info
 	else
 		logger.dbg("create cached(%s) for %s", cur_wpn_id, wpn_sec)
-		collect_wpn_info(wpn_sec)
+		get_upgrade_wpn_info()
+		get_basic_wpn_info()
+		get_feat_wpn_info()
+		-- for k, v in pairs(wpn_info) do
+		-- 	logger.dbg(type(v) == "number" and "%s:%.6f" or "%s:%s", k, v)
+		-- end
 		m_profile = fuzz_recoil_profile:new():load(wpn_sec, m_wpn_info)
 		cached_weapons[cur_wpn_id] = {
 			wpn_info = m_wpn_info,
 			profile = m_profile,
 		}
 	end
-	--TODO:!!! check upgrades here, everytime
+	check_upgrade(wpn_sec)
 	m_profile:apply_static_modifiers()
 	remove_vanilla_cam_recoil()
 
@@ -377,24 +382,18 @@ end
 --TODO:if using cached profile , we need check upgrades and call this agian
 --NOTE: engine getters return the live post-upgrade values in radians,
 --converter rules are tuned to ini degrees, so convert back with math.deg
-function collect_wpn_info(wpn_sec)
-	get_upgrade_wpn_info()
-	get_basic_wpn_info()
-	get_feat_wpn_info()
-	-- for k, v in pairs(wpn_info) do
-	-- 	logger.dbg(type(v) == "number" and "%s:%.6f" or "%s:%s", k, v)
-	-- end
-end
 function get_upgrade_wpn_info()
 	m_wpn_info.cam_dispersion = math.deg(cur_cast_wpn:GetCamDispersion())
 	m_wpn_info.cam_dispersion_inc = math.deg(cur_cast_wpn:GetCamDispersionInc())
 	m_wpn_info.cam_step_angle_horz = math.deg(cur_cast_wpn:GetCamStepAngleHorz())
+	-------this could change by upgrade
+	m_wpn_info.rpm = cur_cast_wpn:RealRPM()
 end
 function get_basic_wpn_info()
+	--still these could change by upgrade but we don't care
+	m_wpn_info.mag_size = cur_cast_wpn:GetAmmoMagSize()
 	m_wpn_info.zoom_cam_dispersion = math.deg(cur_cast_wpn:GetZoomCamDispersion())
 	m_wpn_info.zoom_cam_dispersion_inc = math.deg(cur_cast_wpn:GetZoomCamDispersionInc())
-	m_wpn_info.rpm = cur_cast_wpn:RealRPM()
-	m_wpn_info.mag_size = cur_cast_wpn:GetAmmoMagSize()
 	m_wpn_info.cam_relax_speed = math.deg(cur_cast_wpn:GetCamRelaxSpeed())
 end
 function get_feat_wpn_info()
@@ -410,6 +409,47 @@ function read_upgrade_wpn_info(wpn_sec)
 		cam_dispersion_inc = utils.get_float(wpn_sec, "cam_dispersion_inc"),
 		cam_step_angle_horz = utils.get_float(wpn_sec, "cam_step_angle_horz"),
 	}
+end
+local function get_upgrade_count()
+	count = 0
+	cur_wpn:iterate_installed_upgrades(function(_, _)
+		count = count + 1
+	end)
+	return count
+end
+--TODO:consider refactor this to profile
+function check_upgrade(wpn_sec)
+	local upd_count = get_upgrade_count()
+	if upd_count == 0 then
+		remove_upgrade_modifiers()
+		return
+	end
+
+	--set interval no matter what
+	m_profile:set_fire_interval(m_wpn_info.rpm)
+
+	--NOTE: there could be some diffences between converted profile and ltx profile
+	if m_profile:is_converted() then
+		get_upgrade_wpn_info()
+		m_profile:apply_converted_upgrade(m_wpn_info)
+		return
+	end
+	-- NOTE: can't use that,modifier is not per-profile-based
+	-- if not m_profile:checkUpgrades(get_upgrade_count()) then
+	-- 	return
+	-- end
+	get_upgrade_wpn_info()
+	local ori_info = read_upgrade_wpn_info(wpn_sec)
+	local function gp(ori, now)
+		logger.dbg("%s,%s,%s", ori, now, ((now - ori) / ori + 1))
+		return (now - ori) / ori + 1
+	end
+	add_upgrades_modifiers(
+		gp(ori_info.cam_dispersion, m_wpn_info.cam_dispersion),
+		gp(ori_info.cam_step_angle_horz, m_wpn_info.cam_step_angle_horz),
+		--NOTE:the handling speed is not accurate,but let's keep things simple
+		gp(ori_info.cam_dispersion_inc, m_wpn_info.cam_dispersion_inc)
+	)
 end
 ---@diagnostic enable: undefined-field,need-check-nil
 ----------------------
@@ -598,11 +638,12 @@ end
 --------------------
 ---@param modis ModiData[]
 ---@param target_modi fuzz_recoil_modifier
----@param index_offset integer
+---@param id_start integer
 ---@param refresh? boolean
-local function add_modis_to(modis, target_modi, index_offset, refresh)
-	for i, modi in ipairs(modis) do
-		target_modi:add_modifier(i + index_offset, modi, true, true)
+local function add_modis_to(modis, target_modi, id_start, refresh)
+	for id, modi in pairs(modis) do
+		local result = target_modi:add_modifier(id + id_start - 1, modi, true, true)
+		-- logger.dbg("%s:%s", modi.name, result)
 	end
 	if refresh then
 		target_modi:refresh_modi_cache()
@@ -612,26 +653,45 @@ end
 function add_option_scale_modifiers()
 	---@type ModiData[]
 	local scale_modi = {
-		{ name = "", param = "cam_recoil_power", type = 1, val = options.recoil_cam_scale },
+		{ name = "option_scale", param = "cam_recoil_power", type = 1, val = options.recoil_cam_scale },
+		{ name = "option_scale", param = "force_yaw", type = 1, val = options.recoil_h_scale },
+		{ name = "option_scale", param = "handling_speed", type = 1, val = options.handling_speed_scale },
 		-- { name = "", param = "force_pitch", type = 1, val = options.recoil_v_scale },
 		-- { name = "", param = "force_y", type = 1, val = options.recoil_v_scale },
-		{ name = "", param = "force_yaw", type = 1, val = options.recoil_h_scale },
 		-- { name = "", param = "force_x", type = 1, val = options.recoil_h_scale },
-		{ name = "", param = "handling_speed", type = 1, val = options.handling_speed_scale },
 	}
-	add_modis_to(scale_modi, M.static_modifiers, 0, true)
+	add_modis_to(scale_modi, M.static_modifiers, 1, true)
 end
 function add_actor_stat_modifiers()
 	---@type ModiData[]
 	local stat_modi = {
-		{ name = "", param = "cam_recoil_power", type = 1, val = actor_recoil_modi_val },
-		{ name = "", param = "force_pitch", type = 1, val = actor_recoil_modi_val },
+		{ name = "actor_stat", param = "cam_recoil_power", type = 1, val = actor_recoil_modi_val },
+		{ name = "actor_stat", param = "force_pitch", type = 1, val = actor_recoil_modi_val },
+		{ name = "actor_stat", param = "force_yaw", type = 1, val = actor_recoil_modi_val },
 		-- { name = "", param = "force_y", type = 1, val = actor_recoil_modi_val },
-		{ name = "", param = "force_yaw", type = 1, val = actor_recoil_modi_val },
 		-- { name = "", param = "force_x", type = 1, val = actor_recoil_modi_val },
-		-- { name = "", param = "handling_speed", type = 1, val = actor_recoil_modi_val },
+		-- { name = "", param = "handling_speed", type = 1, val = -actor_recoil_modi_val },
 	}
-	add_modis_to(stat_modi, M.dynamic_modifiers, 0,true)
+	add_modis_to(stat_modi, M.dynamic_modifiers, 1, true)
+end
+
+function add_upgrades_modifiers(vert, hori, handle)
+	logger.dbg("aplly v:%.4f,hori:%.4f,handle:%.4f", vert, hori, handle)
+	local upgrade_modi = {
+		{ name = "upgrade", param = "cam_recoil_power", type = 2, val = vert },
+		{ name = "upgrade", param = "force_pitch", type = 2, val = vert },
+		{ name = "upgrade", param = "force_yaw", type = 2, val = hori },
+		{ name = "upgrade", param = "pull_force", type = 2, val = 2 - handle },
+		{ name = "upgrade", param = "handling_speed", type = 2, val = 2 - handle },
+	}
+	add_modis_to(upgrade_modi, M.static_modifiers, 10, true)
+end
+
+function remove_upgrade_modifiers()
+	for id = 10, 13 do
+		M.static_modifiers:remove_modifier(id)
+	end
+	M.static_modifiers:refresh_modi_cache()
 end
 
 --NOTE:update when swithcing wepaon
@@ -650,10 +710,10 @@ local m_modifiers = {
 ---
 ---@param modis ModiData[]
 ---@param which_modifier WhichModifier
----@param index_offset integer
+---@param id_start integer
 ---@param refresh? boolean
-function M.AddModifiers(modis, which_modifier, index_offset, refresh)
-	add_modis_to(modis, m_modifiers[which_modifier], index_offset, refresh)
+function M.AddModifiers(modis, which_modifier, id_start, refresh)
+	add_modis_to(modis, m_modifiers[which_modifier], id_start, refresh)
 end
 --NOTE: only static_modifiers need refresh mannualy.
 function M.ReloadStaticModifiers()
