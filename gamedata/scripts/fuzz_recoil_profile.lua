@@ -206,10 +206,14 @@ function M:read_profile(wpn_sec, wpn_info, prf_sec)
 	end
 end
 
+--NOTE:could be inconstancy since we didn't read all
 local upgrade_list = {
 	"cam_recoil_power",
 	"force_pitch",
+	"force_y",
 	"force_yaw",
+	"force_x",
+	"force_z",
 	"pull_force",
 	"handling_speed",
 }
