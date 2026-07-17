@@ -119,6 +119,11 @@ end
 function M:new()
 	local ins = {}
 	setmetatable(ins, M)
+	ins.m_modifiers = {}
+	ins.cached_modifiers = {
+		simple = {},
+		funcs = {},
+	}
 	return ins
 end
 

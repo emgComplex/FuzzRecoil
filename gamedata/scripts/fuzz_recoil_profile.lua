@@ -113,6 +113,11 @@ function M:new()
 	setmetatable(ins.raw_profile, M)
 	ins.static_profile = {}
 	setmetatable(ins.static_profile, M)
+	ins.info = {
+		name = "w_nil_profile",
+		is_converted = true,
+		upgrade_count = 0,
+	}
 	return ins
 end
 
