@@ -1,3 +1,4 @@
+local frm = fuzz_recoil
 local utils = fuzz_recoil_utils
 local logger = fuzz_recoil_logger
 local options = fuzz_recoil_mcm
@@ -102,12 +103,37 @@ local function release()
 end
 
 ----------
+---Event
+----------
+local EVENT_ID = 12
+local function sub_events(flag)
+	if flag then
+		--add event
+		frm.on_init_wpn:add(EVENT_ID, M.init)
+		frm.on_start:add(EVENT_ID, M.start)
+		frm.on_fire:add(EVENT_ID, M.on_fire)
+		frm.on_firing:add(EVENT_ID, M.on_firing)
+		frm.on_firing_stop:add(EVENT_ID, M.on_firing_stop)
+		frm.on_stop:add(EVENT_ID, M.stop)
+	else
+		-- remove event
+		frm.on_init_wpn:remove(EVENT_ID)
+		frm.on_start:remove(EVENT_ID)
+		frm.on_fire:remove(EVENT_ID)
+		frm.on_firing:remove(EVENT_ID)
+		frm.on_firing_stop:remove(EVENT_ID)
+		frm.on_stop:remove(EVENT_ID)
+		frm.on_returning:remove(EVENT_ID, true)
+	end
+end
+----------
 ---Public
 ----------
 function M.awake()
 	M.instance = M
 	return M
 end
+---@type fuzz_on_init_wpn
 function M.init()
 	M.stop()
 end
@@ -116,26 +142,26 @@ function M.on_option_change()
 	if options.punch_legacy ~= legacy then
 		release()
 	end
-	use_punch = options.use_punch
 	legacy = options.punch_legacy
-end
-function M.start(profile)
-	if use_punch then
-		create_punch_effector()
-		set_shove(0)
+	local enable = options.use_punch
+	if use_punch ~= enable then
+		use_punch = enable
+		sub_events(enable)
 	end
 end
+---@type fuzz_on_start
+function M.start(profile)
+	create_punch_effector()
+	set_shove(0)
+end
+---@type fuzz_on_stop
 function M.stop()
 	release()
-end
-function M.remove_fx()
 	remove_punch_effector()
 end
 
-function M.on_fire(scale)
-	if not use_punch then
-		return
-	end
+---@type fuzz_on_fire
+function M.on_fire(_, scale)
 	--cache the true base once, the console fallback would otherwise read its own punch
 	if base_fov == nil then
 		base_fov = get_console_cmd(2, "fov")
@@ -144,13 +170,7 @@ function M.on_fire(scale)
 end
 
 --returns true once the punch has fully settled so the caller can tear down
-function M.update(dt, is_firing, is_ads)
-	if not use_punch then
-		if fov_on or shove_on then
-			release()
-		end
-		return true
-	end
+function M.update_internal(dt, is_ads)
 	if m_punch <= EPS then
 		if fov_on or shove_on or base_fov then
 			release()
@@ -179,6 +199,21 @@ function M.update(dt, is_firing, is_ads)
 		end
 	end
 	return false
+end
+
+---@type fuzz_on_firing
+function M.on_firing(dt, _, is_ads)
+	M.update_internal(dt, is_ads)
+end
+---@type fuzz_on_firing_stop
+function M.on_firing_stop()
+	frm.on_returning:add(EVENT_ID, M.on_returning)
+end
+---@type fuzz_on_returning
+function M.on_returning(dt, is_ads)
+	if M.update_internal(dt, is_ads) then
+		frm.on_returning:remove(EVENT_ID)
+	end
 end
 
 ----------

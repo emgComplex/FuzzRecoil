@@ -1,6 +1,7 @@
 local utils = fuzz_recoil_utils
 local logger = fuzz_recoil_logger
 local options = fuzz_recoil_mcm
+local frm = fuzz_recoil
 
 local M = {}
 _G.fuzz_recoil_cam_recoil = M
@@ -13,7 +14,8 @@ local m_vel = 0
 local m_angle = 0
 local wepaon_cam_return_speed = 0
 
-local _update_fn = M.update_exp
+---@type fuzz_on_firing
+local _firing_update_fn = M.update_exp
 ----------
 ---Cached vars
 ----------
@@ -81,20 +83,21 @@ function M.remove_cam_fx()
 end
 
 ----------
+---Event
+----------
+local EVENT_ID = 10
+----------
 ---Module
 ----------
-
 function M.awake()
 	M.instance = M
+	frm.on_init_wpn:add(EVENT_ID, M.init)
+	frm.on_start:add(EVENT_ID, M.start)
+	frm.on_fire:add(EVENT_ID, M.on_fire)
+	frm.on_firing_stop:add(EVENT_ID, M.on_firing_stop)
+	frm.on_stop:add(EVENT_ID, M.stop)
 	return M
 end
-function M.init(mode)
-	if mode then
-		M.switch_mode(mode)
-	end
-	M.stop()
-end
----@param profile fuzz_recoil_profile
 function M.cache_profile(profile)
 	lift_force = profile.cam_recoil_power
 	impulse_factor = profile.shot_cam_impulse_factor
@@ -102,29 +105,54 @@ function M.cache_profile(profile)
 	max_angle = profile.cam_max_angle or 0.9999
 	hud_sync_with_cam = not profile.desync_hud
 end
+---@type fuzz_on_init_wpn
+function M.init(profile)
+	local mode = profile.shot_delay_enabled and "cubic" or "exp"
+	if mode then
+		M.switch_mode(mode)
+	end
+	M.returned()
+	frm.on_firing:add(EVENT_ID, _firing_update_fn)
+end
+---@param profile fuzz_recoil_profile
+---@type fuzz_on_start
 function M.start(profile)
 	M.cache_profile(profile)
 	create_cam_effector()
 	is_returned = false
 end
-function M.stop()
-	-- NOTE: what if we don't remove cam effector at all?
+
+---@type fuzz_on_fire
+function M.on_fire(handle_power, scale)
+	is_returned = false
+	handle_power = math.pow(1 - handle_power, 2)
+	local raw_impulse = lift_force * impulse_factor * (scale or 1)
+	frm.add_handling_fatigue(raw_impulse)
+	local cam_impulse = raw_impulse * handle_power
+	m_vel = m_vel + cam_impulse
+end
+
+---@type fuzz_on_firing_stop
+function M.on_firing_stop()
+	frm.on_returning:add(EVENT_ID, M.do_return)
+end
+
+function M.returned()
 	-- M.remove_cam_fx()
+	frm.on_returning:remove(EVENT_ID)
 	set_player_angle(0.0001)
 	is_returned = true
 	m_angle = 0
 	m_vel = 0
 end
---scale carries the per shot koefs, frac variance, expansion and mode kick
-function M.on_fire(handle, scale)
-	is_returned = false
-	handle = math.pow(1 - handle, 2)
-	local raw_impulse = lift_force * impulse_factor * (scale or 1)
-	fuzz_recoil.add_handling_fatigue(raw_impulse)
-	local cam_impulse = raw_impulse * handle
-	m_vel = m_vel + cam_impulse
+---@type fuzz_on_stop
+function M.stop()
+	-- NOTE: what if we don't remove cam effector at all?
+	M.remove_cam_fx()
 end
+--scale carries the per shot koefs, frac variance, expansion and mode kick
 
+---@type fuzz_on_firing
 function M.update_cubic(dt)
 	if math.abs(m_vel) <= 0.01 then
 		return
@@ -134,6 +162,7 @@ function M.update_cubic(dt)
 	m_angle = m_angle + m_vel * dt
 	set_player_angle(m_angle)
 end
+---@type fuzz_on_firing
 function M.update_exp(dt)
 	if math.abs(m_vel) <= 0.01 then
 		return
@@ -144,8 +173,9 @@ function M.update_exp(dt)
 	m_angle = m_angle + step
 	set_player_angle(m_angle)
 end
+---@type fuzz_on_firing
 function M.update_spring(dt)
-	m_angle, m_vel = utils.apply_spring(m_angle, m_vel, dt, fuzz_recoil.debug_var.float_x1)
+	m_angle, m_vel = utils.apply_spring(m_angle, m_vel, dt, frm.debug_var.float_x1)
 	set_player_angle(m_angle)
 end
 --TODO: enum but not here,it should be in main script so every module can use it
@@ -157,13 +187,13 @@ M.CURVEMODE = {
 
 function M.switch_mode(mode)
 	if mode == "exp" then
-		_update_fn = M.update_exp
+		_firing_update_fn = M.update_exp
 	elseif mode == "cubic" then
-		_update_fn = M.update_cubic
+		_firing_update_fn = M.update_cubic
 	elseif mode == "spring" then
-		_update_fn = M.update_spring
+		_firing_update_fn = M.update_spring
 	else
-		_update_fn = M.update_exp
+		_firing_update_fn = M.update_exp
 	end
 end
 
@@ -171,10 +201,11 @@ end
 --TODO: --maybe try simple_ease and lerp the vel to a min value?,it could be more natrual when the angle is high.
 --i think it's fine for now, and maybe remove camera return in the future if we can get rid of cam_effector
 --leave it here
+---@type fuzz_on_returning
 function M.do_return(dt)
 	--TODO:remove config and cache this when init
 	if m_angle <= min_cam_return_step then
-		M.stop()
+		M.returned()
 		return
 	end
 	local speed_factor = base_cam_return_speed + wepaon_cam_return_speed
@@ -189,17 +220,6 @@ function M.do_return(dt)
 	set_player_angle(m_angle)
 end
 
---FIXME: something feels off...
-function M.update(dt, is_firing)
-	if is_firing then
-		_update_fn(dt)
-		return false
-	end
-	if not is_returned then
-		M.do_return(dt)
-	end
-	return is_returned
-end
 ---------
 ---IMGUI
 --------

@@ -345,7 +345,7 @@ function renderOptions()
 
 		_, options.bolt_action_Y_lift = ImGui.Checkbox("Bolt-Action Lift", options.bolt_action_Y_lift)
 		_, options.cam_drag = ImGui.SliderFloat("Cam Drag", options.cam_drag, 5.0, 20.0, "%.2f")
-		_, options.hud_kick_v2 = ImGui.Checkbox("Tarkov Kick (V2 instant)", options.hud_kick_v2)
+		_, options.instant_mode = ImGui.Checkbox("Instant Mode", options.instant_mode)
 		_, options.use_bloom = ImGui.Checkbox("Fire Bloom", options.use_bloom)
 		ImGui.Text("Vanilla data extras")
 		_, options.use_pitch_frac = ImGui.Checkbox("Pitch Frac Variance", options.use_pitch_frac)

@@ -7,7 +7,7 @@ local logger = fuzz_recoil_logger
 ---@field impulse_fatigue_ratio number
 ---@field cam_drag number
 ---@field bolt_action_Y_lift boolean
----@field hud_kick_v2 boolean
+---@field instant_mode boolean
 ---@field use_bloom boolean
 ---@field use_zoom_ratio boolean
 ---@field use_punch boolean
@@ -42,8 +42,8 @@ local defaults = {
 	--Bolt Action will have be lifted on y-axis
 	bolt_action_Y_lift = true,
 	--NOTE: EXPERIMENTAL
-	--tarkov style hud kick, instant displacement with eased recovery
-	hud_kick_v2 = false,
+	--Hud instant displacement with eased recovery
+	instant_mode = false,
 	--fire bloom, sustained fire and hip stance widen the real bullet cone
 	use_bloom = true,
 	--gamma zoom values sit at 0.6-0.8 of hip, on would weaken ads below the tune

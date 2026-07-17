@@ -1,7 +1,78 @@
 local M = { version = "a5" }
 _G.fuzz_recoil = M
 ---@diagnostic disable: lowercase-global
-----------Imports
+--------------------
+---Event
+--------------------
+local Event = fuzz_recoil_event
+
+local HP_EVENT_ID = 9
+
+--FIXME:i don't now how to make generic type working for class
+
+---@alias fuzz_on_init_wpn fun(profile:fuzz_recoil_profile, cast_wpn:CWeapon, wpn_sec:any)
+---@type FuzzEvent|{ add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_init_wpn),invoke: fun(self: FuzzEvent, profile:fuzz_recoil_profile, cast_wpn:CWeapon, wpn_sec:any) }
+---
+M.on_init_wpn = Event.new("init_weapon")
+
+---@alias fuzz_on_start fun(profile:fuzz_recoil_profile)
+---@type FuzzEvent|{ add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_start),
+---invoke: fun(self: FuzzEvent, profile:fuzz_recoil_profile) }
+M.on_start = Event.new("start")
+
+---@alias fuzz_on_before_fire fun()
+---@type FuzzEvent|{ add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_before_fire),
+---invoke: fun(self: FuzzEvent) }
+M.on_before_fire = Event.new("before_fire")
+
+---@alias fuzz_on_fire fun(hp:number, kick_scale:any, ads:boolean, ...)
+---@type FuzzEvent|{ add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_fire),
+---invoke: fun(self: FuzzEvent, hp:number, kick_scale:any, ads:boolean, ...) }
+M.on_fire = Event.new("on_fire")
+
+--NOTE: dt must be first for handling_power
+
+---@alias fuzz_on_firing fun(dt:number, hp:number, ads:boolean)
+---@type FuzzEvent|{ add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_firing),
+---invoke: fun(self: FuzzEvent, dt:number, hp:number, ads:boolean) }
+M.on_firing = Event.new("on_firing")
+
+---@alias fuzz_on_firing_stop fun()
+---@type FuzzEvent|{add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_firing_stop)}
+M.on_firing_stop = Event.new("firing_stop")
+
+--NOTE: dt must be first for handling_power
+
+---@alias fuzz_on_returning fun(dt:number,ads:boolean)
+---@type FuzzEvent|{ add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_returning),
+---invoke: fun(self: FuzzEvent, dt:number, ads:boolean) }
+M.on_returning = Event.new("returning")
+
+---@alias fuzz_on_stop fun()
+---@type FuzzEvent|{add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_stop)}
+M.on_stop = Event.new("stop")
+
+local m_events = {
+	M.on_init_wpn,
+	M.on_start,
+	M.on_before_fire,
+	M.on_fire,
+	M.on_firing,
+	M.on_firing_stop,
+	M.on_stop,
+}
+function M.GetEventInfo()
+	for _, e in pairs(m_events) do
+		e:print_handlers()
+	end
+end
+function M.GetEventReturningInfo()
+	M.on_returning:print_handlers()
+end
+
+--------------------
+---Import
+--------------------
 local utils = fuzz_recoil_utils
 local cvter = fuzz_recoil_converter
 local logger = fuzz_recoil_logger
@@ -50,6 +121,7 @@ local active = false
 local is_firing = false
 local handling_power = 0.0
 local handling_fatigue = 0
+local real_handling_power = 0
 --shots in the current burst, drives heat and recoil expansion
 local burst_shots = 0
 --refreshed per shot, addon koefs x ammo k_cam_dispersion and ads flag
@@ -150,41 +222,46 @@ end
 --------------------
 ---Engine HOOKS
 --------------------
+function M.on_game_start()
+	-- RegisterScriptCallback("actor_on_first_update", actor_on_first_update)
+	RegisterScriptCallback("actor_on_changed_slot", actor_on_changed_slot)
+	RegisterScriptCallback("actor_on_weapon_before_fire", actor_on_weapon_before_fire)
+	RegisterScriptCallback("actor_on_weapon_fired", actor_on_weapon_fired)
+	RegisterScriptCallback("actor_on_update", actor_on_update)
+end
+-- function actor_on_first_update()
+-- logger.dbg("first update")
+-- end
+
 function M.on_option_change()
-	add_option_scale_modifiers()
-	m_profile:reload_static_modier()
 	hudrc.on_option_change()
 	camrc.on_option_change()
 	punchrc.on_option_change()
-	hudrc.switch_mode(options.hud_kick_v2 and hudrc.MODE.INSTANT or hudrc.MODE.SPRING)
+	add_option_scale_modifiers()
+	m_profile:reload_static_modier()
 	-- logger.dbg("apply options to hud")
 end
-function M.on_game_start()
-	RegisterScriptCallback("actor_on_changed_slot", on_changed_slot)
-	RegisterScriptCallback("actor_on_weapon_before_fire", on_before_fire)
-	RegisterScriptCallback("actor_on_weapon_fired", on_fire)
-	RegisterScriptCallback("actor_on_update", on_update)
-end
-
-function on_changed_slot()
+function actor_on_changed_slot()
 	--NOTE: i think calling  this will cause cam glith when camera not fully is_cam_returned
 	--Never seen it happens since switching animation will give us a natrual delay
 	--but if it happens we can fix it with a TimeEvent
 	M.force_reset_recoil()
 	M.check_current_weapon()
 end
-function on_before_fire()
+function actor_on_weapon_before_fire()
 	-- logger.dbg("Before Shot ")
 	if not active then
 		active = M.check_current_weapon()
 	end
 	--the engine reads dispersion when the bullet leaves, apply before the first one
+	--WARN: this could called without actually shooting caused by:
+	--misfire ,no ammo, ...?
 	if active then
-		hudrc.pick_yaw_sign()
+		M.on_before_fire:invoke()
 		update_bloom(0)
 	end
 end
-function on_fire()
+function actor_on_weapon_fired()
 	--first draw reaches here with active already true, check the effector too
 	if not active or not camrc.has_camera_effector() then
 		start_recoil()
@@ -193,7 +270,7 @@ function on_fire()
 		--create is a no op while one is pending, reset makes the delay count from the last shot
 		--PERF: maybe a local timer could be faster?
 		CreateTimeEvent("fuzz_recoil", "bolt_delay_stop", m_profile.shot_delay_time, function()
-			on_fire_stop()
+			firing_stop()
 			return true
 		end)
 		ResetTimeEvent("fuzz_recoil", "bolt_delay_stop", m_profile.shot_delay_time)
@@ -202,59 +279,49 @@ function on_fire()
 
 	is_firing = true
 
+	--FIXME: this goes to the features
 	update_shot_cam_k()
 	if options.use_bloom then
 		local bc = M.bloom.classes[m_profile.burst_class] or M.bloom.classes.other
 		bloom_heat = math.min(bloom_heat + bc.rate * (is_ads and M.bloom.ads_mul or 1), bc.max)
 	end
+	local frac_factor = options.use_pitch_frac and (1 + (math.random() * 2 - 1) * (1 - m_profile.pitch_frac)) or 1
+	local kick_scale = frac_factor * shot_cam_k * (options.instant_mode and hudrc.get_mode_kick_mul() or 1)
 
-	local hp = M.get_real_handling_power()
-	hudrc.on_fire(hp, is_ads, shot_cam_k, burst_shots)
+	M.on_fire:invoke(real_handling_power, kick_scale, is_ads, shot_cam_k, burst_shots)
+
+	--TODO: instead of burst_shot,heating should implemented by a new system like how fatigue works
+	burst_shots = burst_shots + 1
 
 	--vanilla dispersion_frac as mean preserving per shot variance
-	local frac_factor = options.use_pitch_frac and (1 + (math.random() * 2 - 1) * (1 - m_profile.pitch_frac)) or 1
-	burst_shots = burst_shots + 1
-	local kick_scale = frac_factor * shot_cam_k * (options.hud_kick_v2 and hudrc.get_mode_kick_mul() or 1)
-	camrc.on_fire(hp, kick_scale)
-	punchrc.on_fire(kick_scale)
 end
-function on_update()
+function actor_on_update()
 	local dt = device().time_delta / 1000
-	if not is_firing and handling_fatigue > 0 then
-		--NOTE: regen from 1 is by design, you can try turn it off
-		handling_fatigue = math.min(1, handling_fatigue - 0.003)
-	end
-	if active == false then
+	update_fatigue(dt)
+	if not active then
 		return
 	end
-	-- logger.dbg("Update")
-	--addon swap while adjust mode is on sticks the hands, reset and reinit instead
-	if time_global() >= next_addon_check then
-		next_addon_check = time_global() + 250
-		if get_addon_sig() ~= addon_sig then
-			M.force_reset_recoil()
-			cur_wpn_id = 0
-			return
-		end
-	end
+	check_addon()
+
 	---@diagnostic disable-next-line: need-check-nil, undefined-field
 	if is_firing and cur_wpn:get_state() ~= 5 then
-		on_fire_stop()
+		firing_stop()
 	end
 
-	update_handling_power(dt)
 	update_bloom(dt)
-	local hud_returned = hudrc.update(dt, is_firing and handling_power or nil)
-	local cam_returned = camrc.update(dt, is_firing)
-	local punch_settled = punchrc.update(dt, is_firing, is_ads)
-	if handling_power <= 0 and hud_returned and cam_returned and punch_settled then
-		reset_recoil()
+
+	if is_firing then
+		M.on_firing:invoke(dt, handling_power, is_ads)
+	else
+		M.on_returning:invoke(dt, is_ads)
 	end
 end
-function on_fire_stop()
+function firing_stop()
 	is_firing = false
 	burst_shots = 0
-	logger.dbg("Fire stopped")
+	M.on_returning:add(HP_EVENT_ID, update_handling_returning)
+	M.on_firing_stop:invoke()
+	-- logger.dbg("Fire stopped")
 end
 
 ----------------------
@@ -266,39 +333,47 @@ function start_recoil()
 	add_actor_stat_modifiers()
 	M.dynamic_modifiers:refresh_modi_cache()
 	m_profile:apply_dynamic_modifiers()
-	camrc.start(m_profile)
-	hudrc.start(m_profile)
-	punchrc.start(m_profile)
+	M.on_start:invoke(m_profile)
+	-- M.on_start:print_handlers()
 	RemoveTimeEvent("fuzz_recoil", "bolt_delay_stop")
-	logger.dbg("Initialize Recoil")
+	-- M.on_firing:print_handlers()
+	-- logger.dbg("Start Recoil")
 end
-function reset_recoil()
+function stop_recoil()
 	active = false
 	is_firing = false
 	burst_shots = 0
 	handling_power = 0
 
-	camrc.remove_cam_fx()
-	hudrc.disable_hud_adjust()
-	punchrc.stop()
-	punchrc.remove_fx()
+	M.on_stop:invoke()
 	restore_vanilla_fire_disp()
 	RemoveTimeEvent("fuzz_recoil", "bolt_delay_stop")
 
-	logger.dbg("reset recoil")
+	-- logger.dbg("reset recoil")
 end
 function M.force_reset_recoil()
-	camrc.stop()
-	hudrc.stop()
-	punchrc.stop()
-	reset_recoil()
+	camrc.returned()
+	hudrc.returned()
+	M.on_returning:remove_all()
 end
-function update_handling_power(dt)
-	if is_firing then
-		handling_power = utils.math_clamp(firing_handling_ease:update(handling_power, dt), 0, 1)
-	else
-		-- handling_power = 0
-		handling_power = utils.math_clamp(idle_handling_ease:update(handling_power, dt), 0, 1)
+
+function update_fatigue(dt)
+	if not is_firing and handling_fatigue > 0 then
+		--NOTE: regen from 1 is by design, you can try turn it off
+		handling_fatigue = math.min(1, handling_fatigue - 0.18 * dt)
+	end
+end
+
+---@type fuzz_on_firing
+function update_handling_firing(dt)
+	handling_power = utils.math_clamp(firing_handling_ease:update(handling_power, dt), 0, 1)
+	real_handling_power = M.get_real_handling_power()
+end
+---@type fuzz_on_returning
+function update_handling_returning(dt)
+	handling_power = utils.math_clamp(idle_handling_ease:update(handling_power, dt), 0, 1)
+	if handling_power <= 0 then
+		M.on_returning:remove(HP_EVENT_ID)
 	end
 end
 
@@ -373,9 +448,7 @@ function init_weapon(wpn_sec)
 		idle_handling_ease:reset()
 	end
 
-	camrc.init(m_profile.shot_delay_enabled and "cubic" or "exp")
-	hudrc.init(wpn_sec, cur_cast_wpn)
-	punchrc.init()
+	M.on_init_wpn:invoke(m_profile, cur_cast_wpn, wpn_sec)
 	addon_sig = get_addon_sig()
 	logger.dbg("Initialize weapon")
 end
@@ -553,6 +626,7 @@ function get_ammo_cam_k()
 end
 ---@diagnostic disable: need-check-nil
 --refresh per shot so addon attach, ammo switch and ads state apply without a weapon re draw
+--TODO:other than ads, these should check before fire
 function update_shot_cam_k()
 	is_ads = (cur_cast_wpn and cur_cast_wpn:IsZoomed()) and true or false
 	if not cur_cast_wpn or not options.use_addon_ammo_koefs then
@@ -561,6 +635,18 @@ function update_shot_cam_k()
 	end
 	collect_addon_koefs()
 	shot_cam_k = m_wpn_info.addon_cam_k * get_ammo_cam_k()
+end
+--addon swap while adjust mode is on sticks the hands, reset and reinit instead
+function check_addon()
+	--FIXME: use timer
+	if time_global() >= next_addon_check then
+		next_addon_check = time_global() + 250
+		if get_addon_sig() ~= addon_sig then
+			M.force_reset_recoil()
+			cur_wpn_id = 0
+			return
+		end
+	end
 end
 --attached addon fingerprint, a change means the engine reloaded hud measures
 function get_addon_sig()
@@ -746,6 +832,11 @@ function M.imgui_config_drawer()
 		ImGui.TreePop()
 	end
 end
+------------
+---Sub Event
+------------
+M.on_returning.on_empty = stop_recoil
+M.on_firing:add(HP_EVENT_ID, update_handling_firing)
 --------------------------------------
 ---Debug
 --------------------------------------
