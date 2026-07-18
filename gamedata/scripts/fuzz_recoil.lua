@@ -559,6 +559,10 @@ function M.check_current_weapon()
 	end
 	local new_id = cur_wpn:id()
 	if cur_wpn_id == new_id then
+		--an upgrade can land while equipped, recheck when waking from idle
+		if not active and cur_cast_wpn then
+			check_upgrade(cur_wpn:section())
+		end
 		return active
 	end
 	--NOTE: give the previous weapon its vanilla cam recoil back,
