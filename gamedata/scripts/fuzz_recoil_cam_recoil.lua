@@ -43,6 +43,9 @@ min_cam_restore_step = 0.0045
 --auto fire impulse decay and step divisor
 cam_impulse_decay = 12
 cam_step_div = 15
+--critically damped glide to the burst start aim, off restores the exp step
+restore_smooth = true
+restore_ease = 1.0
 ----------
 ---Options
 ----------
@@ -238,6 +241,8 @@ end
 
 ---@type fuzz_on_firing_stop
 function M.on_firing_stop()
+	--restore glides from rest, leftover kick velocity would bump upward first
+	m_vel = 0
 	frm.on_restoring:add(EVENT_ID, M.do_restore)
 end
 
@@ -321,7 +326,13 @@ end
 ---@type fuzz_on_restoring
 function M.do_restore(dt)
 	--TODO:remove config and cache this when init
-	if m_angle <= min_cam_restore_step then
+	if restore_smooth then
+		--settled below perception, the final zero is invisible
+		if m_angle <= 0.0008 and math.abs(m_vel) <= 0.01 then
+			M.restored()
+			return
+		end
+	elseif m_angle <= min_cam_restore_step then
 		M.restored()
 		return
 	end
@@ -341,6 +352,20 @@ function M.do_restore(dt)
 		room_cap = m_angle - screen_to_angle(effector_screen_pitch(m_angle) - room)
 	end
 	local speed_factor = base_cam_restore_speed + wepaon_cam_restore_speed
+	if restore_smooth then
+		--critically damped glide, gentle entry and an eased settle into the aim
+		local w = speed_factor * restore_ease
+		local new_angle, new_vel = utils.apply_spring(m_angle, m_vel, dt, w * w)
+		local final_step = m_angle - new_angle
+		m_vel = new_vel
+		if room_cap and final_step > room_cap then
+			final_step = room_cap
+			m_vel = 0
+		end
+		m_angle = m_angle - final_step
+		set_player_angle(m_angle)
+		return
+	end
 	local lerp_factor = 1.0 - math.exp(-speed_factor * dt)
 
 	local step = m_angle * lerp_factor
@@ -381,6 +406,9 @@ function M.imgui_config_drawer()
 	_, min_cam_restore_step = ImGui.SliderFloat("Min Cam Restore step", min_cam_restore_step, 0.001, 0.01, "%.4frad")
 	_, cam_impulse_decay = ImGui.SliderFloat("Cam Impulse Decay", cam_impulse_decay, 1.0, 50.0, "%.2f")
 	_, cam_step_div = ImGui.SliderFloat("Cam Step Div", cam_step_div, 1.0, 50.0, "%.2f")
+	ImGui.Separator()
+	_, restore_smooth = ImGui.Checkbox("Smooth Restore", restore_smooth)
+	_, restore_ease = ImGui.SliderFloat("Restore Ease", restore_ease, 0.3, 3.0, "%.2f")
 	ImGui.Separator()
 	_, use_comp_return = ImGui.Checkbox("Comp Return Floor", use_comp_return)
 	_, comp_eps = ImGui.SliderFloat("Comp Floor Eps", comp_eps, 0.0, 0.02, "%.4frad")
