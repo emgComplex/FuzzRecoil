@@ -139,8 +139,12 @@ function M.get_vel_rot()
 	return vel_rot
 end
 --TODO:apply to spring with different mul...
+--ads kick vs hip kick for the camera channel, independent of hud mode
+function M.get_ads_kick_mul(ads)
+	return ads and ads_kick_mul or hip_kick_mul
+end
 function M.get_mode_kick_mul()
-	return is_ads and ads_kick_mul or hip_kick_mul
+	return M.get_ads_kick_mul(is_ads)
 end
 
 --------------
@@ -327,8 +331,10 @@ local function apply_trans_and_smooth(dt, smooth, rot)
 	M.set_hud_offset(pos_smooth, rot)
 end
 ---@type fuzz_on_shot
-local function on_shot_spring(handling_power)
+local function on_shot_spring(handling_power, _, ads)
 	is_restored = false
+	--instant mode writes this in its own handler, keep spring fresh too
+	is_ads = ads and true or false
 	-- NOTE: vertical recoil should come from cam recoil  no this
 	-- but we could turn this into an visual effect.
 	-- local pitch_kick_enhancer = 1

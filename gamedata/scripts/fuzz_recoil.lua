@@ -252,6 +252,8 @@ function actor_on_weapon_fired()
 
 	-- ammo_addon_koefs_on_shot()
 
+	--ads or hip kick mul reaches cam and punch in every hud mode
+	impulse_scale = shot_cam_k * hudrc.get_ads_kick_mul(is_ads)
 	M.on_shot:invoke(real_handling_power, impulse_scale, is_ads, shot_cam_k, burst_shots)
 
 	--TODO: instead of burst_shot,heating should implemented by a new system like how fatigue works
