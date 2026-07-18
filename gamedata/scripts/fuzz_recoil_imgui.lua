@@ -20,7 +20,7 @@ local showInfo = fuzz_dev and true or false
 local showLogs = fuzz_dev and true or false
 local showPlots = fuzz_dev and true or false
 
-local debug_text1 = "Slider edits take effect on the Apply profile button"
+local debug_text1 = "Weapon profile won't refresh untill you shot a bullet"
 local auto_scroll_logs = true
 local export_hint = "Export profile to your game's bin folder"
 
@@ -280,7 +280,7 @@ function info_overlay()
 end
 
 local _prf_type = 1
-local modi_enabled = fuzz_recoil_modifier.is_enabled()
+local modi_enabled = true
 local export_to_gamedata = fuzz_dev and true or false
 local force_convert = false
 --TODO:! load and apply modifier
@@ -301,18 +301,23 @@ function renderProfile()
 	prf.imgui_editor_drawer(available_prf[_prf_type], _prf_type, prf.info.name)
 
 	ImGui.Separator()
+	local function apply_profile(__profile)
+		prf:reload_all_modifiers()
+		hudrc.cache_profile(__profile)
+		camrc.cache_profile(__profile)
+		frm.force_invoke_init(__profile)
+	end
 	ImGui.Text("Edit without modifier if you want to share your recoil profile")
 	if ImGui.Button("Apply profile", vector2():set(200, 25)) then
-		prf:reload_all_modifiers()
-		hudrc.cache_profile(prf)
-		camrc.cache_profile(prf)
+		apply_profile(prf)
 	end
 	---@diagnostic enable: param-type-mismatch
 	ImGui.SameLine()
-	modi_enabled_change, modi_enabled = ImGui.Checkbox("With Modifier", modi_enabled)
+	modi_enabled_change, modi_enabled = ImGui.Checkbox("Modifier", modi_enabled)
 	if modi_enabled_change then
 		fuzz_recoil.static_modifiers.enabled(modi_enabled)
 		fuzz_recoil.dynamic_modifiers.enabled(modi_enabled)
+		apply_profile(prf)
 	end
 	ImGui.Text(export_hint)
 	if ImGui.Button("Export to LTX", vector2():set(150, 25)) then
@@ -547,6 +552,5 @@ function on_fire()
 	if cheat_mag then
 		cast_wpn = fuzz_recoil.get_cur_wpn():cast_Weapon()
 		cast_wpn:SetAmmoElapsed(30)
-		cast_wpn:SetMisfire(false)
 	end
 end

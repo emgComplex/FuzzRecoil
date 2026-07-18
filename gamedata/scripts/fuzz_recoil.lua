@@ -289,7 +289,7 @@ end
 function firing_stop()
 	is_firing = false
 	burst_shots = 0
-	M.on_restoring:add(HP_EVENT_ID, update_handling_restoring)
+	M.on_restoring:add(HP_EVENT_ID, handling_update_restoring)
 	M.on_firing_stop:invoke()
 	-- logger.dbg("Fire stopped")
 end
@@ -358,13 +358,26 @@ function update_fatigue(dt)
 		handling_fatigue = math.min(1, handling_fatigue - 0.18 * dt)
 	end
 end
+---@type fuzz_on_init_wpn
+function handling_init(profile)
+	-- inil some recoil paramete from here
+	firing_handling_ease:set_speed(profile.handling_speed)
+	idle_handling_ease:set_speed(profile.handling_speed)
+
+	if profile.is_bolt_action then
+		idle_handling_ease.intensity = sniper_idle_handling.intensity
+		idle_handling_ease.offset = sniper_idle_handling.offset
+	else
+		idle_handling_ease:reset()
+	end
+end
 ---@type fuzz_on_firing
-function update_handling_firing(dt)
+function handling_update_firing(dt)
 	handling_power = utils.math_clamp(firing_handling_ease:update(handling_power, dt), 0, 1)
 	real_handling_power = M.get_real_handling_power()
 end
 ---@type fuzz_on_restoring
-function update_handling_restoring(dt)
+function handling_update_restoring(dt)
 	handling_power = utils.math_clamp(idle_handling_ease:update(handling_power, dt), 0, 1)
 	if handling_power <= 0 then
 		M.on_restoring:remove(HP_EVENT_ID)
@@ -453,22 +466,18 @@ function init_weapon(wpn_sec)
 	check_upgrade(wpn_sec)
 	m_profile:apply_static_modifiers()
 	remove_vanilla_cam_recoil()
-	-- inil some recoil paramete from here
-	firing_handling_ease:set_speed(m_profile.handling_speed)
-	idle_handling_ease:set_speed(m_profile.handling_speed)
-
-	if m_profile.is_bolt_action then
-		idle_handling_ease.intensity = sniper_idle_handling.intensity
-		idle_handling_ease.offset = sniper_idle_handling.offset
-	else
-		idle_handling_ease:reset()
-	end
-
 	M.on_init_wpn:invoke(m_profile, cur_cast_wpn, wpn_sec)
 	-- ammo_addon_koefs_init()
 
 	addon_sig = get_addon_sig()
 	logger.dbg("Initialize weapon")
+end
+function M.force_invoke_init(profile)
+	if not cur_wpn or cur_wpn_id <= 0 then
+		return
+	end
+	local wpn_sec = cur_wpn:section()
+	M.on_init_wpn:invoke(profile, cur_cast_wpn, wpn_sec)
 end
 --TODO:if using cached profile , we need check upgrades and call this agian
 --NOTE: engine getters return the live post-upgrade values in radians,
@@ -599,6 +608,7 @@ function M.check_current_weapon()
 	return true
 end
 function M.force_recheck_weapon()
+	cached_weapons[cur_wpn_id] = nil
 	cur_wpn_id = -2
 	M.check_current_weapon()
 end
@@ -903,7 +913,10 @@ end
 ---Sub Event
 ------------
 M.on_restoring.on_empty = stop_recoil
-M.on_firing:add(HP_EVENT_ID, update_handling_firing)
+
+M.on_init_wpn:add(HP_EVENT_ID, handling_init)
+M.on_firing:add(HP_EVENT_ID, handling_update_firing)
+
 M.on_init_wpn:add(SHOT_DELAY_EVENT_ID, shot_delay_init)
 --------------------------------------
 ---Debug
