@@ -138,6 +138,7 @@ end
 function M.get_vel_rot()
 	return vel_rot
 end
+--TODO:apply to spring with different mul...
 function M.get_mode_kick_mul()
 	return is_ads and ads_kick_mul or hip_kick_mul
 end

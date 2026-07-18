@@ -121,36 +121,15 @@ local is_firing = false
 local handling_power = 0.0
 local handling_fatigue = 0
 local real_handling_power = 0
+local impulse_scale = 1
 --shots in the current burst, drives heat and recoil expansion
 local burst_shots = 0
 --refreshed per shot, addon koefs x ammo k_cam_dispersion and ads flag
 local is_ads = false
 local shot_cam_k = 1
---fire bloom state, heat in cone multiples over the cached vanilla base
-local bloom_heat = 0
-local orig_fire_disp = 0
-local bloom_applied = -1
 --attached addon fingerprint, throttled check in on_update
 local addon_sig = ""
 local check_addon_timer = 0
---bloom multiplies the weapons fire_dispersion_base, silencer, ammo and
---condition koefs stack on top like vanilla (WeaponDispersion.cpp)
---base is the flat hip penalty, rate grows per shot, heat caps at max
-M.bloom = {
-	--master variance, scales the whole extra cone, 0 is vanilla dispersion
-	variance = 1.0,
-	decay = 1.2,
-	--heat grows at full rate scoped, stance only changes the base share
-	ads_mul = 1.0,
-	ads_base = 0.3,
-	classes = {
-		pistol = { base = 1.1, rate = 0.18, max = 3.0 },
-		smg = { base = 0.4, rate = 0.11, max = 2.4 },
-		ar = { base = 0.45, rate = 0.13, max = 2.6 },
-		lmg = { base = 0.9, rate = 0.16, max = 4.0 },
-		other = { base = 0.6, rate = 0.13, max = 2.8 },
-	},
-}
 ------- config
 local allowed_kinds = {
 	w_pistol = true,
@@ -205,9 +184,6 @@ end
 function M.get_handling_eases()
 	return firing_handling_ease, idle_handling_ease
 end
-function M.get_bloom_state()
-	return bloom_heat, bloom_applied, orig_fire_disp
-end
 --------------------
 ---Public Setter
 --------------------
@@ -257,7 +233,8 @@ function actor_on_weapon_before_fire()
 	--misfire ,no ammo, ...?
 	if active then
 		M.on_before_fire:invoke()
-		update_bloom(0)
+		--FIXME:extra
+		bloom_before_fire()
 	end
 end
 function actor_on_weapon_fired()
@@ -277,16 +254,11 @@ function actor_on_weapon_fired()
 	-- logger.dbg("Shot ")
 
 	is_firing = true
+	--FIXME:extra
+	bloom_on_shot(m_profile, is_ads)
+	-- ammo_addon_koefs_on_shot()
 
-	--FIXME: this goes to the features
-	update_shot_cam_k()
-	if options.use_bloom then
-		local bc = M.bloom.classes[m_profile.burst_class] or M.bloom.classes.other
-		bloom_heat = math.min(bloom_heat + bc.rate * (is_ads and M.bloom.ads_mul or 1), bc.max)
-	end
-	local kick_scale = shot_cam_k * (options.instant_mode and hudrc.get_mode_kick_mul() or 1)
-
-	M.on_shot:invoke(real_handling_power, kick_scale, is_ads, shot_cam_k, burst_shots)
+	M.on_shot:invoke(real_handling_power, impulse_scale, is_ads, shot_cam_k, burst_shots)
 
 	--TODO: instead of burst_shot,heating should implemented by a new system like how fatigue works
 	burst_shots = burst_shots + 1
@@ -304,7 +276,12 @@ function actor_on_update()
 		firing_stop()
 	end
 
-	update_bloom(dt)
+	--stance can change without a shot, keep it current
+	is_ads = cur_cast_wpn:IsZoomed() and true or false
+
+	--FIXME:extra
+	bloom_update(dt)
+	shot_dealy_on_firing(dt)
 
 	if is_firing then
 		M.on_firing:invoke(dt, handling_power, is_ads)
@@ -353,13 +330,40 @@ function M.force_reset_recoil()
 	M.on_restoring:remove_all()
 end
 
+----------------------
+---Internal features
+---------------------
+--addon swap while adjust mode is on sticks the hands, reset and reinit instead
+function check_addon(dt)
+	if check_addon_timer >= 0.25 then
+		check_addon_timer = 0
+		if get_addon_sig() ~= addon_sig then
+			M.force_reset_recoil()
+			cur_wpn_id = 0
+			return
+		end
+	else
+		check_addon_timer = check_addon_timer + dt
+	end
+end
+--attached addon fingerprint, a change means the engine reloaded hud measures
+function get_addon_sig()
+	if not cur_cast_wpn then
+		return ""
+	end
+	return (cur_cast_wpn:IsScopeAttached() and "s" or "")
+		.. tostring(cur_cast_wpn:GetScopeName())
+		.. (cur_cast_wpn:IsSilencerAttached() and "m" or "")
+		.. tostring(cur_cast_wpn:GetSilencerName())
+		.. (cur_cast_wpn:IsGrenadeLauncherAttached() and "g" or "")
+end
+
 function update_fatigue(dt)
 	if not is_firing and handling_fatigue > 0 then
 		--NOTE: regen from 1 is by design, you can try turn it off
 		handling_fatigue = math.min(1, handling_fatigue - 0.18 * dt)
 	end
 end
-
 ---@type fuzz_on_firing
 function update_handling_firing(dt)
 	handling_power = utils.math_clamp(firing_handling_ease:update(handling_power, dt), 0, 1)
@@ -370,6 +374,28 @@ function update_handling_restoring(dt)
 	handling_power = utils.math_clamp(idle_handling_ease:update(handling_power, dt), 0, 1)
 	if handling_power <= 0 then
 		M.on_restoring:remove(HP_EVENT_ID)
+	end
+end
+
+local shot_delay_timer = 0
+local shot_dealy_time = 0.4
+---@param profile fuzz_recoil_profile
+function shot_delay_init(profile)
+	if profile.shot_delay_enabled then
+		--add
+	else
+		--remove
+	end
+end
+function shot_delay_on_shot()
+	shot_delay_timer = 0
+	--FIXME:add
+end
+function shot_dealy_on_firing(dt)
+	shot_delay_timer = shot_delay_timer + dt
+	if shot_delay_timer >= shot_dealy_time then
+		firing_stop()
+		--FIXME:remove
 	end
 end
 
@@ -427,12 +453,6 @@ function init_weapon(wpn_sec)
 	check_upgrade(wpn_sec)
 	m_profile:apply_static_modifiers()
 	remove_vanilla_cam_recoil()
-
-	--vanilla cone base in radians, bloom multiplies it at runtime
-	orig_fire_disp = cur_cast_wpn and cur_cast_wpn:GetFireDispersion() or 0
-	bloom_heat = 0
-	bloom_applied = -1
-
 	-- inil some recoil paramete from here
 	firing_handling_ease:set_speed(m_profile.handling_speed)
 	idle_handling_ease:set_speed(m_profile.handling_speed)
@@ -445,6 +465,10 @@ function init_weapon(wpn_sec)
 	end
 
 	M.on_init_wpn:invoke(m_profile, cur_cast_wpn, wpn_sec)
+	--FIXME: extra
+	bloom_init(m_profile, cur_cast_wpn, wpn_sec)
+	-- ammo_addon_koefs_init()
+
 	addon_sig = get_addon_sig()
 	logger.dbg("Initialize weapon")
 end
@@ -468,7 +492,6 @@ end
 function get_feat_wpn_info()
 	--live weight includes attached addons
 	m_wpn_info.inv_weight = cur_cast_wpn:Weight()
-	collect_addon_koefs()
 end
 function read_upgrade_wpn_info(wpn_sec)
 	return {
@@ -572,8 +595,10 @@ function M.force_recheck_weapon()
 	M.check_current_weapon()
 end
 ----------------------
----Feat
+---Extra Feat
 ---------------------
+--TODO: bad coupling
+--================addon ammo koef
 --engine clamps addon koefs to [0.01, 2.0], empty section means koef 1 like engine reset
 local function get_addon_koef(sec, key)
 	if not sec or sec == "" then
@@ -583,7 +608,7 @@ local function get_addon_koef(sec, key)
 end
 ---@diagnostic disable: need-check-nil
 --NOTE: engine multiplies cam recoil by attached addon section koefs (EffectorShot.cpp)
-function collect_addon_koefs()
+function ammo_addon_koefs_init()
 	if not options.use_addon_ammo_koefs then
 		m_wpn_info.addon_cam_k = 1
 		m_wpn_info.addon_cam_inc_k = 1
@@ -606,7 +631,7 @@ function collect_addon_koefs()
 end
 --k_cam_dispersion of the selected ammo type, default 1 unclamped like engine
 --NOTE: engine uses the chambered round, no lua export, selected type is the best approximation
-function get_ammo_cam_k()
+local function get_ammo_cam_k()
 	local cur_type = cur_cast_wpn:GetAmmoType()
 	local ammo_k = 1
 	cur_cast_wpn:AmmoTypeForEach(function(i, sec)
@@ -620,44 +645,55 @@ function get_ammo_cam_k()
 end
 ---@diagnostic disable: need-check-nil
 --refresh per shot so addon attach, ammo switch and ads state apply without a weapon re draw
---TODO:other than ads, these should check before fire
-function update_shot_cam_k()
-	is_ads = (cur_cast_wpn and cur_cast_wpn:IsZoomed()) and true or false
+function ammo_addon_koefs_on_shot()
 	if not cur_cast_wpn or not options.use_addon_ammo_koefs then
 		shot_cam_k = 1
 		return
 	end
-	collect_addon_koefs()
-	shot_cam_k = m_wpn_info.addon_cam_k * get_ammo_cam_k()
-end
---addon swap while adjust mode is on sticks the hands, reset and reinit instead
-function check_addon(dt)
-	if check_addon_timer >= 0.25 then
-		check_addon_timer = 0
-		if get_addon_sig() ~= addon_sig then
-			M.force_reset_recoil()
-			cur_wpn_id = 0
-			return
-		end
-	else
-		check_addon_timer = check_addon_timer + dt
-	end
-end
---attached addon fingerprint, a change means the engine reloaded hud measures
-function get_addon_sig()
-	if not cur_cast_wpn then
-		return ""
-	end
-	return (cur_cast_wpn:IsScopeAttached() and "s" or "")
-		.. tostring(cur_cast_wpn:GetScopeName())
-		.. (cur_cast_wpn:IsSilencerAttached() and "m" or "")
-		.. tostring(cur_cast_wpn:GetSilencerName())
-		.. (cur_cast_wpn:IsGrenadeLauncherAttached() and "g" or "")
+	ammo_addon_koefs_init()
+	shot_cam_k = m_wpn_info.addon_cam_k * get_ammo_cam_k() * impulse_scale
 end
 
 --================Bloom
+--fire bloom state, heat in cone multiples over the cached vanilla base
+local bloom_heat = 0
+local orig_fire_disp = 0
+local bloom_applied = -1
+--bloom multiplies the weapons fire_dispersion_base, silencer, ammo and
+--condition koefs stack on top like vanilla (WeaponDispersion.cpp)
+--base is the flat hip penalty, rate grows per shot, heat caps at max
+M.bloom = {
+	--master variance, scales the whole extra cone, 0 is vanilla dispersion
+	variance = 1.0,
+	decay = 1.2,
+	--heat grows at full rate scoped, stance only changes the base share
+	ads_mul = 1.0,
+	ads_base = 0.3,
+	classes = {
+		pistol = { base = 1.1, rate = 0.18, max = 3.0 },
+		smg = { base = 0.4, rate = 0.11, max = 2.4 },
+		ar = { base = 0.45, rate = 0.13, max = 2.6 },
+		lmg = { base = 0.9, rate = 0.16, max = 4.0 },
+		other = { base = 0.6, rate = 0.13, max = 2.8 },
+	},
+}
 --drives the live bullet cone, base hip penalty plus decaying heat
-function update_bloom(dt)
+---@type fuzz_on_init_wpn
+function bloom_init(_, cast_wpn, _)
+	--vanilla cone base in radians, bloom multiplies it at runtime
+	orig_fire_disp = cast_wpn and cast_wpn:GetFireDispersion() or 0
+	bloom_heat = 0
+	bloom_applied = -1
+end
+---@type fuzz_on_before_fire
+function bloom_before_fire()
+	bloom_update(0)
+end
+function bloom_on_shot(profile, ads)
+	local bc = M.bloom.classes[profile.burst_class] or M.bloom.classes.other
+	bloom_heat = math.min(bloom_heat + bc.rate * (ads and M.bloom.ads_mul or 1), bc.max)
+end
+function bloom_update(dt)
 	if not cur_cast_wpn or orig_fire_disp <= 0 then
 		return
 	end
@@ -668,8 +704,6 @@ function update_bloom(dt)
 		end
 		return
 	end
-	--stance can change without a shot, keep it current
-	is_ads = cur_cast_wpn:IsZoomed() and true or false
 	--heat only cools between bursts, sustained fire climbs all the way to the class cap
 	if not is_firing then
 		bloom_heat = bloom_heat * math.exp(-M.bloom.decay * dt)
@@ -688,6 +722,10 @@ function restore_vanilla_fire_disp()
 	cur_cast_wpn:SetFireDispersion(orig_fire_disp)
 	bloom_applied = -1
 	bloom_heat = 0
+end
+
+function M.get_bloom_state()
+	return bloom_heat, bloom_applied, orig_fire_disp
 end
 --================actor stats
 local actor_hunger = 1
