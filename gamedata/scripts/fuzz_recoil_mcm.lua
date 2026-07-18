@@ -7,12 +7,10 @@ local logger = fuzz_recoil_logger
 ---@field impulse_fatigue_ratio number
 ---@field cam_drag number
 ---@field bolt_action_Y_lift boolean
----@field hud_kick_v2 boolean
+---@field instant_mode boolean
 ---@field use_bloom boolean
----@field use_zoom_ratio boolean
 ---@field use_punch boolean
 ---@field punch_legacy boolean
----@field use_pitch_frac boolean
 ---@field use_addon_ammo_koefs boolean
 ---@field recoil_v_scale number
 local M = {}
@@ -42,20 +40,16 @@ local defaults = {
 	--Bolt Action will have be lifted on y-axis
 	bolt_action_Y_lift = true,
 	--NOTE: EXPERIMENTAL
-	--tarkov style hud kick, instant displacement with eased recovery
-	hud_kick_v2 = false,
+	--Hud instant displacement with eased recovery
+	instant_mode = false,
 	--fire bloom, sustained fire and hip stance widen the real bullet cone
 	use_bloom = true,
-	--gamma zoom values sit at 0.6-0.8 of hip, on would weaken ads below the tune
-	use_zoom_ratio = false,
 	--per shot punch, fov widen at hip and a positional shove while aiming
 	use_punch = false,
 	--revert the punch to the prior system, console fov and shove only under true PiP
 	punch_legacy = false,
 	--NOTE: HIDDEN FROM MCM for now
 
-	--vanilla data extras, off keeps stock feel
-	use_pitch_frac = false,
 	use_addon_ammo_koefs = false,
 	--NOTE: CONSIDER REMOVE
 
@@ -103,7 +97,6 @@ function M.on_mcm_load()
             { id = "recoil_h_scale", type = "track", val = 2, min = -0.9, max = 2.0, step = 0.05, def = defaults.recoil_h_scale },
             { id = "handling_speed_scale", type = "track", val = 2, min = -0.9, max = 2.0, step = 0.05, def = defaults.handling_speed_scale },
             { id = "impulse_fatigue_ratio", type = "track", val = 2, min = 0.0, max = 0.3, step = 0.01, def = defaults.impulse_fatigue_ratio },
-            { id = "use_zoom_ratio", type = "check", val = 1, def = defaults.use_zoom_ratio },
             { id = "use_punch", type = "check", val = 1, def = defaults.use_punch },
             { id = "punch_legacy", type = "check", val = 1, def = defaults.punch_legacy },
             { id = "bolt_cam_group_line", type = "line" },

@@ -102,7 +102,7 @@ end
 M.simple_ease = {}
 M.simple_ease.__index = M.simple_ease
 ---@return simple_ease
-function M.simple_ease:new(base_speed, speed_mul, offset, intensity, mode)
+function M.simple_ease.new(base_speed, speed_mul, offset, intensity, mode)
 	local ins = {
 		base_speed = base_speed,
 		speed_mul = speed_mul,

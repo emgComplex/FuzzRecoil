@@ -12,7 +12,7 @@ local logger = fuzz_recoil_logger
 ---------------
 ---@class fuzz_recoil_profile
 ---@field cam_recoil_power number
----@field cam_return_speed number
+---@field cam_restore_speed number
 ---@field cam_max_angle number
 ---
 ---@field force_pitch number
@@ -25,10 +25,8 @@ local logger = fuzz_recoil_logger
 ---@field pull_force number
 ---@field firing_damping number
 ---
----@field zoom_ratio number
 ---@field is_bolt_action boolean
 ---@field desync_hud boolean
----@field pitch_frac number
 ---
 ---@field burst_class string
 ---
@@ -46,7 +44,7 @@ M.__index = M
 local default_profile = {
 
 	cam_recoil_power = 4,
-	cam_return_speed = 1,
+	cam_restore_speed = 1,
 	--0 means uncapped, radians like cam angle
 	cam_max_angle = 0.9999,
 
@@ -61,12 +59,8 @@ local default_profile = {
 	pull_force = 1.5,
 	firing_damping = 1.0,
 
-	--ads kick relative to hip, from vanilla zoom_cam_dispersion/cam_dispersion
-	zoom_ratio = 1,
 	is_bolt_action = false,
 	desync_hud = false,
-	--1 means no per shot variance
-	pitch_frac = 1,
 
 	--deterministic weapon class, drives burst heat
 	burst_class = "other",
@@ -122,7 +116,7 @@ end
 ---Methods
 ---------------
 ---@return fuzz_recoil_profile
-function M:new()
+function M.new()
 	local ins = {}
 	setmetatable(ins, M)
 	ins.raw_profile = {}
@@ -154,7 +148,7 @@ end
 local convert_list = {
 	--stylua: ignore start
 	cam_recoil_power = { type = 2, read = false },
-	cam_return_speed = { type = 2, read = false },
+	cam_restore_speed = { type = 2, read = false },
 
 	force_pitch      = { type = 2, read = false },
 	force_y          = { type = 2, read = false },
@@ -168,9 +162,7 @@ local convert_list = {
 
 	is_bolt_action   = { type = 1, read = false },
 	desync_hud       = { type = 1, read = false },
-	zoom_ratio       = { type = 2, read = false },
 
-	pitch_frac       = { type = 2, read = false },
 	cam_max_angle    = { type = 2, read = false },
 	--stylua: ignore end
 }
@@ -325,7 +317,7 @@ function M.imgui_editor_drawer(_prf, _prf_type, _prf_name)
 
 	ImGui.Text("Camera recoil")
 	_, _prf.cam_recoil_power = ImGui.SliderFloat("Cam Recoil Power", _prf.cam_recoil_power, 0.1, 16.0, "%.2f")
-	_, _prf.cam_return_speed = ImGui.SliderFloat("Cam Return Speed", _prf.cam_return_speed, -1, 2, "%.2f")
+	_, _prf.cam_restore_speed = ImGui.SliderFloat("Cam Restore Speed", _prf.cam_restore_speed, -1, 2, "%.2f")
 	_, _prf.cam_max_angle = ImGui.SliderFloat("Cam Max Angle", _prf.cam_max_angle, 0, 1, "%.3frad")
 
 	ImGui.Text("Hud Recoil")
@@ -355,11 +347,6 @@ function M.imgui_editor_drawer(_prf, _prf_type, _prf_name)
 	ImGui.EndDisabled()
 	_, _prf.shot_cam_impulse_factor =
 		ImGui.SliderFloat("Shot Cam Impulse Factor", _prf.shot_cam_impulse_factor, 0.0, 5.0, "%.3f")
-
-	ImGui.Separator()
-	ImGui.Text("Misc")
-	_, _prf.pitch_frac = ImGui.SliderFloat("Pitch Frac", _prf.pitch_frac, 0, 1, "%.2f")
-	_, _prf.zoom_ratio = ImGui.SliderFloat("Zoom Ratio", _prf.zoom_ratio, 0.25, 2, "%.2f")
 
 	ImGui.EndDisabled()
 	ImGui.PopID()

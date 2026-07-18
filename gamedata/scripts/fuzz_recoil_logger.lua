@@ -75,5 +75,20 @@ end
 
 function M.print_table(t, label)
 	local text = M.format_table(t)
-	m_log(label .. "=\n" .. text)
+	M.dbg(label .. "=\n" .. text)
+end
+function M.get_func_info(func)
+	if type(func) ~= "function" then
+		return "not func"
+	end
+	local info = debug.getinfo(func, "nS")
+	local funcName = info.namewhat or "anonymous"
+	local moduleName = info.source:match("([^/\\%?]+)$") or "unknown"
+	local line_defined = info.linedefined or 0
+	-- return M.format_table(info)
+	return string.format("%s(%s).%s", moduleName, line_defined, funcName)
+end
+
+function M.print_func_info(func)
+	M.dbg("(%s)", M.get_func_info(func))
 end

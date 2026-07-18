@@ -1,6 +1,7 @@
 local utils = fuzz_recoil_utils
 local logger = fuzz_recoil_logger
 local options = fuzz_recoil_mcm
+local frm = fuzz_recoil
 
 local M = {}
 _G.fuzz_recoil_cam_recoil = M
@@ -8,12 +9,13 @@ _G.fuzz_recoil_cam_recoil = M
 ----------
 ---Local Vars
 ----------
-local is_returned = false
+local is_restored = false
 local m_vel = 0
 local m_angle = 0
-local wepaon_cam_return_speed = 0
+local wepaon_cam_restore_speed = 0
 
-local _update_fn = M.update_exp
+---@type fuzz_on_firing
+local _firing_update_fn = M.update_exp
 ----------
 ---Cached vars
 ----------
@@ -30,14 +32,14 @@ end
 function M.get_vel()
 	return m_vel
 end
-function M.is_returned()
-	return is_returned
+function M.is_restored()
+	return is_restored
 end
 ----------
 ---Configs
 ----------
-base_cam_return_speed = 4.0
-min_cam_return_step = 0.0045
+base_cam_restore_speed = 4.0
+min_cam_restore_step = 0.0045
 --auto fire impulse decay and step divisor
 cam_impulse_decay = 12
 cam_step_div = 15
@@ -81,50 +83,76 @@ function M.remove_cam_fx()
 end
 
 ----------
+---Event
+----------
+local EVENT_ID = fuzz_recoil_event.getEventID("cam_recoil")
+----------
 ---Module
 ----------
-
 function M.awake()
 	M.instance = M
+	frm.on_init_wpn:add(EVENT_ID, M.init)
+	frm.on_start:add(EVENT_ID, M.start)
+	frm.on_shot:add(EVENT_ID, M.on_shot)
+	frm.on_firing_stop:add(EVENT_ID, M.on_firing_stop)
+	frm.on_stop:add(EVENT_ID, M.stop)
 	return M
 end
-function M.init(mode)
-	if mode then
-		M.switch_mode(mode)
-	end
-	M.stop()
-end
----@param profile fuzz_recoil_profile
 function M.cache_profile(profile)
 	lift_force = profile.cam_recoil_power
 	impulse_factor = profile.shot_cam_impulse_factor
-	wepaon_cam_return_speed = profile.cam_return_speed
+	wepaon_cam_restore_speed = profile.cam_restore_speed
 	max_angle = profile.cam_max_angle or 0.9999
 	hud_sync_with_cam = not profile.desync_hud
 end
+---@type fuzz_on_init_wpn
+function M.init(profile)
+	local mode = profile.shot_delay_enabled and "cubic" or "exp"
+	if mode then
+		M.switch_mode(mode)
+	end
+	M.restored()
+	frm.on_firing:add(EVENT_ID, _firing_update_fn)
+end
+---@param profile fuzz_recoil_profile
+---@type fuzz_on_start
 function M.start(profile)
 	M.cache_profile(profile)
 	create_cam_effector()
-	is_returned = false
+	is_restored = false
 end
-function M.stop()
-	-- NOTE: what if we don't remove cam effector at all?
-	-- M.remove_cam_fx()
-	set_player_angle(0.0001)
-	is_returned = true
-	m_angle = 0
-	m_vel = 0
-end
---scale carries the per shot koefs, frac variance, expansion and mode kick
-function M.on_fire(handle, scale)
-	is_returned = false
-	handle = math.pow(1 - handle, 2)
+
+---@type fuzz_on_shot
+function M.on_shot(handle_power, scale)
+	is_restored = false
+	handle_power = math.pow(1 - handle_power, 2)
 	local raw_impulse = lift_force * impulse_factor * (scale or 1)
-	fuzz_recoil.add_handling_fatigue(raw_impulse)
-	local cam_impulse = raw_impulse * handle
+	frm.add_handling_fatigue(raw_impulse)
+	local cam_impulse = raw_impulse * handle_power
 	m_vel = m_vel + cam_impulse
 end
 
+---@type fuzz_on_firing_stop
+function M.on_firing_stop()
+	frm.on_restoring:add(EVENT_ID, M.do_restore)
+end
+
+function M.restored()
+	-- M.remove_cam_fx()
+	frm.on_restoring:remove(EVENT_ID)
+	set_player_angle(0.0001)
+	is_restored = true
+	m_angle = 0
+	m_vel = 0
+end
+---@type fuzz_on_stop
+function M.stop()
+	-- NOTE: what if we don't remove cam effector at all?
+	M.remove_cam_fx()
+end
+--scale carries the per shot koefs, frac variance, expansion and mode kick
+
+---@type fuzz_on_firing
 function M.update_cubic(dt)
 	if math.abs(m_vel) <= 0.01 then
 		return
@@ -134,6 +162,7 @@ function M.update_cubic(dt)
 	m_angle = m_angle + m_vel * dt
 	set_player_angle(m_angle)
 end
+---@type fuzz_on_firing
 function M.update_exp(dt)
 	if math.abs(m_vel) <= 0.01 then
 		return
@@ -144,8 +173,9 @@ function M.update_exp(dt)
 	m_angle = m_angle + step
 	set_player_angle(m_angle)
 end
+---@type fuzz_on_firing
 function M.update_spring(dt)
-	m_angle, m_vel = utils.apply_spring(m_angle, m_vel, dt, fuzz_recoil.debug_var.float_x1)
+	m_angle, m_vel = utils.apply_spring(m_angle, m_vel, dt, frm.debug_var.float_x1)
 	set_player_angle(m_angle)
 end
 --TODO: enum but not here,it should be in main script so every module can use it
@@ -157,13 +187,13 @@ M.CURVEMODE = {
 
 function M.switch_mode(mode)
 	if mode == "exp" then
-		_update_fn = M.update_exp
+		_firing_update_fn = M.update_exp
 	elseif mode == "cubic" then
-		_update_fn = M.update_cubic
+		_firing_update_fn = M.update_cubic
 	elseif mode == "spring" then
-		_update_fn = M.update_spring
+		_firing_update_fn = M.update_spring
 	else
-		_update_fn = M.update_exp
+		_firing_update_fn = M.update_exp
 	end
 end
 
@@ -171,35 +201,25 @@ end
 --TODO: --maybe try simple_ease and lerp the vel to a min value?,it could be more natrual when the angle is high.
 --i think it's fine for now, and maybe remove camera return in the future if we can get rid of cam_effector
 --leave it here
-function M.do_return(dt)
+---@type fuzz_on_restoring
+function M.do_restore(dt)
 	--TODO:remove config and cache this when init
-	if m_angle <= min_cam_return_step then
-		M.stop()
+	if m_angle <= min_cam_restore_step then
+		M.restored()
 		return
 	end
-	local speed_factor = base_cam_return_speed + wepaon_cam_return_speed
+	local speed_factor = base_cam_restore_speed + wepaon_cam_restore_speed
 	local lerp_factor = 1.0 - math.exp(-speed_factor * dt)
 
 	local step = m_angle * lerp_factor
-	local min_step = min_cam_return_step
+	local min_step = min_cam_restore_step
 	local final_step = math.max(step, min_step)
-	--NOTE:vel is actually step when returning ,im just lazy ,its easy to debug
+	--NOTE:vel is actually step when restoring ,im just lazy ,its easy to debug
 	m_vel = final_step
 	m_angle = m_angle - final_step
 	set_player_angle(m_angle)
 end
 
---FIXME: something feels off...
-function M.update(dt, is_firing)
-	if is_firing then
-		_update_fn(dt)
-		return false
-	end
-	if not is_returned then
-		M.do_return(dt)
-	end
-	return is_returned
-end
 ---------
 ---IMGUI
 --------
@@ -211,8 +231,8 @@ function M.imgui_info_drawer()
 end
 function M.imgui_config_drawer()
 	ImGui.Text("Cam Recoil Config")
-	_, base_cam_return_speed = ImGui.SliderFloat("Base Cam Return Speed", base_cam_return_speed, 0.1, 10, "%.2frad")
-	_, min_cam_return_step = ImGui.SliderFloat("Min Cam Return step", min_cam_return_step, 0.001, 0.01, "%.4frad")
+	_, base_cam_restore_speed = ImGui.SliderFloat("Base Cam Restore Speed", base_cam_restore_speed, 0.1, 10, "%.2frad")
+	_, min_cam_restore_step = ImGui.SliderFloat("Min Cam Restore step", min_cam_restore_step, 0.001, 0.01, "%.4frad")
 	_, cam_impulse_decay = ImGui.SliderFloat("Cam Impulse Decay", cam_impulse_decay, 1.0, 50.0, "%.2f")
 	_, cam_step_div = ImGui.SliderFloat("Cam Step Div", cam_step_div, 1.0, 50.0, "%.2f")
 end

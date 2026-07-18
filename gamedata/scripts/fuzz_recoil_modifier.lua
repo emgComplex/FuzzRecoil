@@ -118,7 +118,7 @@ end
 ---Internal methods
 ---------------
 ---@return fuzz_recoil_modifier
-function M:new()
+function M.new()
 	local ins = {}
 	setmetatable(ins, M)
 	ins.m_modifiers = {}

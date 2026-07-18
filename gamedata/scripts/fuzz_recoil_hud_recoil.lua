@@ -1,3 +1,5 @@
+local frm = fuzz_recoil
+local camrc = fuzz_recoil_cam_recoil.instance
 local utils = fuzz_recoil_utils
 local logger = fuzz_recoil_logger
 local iui = fuzz_recoil_imgui
@@ -12,7 +14,7 @@ _G.fuzz_recoil_hud_recoil = M
 local cur_pos = vector():set(0, 0, 0)
 local cur_rot = vector():set(0, 0, 0)
 
-local is_returned = false
+local is_restored = false
 
 local vel_pos = vector():set(0, 0, 0)
 local vel_rot = vector():set(0, 0, 0)
@@ -45,7 +47,6 @@ local ori_hand_trs = {
 	vector():set(0, 0, 0),
 }
 
-local camrc = fuzz_recoil_cam_recoil.instance
 local fire_interval = 0.1
 local pull_force = 1.5
 local firing_damping = 1
@@ -55,8 +56,6 @@ local force_yaw = 15
 local force_x = 0.0006
 --shoulder push, z pop per shot
 local force_z = 0.006
---ads kick relative to hip, from vanilla zoom_cam_dispersion/cam_dispersion
-local zoom_ratio = 1
 --deterministic weapon class, drives burst heat
 local burst_class = "other"
 local shot_delay_enabled = false
@@ -69,10 +68,11 @@ local use_Y_lift = false
 local max_hud_rot = vector():set(3, 3, 0)
 local max_hud_pos = vector():set(0.0025, 0.0035, 0.02)
 
-return_spring = 150
-return_damping = 15.0
+restore_spring = 150
+restore_damping = 15.0
 smooth_firing = 4.5
-smooth_return = 10
+smooth_restore = 10
+local threshold_restore = 0.001
 
 --v2 kick   profile impulses rescaled into instant hud displacement
 v2_pitch_scale = 0.022
@@ -116,27 +116,21 @@ v2_heat_max = 1.6
 v2_recover_base = 3.0
 v2_recover_gain = 3.0
 --recenter fraction per fire interval   each snap returns before the next shot
-v2_snap_return = 2.0
+v2_snap_restore = 2.0
 --horizontal recovers slower like tarkov   z shoulder pop recovers fast
 v2_h_recover_mul = 0.65
 v2_z_recover = 9.0
-smooth_firing_v2 = 25
+smooth_firing_instant = 25
 
 --------------
 --Cahced options
 --------------
 local bolt_action_Y_lift = true
-local use_zoom_ratio = false
-
-function M.on_option_change()
-	bolt_action_Y_lift = options.bolt_action_Y_lift
-	use_zoom_ratio = options.use_zoom_ratio
-end
 --------
 ---public getters
 --------
-function M.is_returned()
-	return is_returned
+function M.is_restored()
+	return is_restored
 end
 function M.get_rot_raw()
 	return rot_raw
@@ -144,12 +138,9 @@ end
 function M.get_vel_rot()
 	return vel_rot
 end
---hip fire kicks harder, the vanilla zoom ratio is opt in
+--TODO:apply to spring with different mul...
 function M.get_mode_kick_mul()
-	if is_ads then
-		return (use_zoom_ratio and zoom_ratio or 1) * ads_kick_mul
-	end
-	return hip_kick_mul
+	return is_ads and ads_kick_mul or hip_kick_mul
 end
 
 --------------
@@ -326,26 +317,18 @@ local function init_offset(wpn_sec, cast_wpn)
 	hud_adjust.set_value("scope_zoom_factor_alt", utils.get_float(wpn_sec, "scope_zoom_factor_alt"))
 	hud_adjust.enabled(false)
 end
-function M.cache_profile(profile)
-	fire_interval = profile.fire_interval
-	firing_damping = profile.firing_damping
-	pull_force = profile.pull_force
-
-	force_pitch = profile.force_pitch
-	force_y = profile.force_y
-	force_yaw = profile.force_yaw
-	force_x = profile.force_x
-	force_z = profile.force_z or 0.006
-	zoom_ratio = profile.zoom_ratio or 1
-	burst_class = profile.burst_class or "other"
-
-	use_Y_lift = profile.is_bolt_action
-	shot_delay_enabled = profile.shot_delay_enabled
-end
 --------------
 --Spring Mode
 --------------
-local function on_fire_spring(handling_power, _, _, _)
+local function apply_trans_and_smooth(dt, smooth, rot)
+	pos_y_sync_with_cam()
+
+	apply_simple_smooth(dt, smooth)
+	M.set_hud_offset(pos_smooth, rot)
+end
+---@type fuzz_on_shot
+local function on_shot_spring(handling_power)
+	is_restored = false
 	-- NOTE: vertical recoil should come from cam recoil  no this
 	-- but we could turn this into an visual effect.
 	-- local pitch_kick_enhancer = 1
@@ -372,10 +355,9 @@ local function on_fire_spring(handling_power, _, _, _)
 	--NOTE:count_ratio = 1/20
 	local pos_x_impulse = (math.random() * 2 - 1) * force_x
 	vel_pos.x = vel_pos.x + pos_x_impulse
-
-	is_returned = false
 end
-local function update_on_firing(dt, handling_power)
+---@type fuzz_on_firing
+local function firing_update_spring(dt, handling_power)
 	local pull_strength = pull_force * handling_power
 
 	apply_recoil_forces(dt, pull_strength, firing_damping)
@@ -383,43 +365,30 @@ local function update_on_firing(dt, handling_power)
 	-- limit before smooth
 	rot_raw:clamp(max_hud_rot)
 	pos_raw:clamp(max_hud_pos)
+	apply_trans_and_smooth(dt, smooth_firing, rot_smooth)
 end
-local function update_on_return(dt)
-	local spring = return_spring
-	local damping = return_damping
+---@type fuzz_on_restoring
+local function restoring_update_spring(dt)
+	local spring = restore_spring
+	local damping = restore_damping
 
 	apply_spring_vec(pos_raw, vel_pos, dt, spring, damping)
 	apply_spring_vec(rot_raw, vel_rot, dt, spring, damping)
 
-	local threshold_return = 0.001
-	if rot_raw:magnitude() < threshold_return and pos_raw:magnitude() < threshold_return then
-		M.stop()
+	if rot_raw:magnitude() < threshold_restore and pos_raw:magnitude() < threshold_restore then
+		M.restored()
 		return
 	end
-end
---TODO: conditional switch is shit ,use deleate instead
-local function update_spring(dt, handling_power)
-	if is_returned then
-		return true
-	end
-	if handling_power then
-		update_on_firing(dt, handling_power)
-	else
-		update_on_return(dt)
-	end
-	pos_y_sync_with_cam()
-
-	apply_simple_smooth(dt, handling_power and smooth_firing or smooth_return)
-	M.set_hud_offset(pos_smooth, rot_smooth)
-	return false
+	apply_trans_and_smooth(dt, smooth_restore, rot_smooth)
 end
 
 --------------
---Instant Mode (v2, tarkov style)
+--Instant Mode
 --------------
 --instant displacement per shot, recovery eases it back (snap out ease back)
-local function on_fire_instant(handling_power, ads, cam_k, burst_shots)
-	is_returned = false
+---@type fuzz_on_shot
+local function on_shot_instant(handling_power, _, ads, cam_k, burst_shots)
+	is_restored = false
 	is_ads = ads and true or false
 	shot_cam_k = cam_k or 1
 
@@ -515,13 +484,14 @@ local function on_fire_instant(handling_power, ads, cam_k, burst_shots)
 	pos_smooth.z = pos_smooth.z + d_pos_z * ff
 end
 --recovery, exponential pull toward aim, rate grows with handling for climb then plateau
-local function apply_recover_instant(dt, handling_power)
+---@type fuzz_on_firing
+local function firing_update_instant(dt, handling_power)
 	local r = (v2_recover_base + v2_recover_gain * handling_power) * pull_force
 	if not is_ads then
 		r = r * hip_recover_mul
 	end
 	--rpm scaled recentering, the standing offset stays near zero at any fire rate
-	r = r + v2_snap_return / fire_interval
+	r = r + v2_snap_restore / fire_interval
 	local d_v = math.exp(-r * dt)
 	local d_h = math.exp(-r * v2_h_recover_mul * dt)
 	rot_raw.y = rot_raw.y * d_v
@@ -533,30 +503,25 @@ local function apply_recover_instant(dt, handling_power)
 	local wd = math.exp(-v2_wander_decay * dt)
 	drift_pitch = drift_pitch * wd
 	drift_yaw = drift_yaw * wd
+	rot_raw:clamp(max_hud_rot)
+	pos_raw:clamp(max_hud_pos)
+	apply_trans_and_smooth(dt, smooth_firing_instant, rot_with_drift())
 end
-local function update_instant(dt, handling_power)
-	if is_returned then
-		return true
-	end
-	if handling_power then
-		apply_recover_instant(dt, handling_power)
-		-- limit before smooth
-		rot_raw:clamp(max_hud_rot)
-		pos_raw:clamp(max_hud_pos)
-	else
-		update_on_return(dt)
-		--drift comes home fast once firing stops
-		local wd = math.exp(-6 * dt)
-		drift_pitch = drift_pitch * wd
-		drift_yaw = drift_yaw * wd
-	end
-	pos_y_sync_with_cam()
-
-	apply_simple_smooth(dt, handling_power and smooth_firing_v2 or smooth_return)
-	M.set_hud_offset(pos_smooth, rot_with_drift())
-	return false
+---@type fuzz_on_restoring
+local function restoring_update_instant(dt)
+	restoring_update_spring(dt, false)
+	-- FIXME: doubled applying
+	local wd = math.exp(-6 * dt)
+	drift_pitch = drift_pitch * wd
+	drift_yaw = drift_yaw * wd
+	apply_trans_and_smooth(dt, smooth_firing_instant, rot_with_drift())
+	--drift comes home fast once firing stops
 end
 
+----------
+---Event
+----------
+local EVENT_ID = fuzz_recoil_event.getEventID("hud_recoil")
 --------------
 --Mode Switching
 --------------
@@ -564,15 +529,21 @@ M.MODE = {
 	SPRING = 0,
 	INSTANT = 1,
 }
-local _update_fn = update_spring
-local _on_fire_fn = on_fire_spring
+---@type fuzz_on_shot
+local _on_shot_fn = on_shot_spring
+---@type fuzz_on_firing
+local _firing_update_fn = firing_update_spring
+---@type fuzz_on_restoring
+local _restoring_update_fn = restoring_update_spring
 function M.switch_mode(mode)
 	if mode == M.MODE.SPRING then
-		_update_fn = update_spring
-		_on_fire_fn = on_fire_spring
+		_on_shot_fn = on_shot_spring
+		_firing_update_fn = firing_update_spring
+		_restoring_update_fn = restoring_update_spring
 	elseif mode == M.MODE.INSTANT then
-		_update_fn = update_instant
-		_on_fire_fn = on_fire_instant
+		_on_shot_fn = on_shot_instant
+		_firing_update_fn = firing_update_instant
+		_restoring_update_fn = restoring_update_instant
 	end
 end
 --------------
@@ -581,28 +552,61 @@ end
 --TODO: is this bad? but loading order is a little messy, some null error occurs
 --if it's bad we can set reference when on_game_start
 function M.awake()
+	frm.on_init_wpn:add(EVENT_ID, M.init)
+	frm.on_start:add(EVENT_ID, M.start)
+	frm.on_before_fire:add(EVENT_ID, M.pick_yaw_sign)
+	frm.on_firing_stop:add(EVENT_ID, M.on_firing_stop)
+	frm.on_stop:add(EVENT_ID, M.stop)
 	M.instance = M
 	return M
 end
+function M.on_option_change()
+	bolt_action_Y_lift = options.bolt_action_Y_lift
+	M.switch_mode(options.instant_mode and M.MODE.INSTANT or M.MODE.SPRING)
+	frm.on_shot:add(EVENT_ID, _on_shot_fn)
+	frm.on_firing:add(EVENT_ID, _firing_update_fn)
+end
+function M.cache_profile(profile)
+	fire_interval = profile.fire_interval
+	firing_damping = profile.firing_damping
+	pull_force = profile.pull_force
 
-function M.init(wpn_sec, cast_wpn)
-	init_offset(wpn_sec, cast_wpn)
-end
-function M.start(profile)
-	M.cache_profile(profile)
-	M.reset_hud_hand()
-	M.enable_hud_adjust()
-	M.pick_yaw_sign()
-end
-function M.pick_yaw_sign()
-	yaw_sign = math.random() > 0.5 and 1 or -1
+	force_pitch = profile.force_pitch
+	force_y = profile.force_y
+	force_yaw = profile.force_yaw
+	force_x = profile.force_x
+	force_z = profile.force_z or 0.006
+	burst_class = profile.burst_class or "other"
+
+	use_Y_lift = profile.is_bolt_action
+	shot_delay_enabled = profile.shot_delay_enabled
 end
 function M.invert_yaw_sign()
 	yaw_sign = yaw_sign * -1
 end
-function M.stop()
-	logger.dbg("reset hud recoil")
-	is_returned = true
+
+---@type fuzz_on_init_wpn
+function M.init(_, cast_wpn, wpn_sec)
+	init_offset(wpn_sec, cast_wpn)
+end
+---@type fuzz_on_start
+function M.start(profile)
+	M.cache_profile(profile)
+	M.reset_hud_hand()
+	M.enable_hud_adjust()
+end
+---@type fuzz_on_before_fire
+function M.pick_yaw_sign()
+	yaw_sign = math.random() > 0.5 and 1 or -1
+end
+---@type fuzz_on_firing_stop
+function M.on_firing_stop()
+	frm.on_restoring:add(EVENT_ID, _restoring_update_fn)
+end
+
+function M.restored()
+	frm.on_restoring:remove(EVENT_ID)
+	is_restored = true
 
 	vel_rot = vector():set(0, 0, 0)
 	vel_pos = vector():set(0, 0, 0)
@@ -618,15 +622,13 @@ function M.stop()
 	drift_vel_yaw = 0
 
 	M.reset_hud_hand()
+	-- logger.dbg("reset hud recoil")
 end
 
-function M.on_fire(handling_power, ads, cam_k, burst_shots)
-	_on_fire_fn(handling_power, ads, cam_k, burst_shots)
+---@type fuzz_on_stop
+function M.stop()
+	M.disable_hud_adjust()
 end
-function M.update(dt, handling_power)
-	return _update_fn(dt, handling_power)
-end
-
 ------------------------------------
 ---IMGUI
 ------------------------------------
@@ -652,9 +654,9 @@ function M.imgui_config_drawer()
 	ImGui.Text("Hud Recoil Config")
 	ImGui.TextColored(vector4():set(0.3, 0.8, 1, 1), "Physics")
 	_, smooth_firing = ImGui.SliderFloat("Smooth Firing", smooth_firing, 0.0, 10.0, "%.2f")
-	_, smooth_return = ImGui.SliderFloat("Smooth Return", smooth_return, 5.0, 15.0, "%.2f")
-	_, return_spring = ImGui.SliderFloat("Return Spring", return_spring, 0.1, 30.0, "%.2f")
-	_, return_damping = ImGui.SliderFloat("Return Damping", return_damping, 0.1, 16.0, "%.2f")
+	_, smooth_restore = ImGui.SliderFloat("Smooth Restore", smooth_restore, 5.0, 15.0, "%.2f")
+	_, restore_spring = ImGui.SliderFloat("Restore Spring", restore_spring, 0.1, 30.0, "%.2f")
+	_, restore_damping = ImGui.SliderFloat("Restore Damping", restore_damping, 0.1, 16.0, "%.2f")
 	iui.vector_imgui_slider_drawer(max_hud_rot, "Max Hud Rot", 5, true)
 	iui.vector_imgui_slider_drawer(max_hud_pos, "Max Hud Pos", 0.004, false)
 	if ImGui.TreeNode("V2 Kick Tuning") then
@@ -674,7 +676,7 @@ function M.imgui_config_drawer()
 		_, v2_recover_gain = ImGui.SliderFloat("Recover Gain", v2_recover_gain, 0, 8, "%.2f")
 		_, v2_h_recover_mul = ImGui.SliderFloat("H Recover Mul", v2_h_recover_mul, 0.1, 1, "%.2f")
 		_, v2_z_recover = ImGui.SliderFloat("Z Recover", v2_z_recover, 1, 20, "%.1f")
-		_, smooth_firing_v2 = ImGui.SliderFloat("Smooth Firing V2", smooth_firing_v2, 5, 60, "%.1f")
+		_, smooth_firing_instant = ImGui.SliderFloat("Smooth Firing V2", smooth_firing_instant, 5, 60, "%.1f")
 		ImGui.TreePop()
 	end
 	if ImGui.TreeNode("Burst Heat") then
