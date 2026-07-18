@@ -583,7 +583,14 @@ function M.check_current_weapon()
 		return false
 	end
 	m_wpn_info.kind = kind
-	init_weapon(wpn_sec)
+	--a failed init keeps vanilla recoil instead of a zero recoil gun
+	local ok, err = pcall(init_weapon, wpn_sec)
+	if not ok then
+		logger.err("init_weapon failed for %s, vanilla recoil kept: %s", wpn_sec, tostring(err))
+		restore_vanilla_cam_recoil()
+		cur_wpn_id = -1
+		return false
+	end
 	return true
 end
 function M.force_recheck_weapon()
