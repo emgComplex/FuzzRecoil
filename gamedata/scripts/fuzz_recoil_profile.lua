@@ -122,7 +122,7 @@ end
 ---Methods
 ---------------
 ---@return fuzz_recoil_profile
-function M:new()
+function M.new()
 	local ins = {}
 	setmetatable(ins, M)
 	ins.raw_profile = {}

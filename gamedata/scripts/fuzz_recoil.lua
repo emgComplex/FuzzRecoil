@@ -83,7 +83,7 @@ local hudrc = fuzz_recoil_hud_recoil.awake()
 local punchrc = fuzz_recoil_punch.awake()
 
 ---@type fuzz_recoil_profile
-local m_profile = Profile:new()
+local m_profile = Profile.new()
 ---@class fuzz_recoil_wpn_info
 local m_wpn_info = {
 	--NOTE: upgrade needed
@@ -160,8 +160,8 @@ local allowed_kinds = {
 	w_sniper = true,
 	w_smg = true,
 }
-local firing_handling_ease = utils.simple_ease:new(1, 1, 0.2, 4)
-local idle_handling_ease = utils.simple_ease:new(-1, -1, 0.2, 6)
+local firing_handling_ease = utils.simple_ease.new(1, 1, 0.2, 4)
+local idle_handling_ease = utils.simple_ease.new(-1, -1, 0.2, 6)
 --NOGUI
 local FATIGUE_MAX_POWER = 0.55
 sniper_idle_handling = { offset = 0.2, intensity = 0.8 }
@@ -422,7 +422,7 @@ function init_weapon(wpn_sec)
 		-- for k, v in pairs(wpn_info) do
 		-- 	logger.dbg(type(v) == "number" and "%s:%.6f" or "%s:%s", k, v)
 		-- end
-		m_profile = fuzz_recoil_profile:new():load(wpn_sec, m_wpn_info)
+		m_profile = fuzz_recoil_profile.new():load(wpn_sec, m_wpn_info)
 		cached_weapons[cur_wpn_id] = {
 			wpn_info = m_wpn_info,
 			profile = m_profile,
@@ -782,9 +782,9 @@ function remove_upgrade_modifiers()
 end
 
 --NOTE:update when swithcing wepaon
-M.static_modifiers = fuzz_recoil_modifier:new()
+M.static_modifiers = fuzz_recoil_modifier.new()
 --NOTE:update before fire
-M.dynamic_modifiers = fuzz_recoil_modifier:new()
+M.dynamic_modifiers = fuzz_recoil_modifier.new()
 
 local m_modifiers = {
 	M.static_modifiers,
