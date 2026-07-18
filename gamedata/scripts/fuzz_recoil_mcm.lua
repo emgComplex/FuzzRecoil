@@ -75,7 +75,7 @@ end
 function read_options()
 	for k, v in pairs(defaults) do
 		local result = get_config(k)
-		if result then
+		if result ~= nil then
 			M[k] = result
 		end
 	end

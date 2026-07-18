@@ -214,6 +214,7 @@ end
 -- end
 
 function M.on_option_change()
+	logger.on_option_change()
 	hudrc.on_option_change()
 	camrc.on_option_change()
 	punchrc.on_option_change()
