@@ -242,6 +242,10 @@ function actor_on_weapon_before_fire()
 	end
 end
 function actor_on_weapon_fired()
+	--grenade launcher shots keep vanilla behavior, no rifle kick
+	if cur_wpn and cur_wpn:weapon_in_grenade_mode() then
+		return
+	end
 	--first draw reaches here with active already true, check the effector too
 	if not active or not camrc.has_camera_effector() then
 		start_recoil()
