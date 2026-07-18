@@ -27,7 +27,6 @@ local logger = fuzz_recoil_logger
 ---
 ---@field is_bolt_action boolean
 ---@field desync_hud boolean
----@field pitch_frac number
 ---
 ---@field burst_class string
 ---
@@ -62,8 +61,6 @@ local default_profile = {
 
 	is_bolt_action = false,
 	desync_hud = false,
-	--1 means no per shot variance
-	pitch_frac = 1,
 
 	--deterministic weapon class, drives burst heat
 	burst_class = "other",
@@ -166,7 +163,6 @@ local convert_list = {
 	is_bolt_action   = { type = 1, read = false },
 	desync_hud       = { type = 1, read = false },
 
-	pitch_frac       = { type = 2, read = false },
 	cam_max_angle    = { type = 2, read = false },
 	--stylua: ignore end
 }
@@ -351,10 +347,6 @@ function M.imgui_editor_drawer(_prf, _prf_type, _prf_name)
 	ImGui.EndDisabled()
 	_, _prf.shot_cam_impulse_factor =
 		ImGui.SliderFloat("Shot Cam Impulse Factor", _prf.shot_cam_impulse_factor, 0.0, 5.0, "%.3f")
-
-	ImGui.Separator()
-	ImGui.Text("Misc")
-	_, _prf.pitch_frac = ImGui.SliderFloat("Pitch Frac", _prf.pitch_frac, 0, 1, "%.2f")
 
 	ImGui.EndDisabled()
 	ImGui.PopID()

@@ -82,9 +82,6 @@ local special_converter = {
 		end
 		return 0.9999
 	end,
-	["pitch_frac"] = function(op)
-		return utils.math_clamp(op.cam_dispersion_frac or 1, 0, 1)
-	end,
 }
 
 local function convert_single(param_name, op)

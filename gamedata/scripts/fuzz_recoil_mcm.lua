@@ -11,7 +11,6 @@ local logger = fuzz_recoil_logger
 ---@field use_bloom boolean
 ---@field use_punch boolean
 ---@field punch_legacy boolean
----@field use_pitch_frac boolean
 ---@field use_addon_ammo_koefs boolean
 ---@field recoil_v_scale number
 local M = {}
@@ -51,8 +50,6 @@ local defaults = {
 	punch_legacy = false,
 	--NOTE: HIDDEN FROM MCM for now
 
-	--vanilla data extras, off keeps stock feel
-	use_pitch_frac = false,
 	use_addon_ammo_koefs = false,
 	--NOTE: CONSIDER REMOVE
 

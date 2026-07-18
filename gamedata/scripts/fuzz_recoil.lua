@@ -97,7 +97,6 @@ local m_wpn_info = {
 	cam_relax_speed = 0,
 	mag_size = 30,
 	--NOTE: feature needed
-	cam_dispersion_frac = 0.7,
 	addon_cam_k = 1,
 	addon_cam_inc_k = 1,
 	inv_weight = 0,
@@ -285,15 +284,12 @@ function actor_on_weapon_fired()
 		local bc = M.bloom.classes[m_profile.burst_class] or M.bloom.classes.other
 		bloom_heat = math.min(bloom_heat + bc.rate * (is_ads and M.bloom.ads_mul or 1), bc.max)
 	end
-	local frac_factor = options.use_pitch_frac and (1 + (math.random() * 2 - 1) * (1 - m_profile.pitch_frac)) or 1
-	local kick_scale = frac_factor * shot_cam_k * (options.instant_mode and hudrc.get_mode_kick_mul() or 1)
+	local kick_scale = shot_cam_k * (options.instant_mode and hudrc.get_mode_kick_mul() or 1)
 
 	M.on_shot:invoke(real_handling_power, kick_scale, is_ads, shot_cam_k, burst_shots)
 
 	--TODO: instead of burst_shot,heating should implemented by a new system like how fatigue works
 	burst_shots = burst_shots + 1
-
-	--vanilla dispersion_frac as mean preserving per shot variance
 end
 function actor_on_update()
 	local dt = device().time_delta / 1000
@@ -470,8 +466,6 @@ function get_basic_wpn_info()
 	m_wpn_info.cam_relax_speed = math.deg(cur_cast_wpn:GetCamRelaxSpeed())
 end
 function get_feat_wpn_info()
-	--NOTE: dispersion_frac is a unitless fraction, no deg conversion
-	m_wpn_info.cam_dispersion_frac = cur_cast_wpn:GetCamDispersionFrac()
 	--live weight includes attached addons
 	m_wpn_info.inv_weight = cur_cast_wpn:Weight()
 	collect_addon_koefs()
