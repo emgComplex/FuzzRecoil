@@ -529,8 +529,14 @@ function M.on_game_start()
 	hudrc = fuzz_recoil_hud_recoil
 	RegisterScriptCallback("actor_on_weapon_fired", on_fire)
 	RegisterScriptCallback("actor_on_first_update", actor_on_first_update)
-	-- RegisterScriptCallback("actor_on_update", on_update)
+	RegisterScriptCallback("actor_on_update", actor_on_update())
 	log("Fuzz:Dev mode enabled")
+end
+function actor_on_update()
+	if cheat_mag and frm.is_active() then
+		cast_wpn = fuzz_recoil.get_cur_wpn():cast_Weapon()
+		cast_wpn:SetMisfire(false)
+	end
 end
 function actor_on_first_update()
 	if inf_weight then
