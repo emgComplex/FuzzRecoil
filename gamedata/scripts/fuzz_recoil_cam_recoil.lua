@@ -93,7 +93,7 @@ function M.awake()
 	M.instance = M
 	frm.on_init_wpn:add(EVENT_ID, M.init)
 	frm.on_start:add(EVENT_ID, M.start)
-	frm.on_fire:add(EVENT_ID, M.on_fire)
+	frm.on_shot:add(EVENT_ID, M.on_shot)
 	frm.on_firing_stop:add(EVENT_ID, M.on_firing_stop)
 	frm.on_stop:add(EVENT_ID, M.stop)
 	return M
@@ -122,8 +122,8 @@ function M.start(profile)
 	is_restored = false
 end
 
----@type fuzz_on_fire
-function M.on_fire(handle_power, scale)
+---@type fuzz_on_shot
+function M.on_shot(handle_power, scale)
 	is_restored = false
 	handle_power = math.pow(1 - handle_power, 2)
 	local raw_impulse = lift_force * impulse_factor * (scale or 1)

@@ -333,8 +333,8 @@ local function apply_trans_and_smooth(dt, smooth, rot)
 	apply_simple_smooth(dt, smooth)
 	M.set_hud_offset(pos_smooth, rot)
 end
----@type fuzz_on_fire
-local function on_fire_spring(handling_power)
+---@type fuzz_on_shot
+local function on_shot_spring(handling_power)
 	is_restored = false
 	-- NOTE: vertical recoil should come from cam recoil  no this
 	-- but we could turn this into an visual effect.
@@ -393,8 +393,8 @@ end
 --Instant Mode
 --------------
 --instant displacement per shot, recovery eases it back (snap out ease back)
----@type fuzz_on_fire
-local function on_fire_instant(handling_power, _, ads, cam_k, burst_shots)
+---@type fuzz_on_shot
+local function on_shot_instant(handling_power, _, ads, cam_k, burst_shots)
 	is_restored = false
 	is_ads = ads and true or false
 	shot_cam_k = cam_k or 1
@@ -536,19 +536,19 @@ M.MODE = {
 	SPRING = 0,
 	INSTANT = 1,
 }
----@type fuzz_on_fire
-local _on_fire_fn = on_fire_spring
+---@type fuzz_on_shot
+local _on_shot_fn = on_shot_spring
 ---@type fuzz_on_firing
 local _firing_update_fn = firing_update_spring
 ---@type fuzz_on_restoring
 local _restoring_update_fn = restoring_update_spring
 function M.switch_mode(mode)
 	if mode == M.MODE.SPRING then
-		_on_fire_fn = on_fire_spring
+		_on_shot_fn = on_shot_spring
 		_firing_update_fn = firing_update_spring
 		_restoring_update_fn = restoring_update_spring
 	elseif mode == M.MODE.INSTANT then
-		_on_fire_fn = on_fire_instant
+		_on_shot_fn = on_shot_instant
 		_firing_update_fn = firing_update_instant
 		_restoring_update_fn = restoring_update_instant
 	end
@@ -571,7 +571,7 @@ function M.on_option_change()
 	bolt_action_Y_lift = options.bolt_action_Y_lift
 	use_zoom_ratio = options.use_zoom_ratio
 	M.switch_mode(options.instant_mode and M.MODE.INSTANT or M.MODE.SPRING)
-	frm.on_fire:add(EVENT_ID, _on_fire_fn)
+	frm.on_shot:add(EVENT_ID, _on_shot_fn)
 	frm.on_firing:add(EVENT_ID, _firing_update_fn)
 end
 function M.cache_profile(profile)

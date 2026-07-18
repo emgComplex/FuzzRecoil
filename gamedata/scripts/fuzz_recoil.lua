@@ -25,10 +25,10 @@ M.on_start = Event.new("start")
 ---invoke: fun(self: FuzzEvent) }
 M.on_before_fire = Event.new("before_fire")
 
----@alias fuzz_on_fire fun(hp:number, kick_scale:any, ads:boolean, ...)
----@type FuzzEvent|{ add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_fire),
+---@alias fuzz_on_shot fun(hp:number, kick_scale:any, ads:boolean, ...)
+---@type FuzzEvent|{ add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_shot),
 ---invoke: fun(self: FuzzEvent, hp:number, kick_scale:any, ads:boolean, ...) }
-M.on_fire = Event.new("on_fire")
+M.on_shot = Event.new("on_shot")
 
 --NOTE: dt must be first for handling_power
 
@@ -56,7 +56,7 @@ local m_events = {
 	M.on_init_wpn,
 	M.on_start,
 	M.on_before_fire,
-	M.on_fire,
+	M.on_shot,
 	M.on_firing,
 	M.on_firing_stop,
 	M.on_stop,
@@ -288,7 +288,7 @@ function actor_on_weapon_fired()
 	local frac_factor = options.use_pitch_frac and (1 + (math.random() * 2 - 1) * (1 - m_profile.pitch_frac)) or 1
 	local kick_scale = frac_factor * shot_cam_k * (options.instant_mode and hudrc.get_mode_kick_mul() or 1)
 
-	M.on_fire:invoke(real_handling_power, kick_scale, is_ads, shot_cam_k, burst_shots)
+	M.on_shot:invoke(real_handling_power, kick_scale, is_ads, shot_cam_k, burst_shots)
 
 	--TODO: instead of burst_shot,heating should implemented by a new system like how fatigue works
 	burst_shots = burst_shots + 1

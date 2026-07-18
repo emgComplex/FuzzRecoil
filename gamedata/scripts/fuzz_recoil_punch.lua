@@ -111,7 +111,7 @@ local function sub_events(flag)
 		--add event
 		frm.on_init_wpn:add(EVENT_ID, M.init)
 		frm.on_start:add(EVENT_ID, M.start)
-		frm.on_fire:add(EVENT_ID, M.on_fire)
+		frm.on_shot:add(EVENT_ID, M.on_shot)
 		frm.on_firing:add(EVENT_ID, M.on_firing)
 		frm.on_firing_stop:add(EVENT_ID, M.on_firing_stop)
 		frm.on_stop:add(EVENT_ID, M.stop)
@@ -119,7 +119,7 @@ local function sub_events(flag)
 		-- remove event
 		frm.on_init_wpn:remove(EVENT_ID)
 		frm.on_start:remove(EVENT_ID)
-		frm.on_fire:remove(EVENT_ID)
+		frm.on_shot:remove(EVENT_ID)
 		frm.on_firing:remove(EVENT_ID)
 		frm.on_firing_stop:remove(EVENT_ID)
 		frm.on_stop:remove(EVENT_ID)
@@ -160,8 +160,8 @@ function M.stop()
 	remove_punch_effector()
 end
 
----@type fuzz_on_fire
-function M.on_fire(_, scale)
+---@type fuzz_on_shot
+function M.on_shot(_, scale)
 	--cache the true base once, the console fallback would otherwise read its own punch
 	if base_fov == nil then
 		base_fov = get_console_cmd(2, "fov")
