@@ -166,6 +166,10 @@ local convert_list = {
 	cam_max_angle    = { type = 2, read = false },
 	--stylua: ignore end
 }
+--renamed ltx keys read through their old names, gamma patch ships the old ones
+local key_aliases = {
+	cam_restore_speed = "cam_return_speed",
+}
 
 function M:read_profile(wpn_sec, wpn_info, prf_sec)
 	if prf_sec and not force_convert then
@@ -173,6 +177,9 @@ function M:read_profile(wpn_sec, wpn_info, prf_sec)
 		---@diagnostic disable: need-check-nil
 		for param, v in pairs(convert_list) do
 			local result = SYS_GetParam(v.type, prf_sec, param)
+			if result == nil and key_aliases[param] then
+				result = SYS_GetParam(v.type, prf_sec, key_aliases[param])
+			end
 			v.read = not (result == nil)
 			self[param] = result
 		end
