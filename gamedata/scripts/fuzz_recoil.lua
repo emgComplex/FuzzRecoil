@@ -282,6 +282,8 @@ function actor_on_weapon_fired()
 end
 function actor_on_update()
 	local dt = device().time_delta / 1000
+	--arms the comp transfer at any quiet moment, cheap and independent of active
+	camrc.update_probe(is_firing)
 	update_fatigue(dt)
 	if not active then
 		return
