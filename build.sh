@@ -60,6 +60,8 @@ copy_files "00 Core" \
 	"gamedata/scripts/fuzz_recoil_modifier.lua" \
 	"gamedata/scripts/fuzz_recoil_cam_recoil.lua" \
 	"gamedata/scripts/fuzz_recoil_hud_recoil.lua" \
+	"gamedata/scripts/fuzz_recoil_event.lua" \
+	"gamedata/scripts/fuzz_recoil_punch.lua" \
 	"gamedata/scripts/fuzz_recoil_mcm.lua" \
 	"gamedata/configs/text/eng/ui_mcm_fuzz_recoil.xml" \
 	"gamedata/scripts/fuzz_recoil.lua"
@@ -70,6 +72,10 @@ copy_files "01 Shot_fx_disable(camshake)" \
 copy_files "02 ImGui_Editors" \
 	"gamedata/scripts/fuzz_recoil_imgui.lua" \
 	"gamedata/scripts/fuzz_recoil_impacts.lua"
+
+copy_files "03 Gamma_Patch" \
+	"./gamedata/configs/mod_system_z_fuzz_recoil_gamma_patch_pistol.ltx" \
+	"./gamedata/configs/mod_system_z_fuzz_recoil_gamma_patch_sniper.ltx"
 
 out_zip="./output/${mod_name}_${version}.7z"
 if [[ -e "$out_zip" ]]; then
