@@ -12,7 +12,7 @@ local logger = fuzz_recoil_logger
 ---------------
 ---@class fuzz_recoil_profile
 ---@field cam_recoil_power number
----@field cam_return_speed number
+---@field cam_restore_speed number
 ---@field cam_max_angle number
 ---
 ---@field force_pitch number
@@ -46,7 +46,7 @@ M.__index = M
 local default_profile = {
 
 	cam_recoil_power = 4,
-	cam_return_speed = 1,
+	cam_restore_speed = 1,
 	--0 means uncapped, radians like cam angle
 	cam_max_angle = 0.9999,
 
@@ -154,7 +154,7 @@ end
 local convert_list = {
 	--stylua: ignore start
 	cam_recoil_power = { type = 2, read = false },
-	cam_return_speed = { type = 2, read = false },
+	cam_restore_speed = { type = 2, read = false },
 
 	force_pitch      = { type = 2, read = false },
 	force_y          = { type = 2, read = false },
@@ -325,7 +325,7 @@ function M.imgui_editor_drawer(_prf, _prf_type, _prf_name)
 
 	ImGui.Text("Camera recoil")
 	_, _prf.cam_recoil_power = ImGui.SliderFloat("Cam Recoil Power", _prf.cam_recoil_power, 0.1, 16.0, "%.2f")
-	_, _prf.cam_return_speed = ImGui.SliderFloat("Cam Return Speed", _prf.cam_return_speed, -1, 2, "%.2f")
+	_, _prf.cam_restore_speed = ImGui.SliderFloat("Cam Restore Speed", _prf.cam_restore_speed, -1, 2, "%.2f")
 	_, _prf.cam_max_angle = ImGui.SliderFloat("Cam Max Angle", _prf.cam_max_angle, 0, 1, "%.3frad")
 
 	ImGui.Text("Hud Recoil")

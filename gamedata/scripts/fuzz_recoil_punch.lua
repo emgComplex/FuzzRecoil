@@ -123,7 +123,7 @@ local function sub_events(flag)
 		frm.on_firing:remove(EVENT_ID)
 		frm.on_firing_stop:remove(EVENT_ID)
 		frm.on_stop:remove(EVENT_ID)
-		frm.on_returning:remove(EVENT_ID, true)
+		frm.on_restoring:remove(EVENT_ID, true)
 	end
 end
 ----------
@@ -207,12 +207,12 @@ function M.on_firing(dt, _, is_ads)
 end
 ---@type fuzz_on_firing_stop
 function M.on_firing_stop()
-	frm.on_returning:add(EVENT_ID, M.on_returning)
+	frm.on_restoring:add(EVENT_ID, M.on_restoring)
 end
----@type fuzz_on_returning
-function M.on_returning(dt, is_ads)
+---@type fuzz_on_restoring
+function M.on_restoring(dt, is_ads)
 	if M.update_internal(dt, is_ads) then
-		frm.on_returning:remove(EVENT_ID)
+		frm.on_restoring:remove(EVENT_ID)
 	end
 end
 

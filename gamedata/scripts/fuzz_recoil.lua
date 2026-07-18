@@ -43,10 +43,10 @@ M.on_firing_stop = Event.new("firing_stop")
 
 --NOTE: dt must be first for handling_power
 
----@alias fuzz_on_returning fun(dt:number,ads:boolean)
----@type FuzzEvent|{ add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_returning),
+---@alias fuzz_on_restoring fun(dt:number,ads:boolean)
+---@type FuzzEvent|{ add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_restoring),
 ---invoke: fun(self: FuzzEvent, dt:number, ads:boolean) }
-M.on_returning = Event.new("returning")
+M.on_restoring = Event.new("restoring")
 
 ---@alias fuzz_on_stop fun()
 ---@type FuzzEvent|{add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_stop)}
@@ -66,8 +66,8 @@ function M.GetEventInfo()
 		e:print_handlers()
 	end
 end
-function M.GetEventReturningInfo()
-	M.on_returning:print_handlers()
+function M.GetEventRestoringInfo()
+	M.on_restoring:print_handlers()
 end
 
 --------------------
@@ -242,7 +242,7 @@ function M.on_option_change()
 	-- logger.dbg("apply options to hud")
 end
 function actor_on_changed_slot()
-	--NOTE: i think calling  this will cause cam glith when camera not fully is_cam_returned
+	--NOTE: i think calling  this will cause cam glith when camera not fully is_cam_restored
 	--Never seen it happens since switching animation will give us a natrual delay
 	--but if it happens we can fix it with a TimeEvent
 	M.force_reset_recoil()
@@ -313,13 +313,13 @@ function actor_on_update()
 	if is_firing then
 		M.on_firing:invoke(dt, handling_power, is_ads)
 	else
-		M.on_returning:invoke(dt, is_ads)
+		M.on_restoring:invoke(dt, is_ads)
 	end
 end
 function firing_stop()
 	is_firing = false
 	burst_shots = 0
-	M.on_returning:add(HP_EVENT_ID, update_handling_returning)
+	M.on_restoring:add(HP_EVENT_ID, update_handling_restoring)
 	M.on_firing_stop:invoke()
 	-- logger.dbg("Fire stopped")
 end
@@ -352,9 +352,9 @@ function stop_recoil()
 	-- logger.dbg("reset recoil")
 end
 function M.force_reset_recoil()
-	camrc.returned()
-	hudrc.returned()
-	M.on_returning:remove_all()
+	camrc.restored()
+	hudrc.restored()
+	M.on_restoring:remove_all()
 end
 
 function update_fatigue(dt)
@@ -369,11 +369,11 @@ function update_handling_firing(dt)
 	handling_power = utils.math_clamp(firing_handling_ease:update(handling_power, dt), 0, 1)
 	real_handling_power = M.get_real_handling_power()
 end
----@type fuzz_on_returning
-function update_handling_returning(dt)
+---@type fuzz_on_restoring
+function update_handling_restoring(dt)
 	handling_power = utils.math_clamp(idle_handling_ease:update(handling_power, dt), 0, 1)
 	if handling_power <= 0 then
-		M.on_returning:remove(HP_EVENT_ID)
+		M.on_restoring:remove(HP_EVENT_ID)
 	end
 end
 
@@ -836,7 +836,7 @@ end
 ------------
 ---Sub Event
 ------------
-M.on_returning.on_empty = stop_recoil
+M.on_restoring.on_empty = stop_recoil
 M.on_firing:add(HP_EVENT_ID, update_handling_firing)
 --------------------------------------
 ---Debug

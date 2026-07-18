@@ -261,7 +261,7 @@ function info_overlay()
 				camrc.has_camera_effector()
 			)
 		)
-		ImGui.Text(string.format("CamRetrun:%s,HudReturn:%s", camrc.is_returned(), hudrc.is_returned()))
+		ImGui.Text(string.format("CamRestored:%s,HudRestored:%s", camrc.is_restored(), hudrc.is_restored()))
 
 		local hdl_power = frm.get_handling_power()
 		ImGui.ProgressBar(hdl_power, vector2():set(-1, 0), string.format("Handling power: %.1f%%", hdl_power * 100))

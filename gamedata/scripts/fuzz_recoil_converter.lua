@@ -15,7 +15,7 @@ end
 
 M.rule = {
 	["cam_recoil_power"] = { offset = 1, from = { min = 0, max = 4 }, to = { min = 1, max = 5 } },
-	["cam_return_speed"] = { offset = 0, from = { min = 0, max = 10 }, to = { min = 0, max = 2 }, clamp = true },
+	["cam_restore_speed"] = { offset = 0, from = { min = 0, max = 10 }, to = { min = 0, max = 2 }, clamp = true },
 
 	["force_pitch"] = { offset = 0, from = { min = 0, max = 4 }, to = { min = 3, max = 16 }, clamp = true },
 	["force_y"] = { offset = 0, from = { min = 0, max = 4 }, to = { min = 0, max = -0.08 }, clamp = true },
@@ -30,7 +30,7 @@ M.rule = {
 
 local source_fields = {
 	cam_recoil_power = "cam_dispersion",
-	cam_return_speed = "cam_relax_speed",
+	cam_restore_speed = "cam_relax_speed",
 	force_pitch = "cam_dispersion",
 	force_y = "cam_dispersion",
 	force_z = "cam_dispersion",
