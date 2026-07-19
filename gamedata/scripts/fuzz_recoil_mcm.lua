@@ -14,6 +14,7 @@ local logger = fuzz_recoil_logger
 ---@field use_bloom boolean
 ---@field use_punch boolean
 ---@field punch_legacy boolean
+---@field use_comp_return boolean
 ---@field use_addon_ammo_koefs boolean
 local M = {}
 _G.fuzz_recoil_mcm = M
