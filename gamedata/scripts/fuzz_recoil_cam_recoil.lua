@@ -451,6 +451,16 @@ end
 ---------
 ---IMGUI
 --------
+function M.force_set_cam()
+	create_cam_effector()
+	max_angle = 6666
+	set_player_angle(frm.debug_var.float_s1)
+end
+function M.force_bake()
+	local actor = db.actor
+	transfer_residual()
+	M.remove_cam_fx()
+end
 function M.imgui_info_drawer()
 	ImGui.TextColored(vector4():set(0, 1, 0.5, 1), "Camera recoil")
 	local angle_text = string.format("Cam angle: %.3frad,%.2fdeg", m_angle, math.deg(m_angle))

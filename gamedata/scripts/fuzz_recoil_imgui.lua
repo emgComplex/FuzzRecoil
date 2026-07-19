@@ -493,6 +493,12 @@ function renderDebugVars()
 	_, vars.float_s2 = ImGui.SliderFloat("float_s2", vars.float_s2, 0, 1, "%.4f")
 	_, vars.float_x1 = ImGui.SliderFloat("float_x1", vars.float_x1, 0, 50, "%.2f")
 	_, vars.float_x2 = ImGui.SliderFloat("float_x2", vars.float_x2, 0, 50, "%.2f")
+	if ImGui.Button("Set Camera Force") then
+		camrc.force_set_cam()
+	end
+	if ImGui.Button("Bake Cam Fx") then
+		camrc.force_bake()
+	end
 end
 
 local M = {}
@@ -577,7 +583,7 @@ function actor_on_update()
 	end
 end
 function actor_on_first_update()
-	if inf_weight then
+	if inf_weight and weight then
 		weight.add_weight("fuzz_cheat", 8888)
 	end
 end
