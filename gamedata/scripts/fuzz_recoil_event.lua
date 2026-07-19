@@ -11,7 +11,8 @@ M.__index = M
 --TODO:or read from modules?
 local event_id_list = {
 	[5] = "shot_delay",
-	[11] = "bloom",
+	[9] = "bloom",
+	[12] = "cam_recoil_pre",
 	[21] = "handling_power",
 	[22] = "cam_recoil",
 	[23] = "hud_recoil",

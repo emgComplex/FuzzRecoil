@@ -50,10 +50,12 @@ restore_ease = 1.0
 ---Options
 ----------
 local cam_drag = 12
+local __restoring_fn = M.do_restore_full
 function M.on_option_change()
 	cam_drag = options.cam_drag
 	if options.use_comp_return ~= nil then
 		use_comp_return = options.use_comp_return
+		__restoring_fn = use_comp_return and M.do_restore_comp or M.do_restore_full
 	end
 end
 
@@ -188,6 +190,7 @@ end
 ---Event
 ----------
 local EVENT_ID = fuzz_recoil_event.getEventID("cam_recoil")
+local EVENT_PRE_ID = fuzz_recoil_event.getEventID("cam_recoil_pre")
 ----------
 ---Module
 ----------
@@ -226,6 +229,7 @@ end
 
 ---@type fuzz_on_shot
 function M.on_shot(handle_power, scale)
+	--TODO: use evnet pre once debug is done.
 	--fresh episode anchors the restore floor at the current aim
 	if use_comp_return and (is_restored or m_angle <= min_cam_restore_step) then
 		anchor_pitch = cam_pitch_up()
@@ -243,7 +247,7 @@ end
 function M.on_firing_stop()
 	--restore glides from rest, leftover kick velocity would bump upward first
 	m_vel = 0
-	frm.on_restoring:add(EVENT_ID, M.do_restore)
+	frm.on_restoring:add(EVENT_ID, __restoring_fn)
 end
 
 function M.restored()
@@ -324,7 +328,25 @@ end
 --i think it's fine for now, and maybe remove camera return in the future if we can get rid of cam_effector
 --leave it here
 ---@type fuzz_on_restoring
-function M.do_restore(dt)
+function M.do_restore_full(dt)
+	if m_angle <= min_cam_restore_step then
+		M.restored()
+		return
+	end
+	--TODO:cache this when init
+	local speed_factor = base_cam_restore_speed + wepaon_cam_restore_speed
+	local lerp_factor = 1.0 - math.exp(-speed_factor * dt)
+
+	local step = m_angle * lerp_factor
+	local min_step = min_cam_restore_step
+	local final_step = math.max(step, min_step)
+	--NOTE:vel is actually step when restoring ,im just lazy ,its easy to debug
+	m_vel = final_step
+	m_angle = m_angle - final_step
+	set_player_angle(m_angle)
+end
+---@type fuzz_on_restoring
+function M.do_restore_comp(dt)
 	--TODO:remove config and cache this when init
 	if restore_smooth then
 		--settled below perception, the final zero is invisible
@@ -338,7 +360,7 @@ function M.do_restore(dt)
 	end
 	--comp floor, only the share still above the burst anchor may restore
 	local room_cap = nil
-	if use_comp_return and has_anchor then
+	if has_anchor then
 		local room = cam_pitch_up() - anchor_pitch - comp_eps
 		if room <= 0 then
 			if write_verified then
