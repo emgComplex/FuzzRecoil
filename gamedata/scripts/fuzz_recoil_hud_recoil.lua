@@ -373,18 +373,15 @@ local function firing_update_spring(dt, handling_power)
 	apply_trans_and_smooth(dt, smooth_firing, rot_smooth)
 end
 ---@type fuzz_on_restoring
---springs shared by both modes, true once settled
-local function restore_springs(dt)
-	apply_spring_vec(pos_raw, vel_pos, dt, restore_spring, restore_damping)
-	apply_spring_vec(rot_raw, vel_rot, dt, restore_spring, restore_damping)
+local function restoring_update_spring(dt)
+	local spring = restore_spring
+	local damping = restore_damping
+
+	apply_spring_vec(pos_raw, vel_pos, dt, spring, damping)
+	apply_spring_vec(rot_raw, vel_rot, dt, spring, damping)
+
 	if rot_raw:magnitude() < threshold_restore and pos_raw:magnitude() < threshold_restore then
 		M.restored()
-		return true
-	end
-	return false
-end
-local function restoring_update_spring(dt)
-	if restore_springs(dt) then
 		return
 	end
 	apply_trans_and_smooth(dt, smooth_restore, rot_smooth)
@@ -517,7 +514,8 @@ local function firing_update_instant(dt, handling_power)
 end
 ---@type fuzz_on_restoring
 local function restoring_update_instant(dt)
-	restore_springs(dt)
+	restoring_update_spring(dt, false)
+	-- FIXME: doubled applying
 	local wd = math.exp(-6 * dt)
 	drift_pitch = drift_pitch * wd
 	drift_yaw = drift_yaw * wd
