@@ -321,14 +321,26 @@ local function init_offset(wpn_sec, cast_wpn)
 	hud_adjust.enabled(false)
 end
 --------------
---Spring Mode
+--Share
 --------------
+local function restore_update_share(dt)
+	apply_spring_vec(pos_raw, vel_pos, dt, restore_spring, restore_damping)
+	apply_spring_vec(rot_raw, vel_rot, dt, restore_spring, restore_damping)
+
+	if rot_raw:magnitude() < threshold_restore and pos_raw:magnitude() < threshold_restore then
+		M.restored()
+		return
+	end
+end
 local function apply_trans_and_smooth(dt, smooth, rot)
 	pos_y_sync_with_cam()
 
 	apply_simple_smooth(dt, smooth)
 	M.set_hud_offset(pos_smooth, rot)
 end
+--------------
+--Spring Mode
+--------------
 ---@type fuzz_on_shot
 local function on_shot_spring(handling_power, _, ads)
 	is_restored = false
@@ -374,16 +386,7 @@ local function firing_update_spring(dt, handling_power)
 end
 ---@type fuzz_on_restoring
 local function restoring_update_spring(dt)
-	local spring = restore_spring
-	local damping = restore_damping
-
-	apply_spring_vec(pos_raw, vel_pos, dt, spring, damping)
-	apply_spring_vec(rot_raw, vel_rot, dt, spring, damping)
-
-	if rot_raw:magnitude() < threshold_restore and pos_raw:magnitude() < threshold_restore then
-		M.restored()
-		return
-	end
+	restore_update_share(dt)
 	apply_trans_and_smooth(dt, smooth_restore, rot_smooth)
 end
 
@@ -514,8 +517,7 @@ local function firing_update_instant(dt, handling_power)
 end
 ---@type fuzz_on_restoring
 local function restoring_update_instant(dt)
-	restoring_update_spring(dt, false)
-	-- FIXME: doubled applying
+	restore_update_share(dt)
 	local wd = math.exp(-6 * dt)
 	drift_pitch = drift_pitch * wd
 	drift_yaw = drift_yaw * wd
