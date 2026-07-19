@@ -238,7 +238,7 @@ end
 ------------------------------------------
 ---3DB offsets
 ------------------------------------------
-local function init_offset(wpn_sec, cast_wpn)
+function M.init_offset(wpn_sec, cast_wpn)
 	hud_adjust.enabled(true)
 	local hud = utils.get_string(wpn_sec, "hud")
 	local postfix = utils_xml.is_widescreen() and "_16x9" or ""
@@ -594,7 +594,7 @@ end
 
 ---@type fuzz_on_init_wpn
 function M.init(_, cast_wpn, wpn_sec)
-	init_offset(wpn_sec, cast_wpn)
+	M.init_offset(wpn_sec, cast_wpn)
 end
 ---@type fuzz_on_start
 function M.start(profile)
