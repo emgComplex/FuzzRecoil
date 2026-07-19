@@ -840,8 +840,7 @@ function add_upgrades_modifiers(vert, hori, handle)
 end
 
 function remove_upgrade_modifiers()
-	--five upgrade modifiers land at ids 10 through 14
-	for id = 10, 14 do
+	for id = 10, 13 do
 		M.static_modifiers:remove_modifier(id)
 	end
 	M.static_modifiers:refresh_modi_cache()
