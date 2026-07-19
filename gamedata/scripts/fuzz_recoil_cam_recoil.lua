@@ -50,8 +50,109 @@ restore_ease = 1.0
 ---Options
 ----------
 local cam_drag = 12
+local __restoring_fn = M.do_restore_full
 function M.on_option_change()
 	cam_drag = options.cam_drag
+	if options.use_comp_return ~= nil then
+		use_comp_return = options.use_comp_return
+		__restoring_fn = use_comp_return and M.do_restore_comp or M.do_restore_full
+	end
+end
+
+----------
+---COMP_RETURN, floors the pitch restore at the burst start aim, the user's
+---downpull already paid that angle so restoring it would double subtract
+----------
+use_comp_return = true
+--comp floor deadband, absorbs bob wobble and the one frame read skew
+comp_eps = 0.003
+local anchor_pitch = 0
+local has_anchor = false
+--camera members are inverted vs getH/getP (ChangeHP, CameraFirstEye transpose)
+--so set_actor_direction takes negated angles, probe confirms in game
+local write_flip_h = true
+local write_flip_p = true
+local write_verified = false
+--auto probe, identity write at a quiet moment arms the transfer hands free
+local PROBE_EPS = 0.005
+local STILL_EPS = 0.001
+local STILL_FRAMES_NEEDED = 5
+local PROBE_MAX_TRIES = 3
+local probe_pending = false
+local probe_h0, probe_p0 = 0, 0
+local probe_last = "not run"
+local probe_tries = 0
+local still_frames = 0
+local still_h, still_p = nil, nil
+--onerad authored angle, on screen pitch = atan(factor*sin)
+local SIN_ONERAD = math.sin(0.994838)
+local function effector_screen_pitch(angle)
+	return math.atan(utils.math_clamp(angle, 0.0001, max_angle) * SIN_ONERAD)
+end
+local function screen_to_angle(pitch)
+	return math.tan(math.max(pitch, 0)) / SIN_ONERAD
+end
+--composite camera pitch, getP is up positive (_vector3d.h atan(y/hyp))
+local function cam_pitch_up()
+	return device().cam_dir:getP()
+end
+local function angle_gap(a, b)
+	local d = math.abs(a - b)
+	if d > math.pi then
+		d = 2 * math.pi - d
+	end
+	return d
+end
+--send the identity write, next frame drift near zero proves the sign flips
+local function send_probe(h, p)
+	if not db.actor then
+		return
+	end
+	probe_h0, probe_p0 = h, p
+	db.actor:set_actor_direction(write_flip_h and -h or h, write_flip_p and -p or p, 0)
+	probe_pending = true
+end
+local function read_probe(h, p)
+	probe_pending = false
+	local dh, dp = angle_gap(h, probe_h0), angle_gap(p, probe_p0)
+	local ok = dh < PROBE_EPS and dp < PROBE_EPS
+	probe_last = string.format("dH %.4f, dP %.4f, %s", dh, dp, ok and "OK within noise" or "FLIP SUSPECT")
+	return ok
+end
+--quiet moment probe, effector drained and camera still so the write is safe
+--driven from the main update every frame so it can arm before any recoil episode
+function M.update_probe(is_firing)
+	if not use_comp_return or write_verified or probe_tries >= PROBE_MAX_TRIES then
+		return
+	end
+	if is_firing or m_angle > 0.001 then
+		still_frames = 0
+		return
+	end
+	local d = device().cam_dir
+	local h, p = d:getH(), d:getP()
+	if probe_pending then
+		if read_probe(h, p) then
+			write_verified = true
+		else
+			probe_tries = probe_tries + 1
+		end
+		still_frames = 0
+		return
+	end
+	if still_h and angle_gap(h, still_h) < STILL_EPS and angle_gap(p, still_p) < STILL_EPS then
+		still_frames = still_frames + 1
+	else
+		still_frames = 0
+	end
+	still_h, still_p = h, p
+	if still_frames >= STILL_FRAMES_NEEDED then
+		send_probe(h, p)
+		still_frames = 0
+	end
+end
+function M.is_write_verified()
+	return write_verified
 end
 
 ----------
@@ -89,6 +190,7 @@ end
 ---Event
 ----------
 local EVENT_ID = fuzz_recoil_event.getEventID("cam_recoil")
+local EVENT_PRE_ID = fuzz_recoil_event.getEventID("cam_recoil_pre")
 ----------
 ---Module
 ----------
@@ -127,6 +229,12 @@ end
 
 ---@type fuzz_on_shot
 function M.on_shot(handle_power, scale)
+	--TODO: use evnet pre once debug is done.
+	--fresh episode anchors the restore floor at the current aim
+	if use_comp_return and (is_restored or m_angle <= min_cam_restore_step) then
+		anchor_pitch = cam_pitch_up()
+		has_anchor = true
+	end
 	is_restored = false
 	handle_power = math.pow(1 - handle_power, 2)
 	local raw_impulse = lift_force * impulse_factor * (scale or 1)
@@ -139,7 +247,7 @@ end
 function M.on_firing_stop()
 	--restore glides from rest, leftover kick velocity would bump upward first
 	m_vel = 0
-	frm.on_restoring:add(EVENT_ID, M.do_restore)
+	frm.on_restoring:add(EVENT_ID, __restoring_fn)
 end
 
 function M.restored()
@@ -207,7 +315,25 @@ end
 --i think it's fine for now, and maybe remove camera return in the future if we can get rid of cam_effector
 --leave it here
 ---@type fuzz_on_restoring
-function M.do_restore(dt)
+function M.do_restore_full(dt)
+	if m_angle <= min_cam_restore_step then
+		M.restored()
+		return
+	end
+	--TODO:cache this when init
+	local speed_factor = base_cam_restore_speed + wepaon_cam_restore_speed
+	local lerp_factor = 1.0 - math.exp(-speed_factor * dt)
+
+	local step = m_angle * lerp_factor
+	local min_step = min_cam_restore_step
+	local final_step = math.max(step, min_step)
+	--NOTE:vel is actually step when restoring ,im just lazy ,its easy to debug
+	m_vel = final_step
+	m_angle = m_angle - final_step
+	set_player_angle(m_angle)
+end
+---@type fuzz_on_restoring
+function M.do_restore_comp(dt)
 	--TODO:remove config and cache this when init
 	if restore_smooth then
 		--settled below perception, the final zero is invisible
@@ -218,6 +344,21 @@ function M.do_restore(dt)
 	elseif m_angle <= min_cam_restore_step then
 		M.restored()
 		return
+	end
+	--comp floor, only the share still above the burst anchor may restore
+	local room_cap = nil
+	if has_anchor then
+		local room = cam_pitch_up() - anchor_pitch - comp_eps
+		if room <= 0 then
+			if write_verified then
+				transfer_residual()
+			else
+				--unverified write holds the residual instead of baking it
+				m_vel = 0
+			end
+			return
+		end
+		room_cap = m_angle - screen_to_angle(effector_screen_pitch(m_angle) - room)
 	end
 	local speed_factor = base_cam_restore_speed + wepaon_cam_restore_speed
 	if restore_smooth then
