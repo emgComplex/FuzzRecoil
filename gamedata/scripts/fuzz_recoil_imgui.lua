@@ -283,6 +283,8 @@ local _prf_type = 1
 local modi_enabled = true
 local export_to_gamedata = fuzz_dev and true or false
 local force_convert = false
+local profile_to_copy = {}
+local profile_copy_hint = "Copy a pofile first"
 --TODO:! load and apply modifier
 --don't forget sort this out ,man
 function renderProfile()
@@ -338,6 +340,26 @@ function renderProfile()
 	end
 	ImGui.SameLine()
 	_, force_convert = ImGui.Checkbox("Convert", force_convert)
+
+	ImGui.Text(profile_copy_hint)
+	if ImGui.Button("Copy Profile", vector2():set(150, 25)) then
+		if not prf or not prf.raw_profile then
+			profile_copy_hint = "Can't copy profile, reload profile and try again"
+			return
+		end
+		fuzz_recoil_profile.shallow_copy(prf.raw_profile, profile_to_copy)
+		profile_copy_hint = "Copied Profile:" .. prf.info.name
+	end
+	ImGui.SameLine()
+	if ImGui.Button("Paste Profile", vector2():set(150, 25)) then
+		if not prf or profile_to_copy == {} then
+			profile_copy_hint = "Can't find profile to copy,Try copy again"
+			return
+		end
+		fuzz_recoil_profile.shallow_copy(profile_to_copy, prf.raw_profile)
+		apply_profile(prf)
+		profile_copy_hint = "Pasted!"
+	end
 end
 function renderOptions()
 	if ImGui.TreeNode("Options") then
