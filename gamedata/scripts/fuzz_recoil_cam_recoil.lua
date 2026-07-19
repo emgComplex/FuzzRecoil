@@ -53,9 +53,20 @@ local cam_drag = 12
 local __restoring_fn = M.do_restore_full
 function M.on_option_change()
 	cam_drag = options.cam_drag
+	--FIXME: the camera return is always needed when hud desyncs with camera.
+	--so all pistol shotgun and snipers
+	--check it in init ,use  full or saved __restoring_fn
+	--move this once we are done
 	if options.use_comp_return ~= nil then
 		use_comp_return = options.use_comp_return
-		__restoring_fn = use_comp_return and M.do_restore_comp or M.do_restore_full
+		no_cam_restore = options.no_cam_restore
+		if options.no_cam_restore then
+			__restoring_fn = M.no_restore
+		elseif use_comp_return then
+			__restoring_fn = M.do_restore_comp
+		else
+			__restoring_fn = M.do_restore_full
+		end
 	end
 end
 
@@ -64,6 +75,7 @@ end
 ---downpull already paid that angle so restoring it would double subtract
 ----------
 use_comp_return = true
+no_cam_restore = false
 --comp floor deadband, absorbs bob wobble and the one frame read skew
 comp_eps = 0.003
 local anchor_pitch = 0
@@ -122,7 +134,7 @@ end
 --quiet moment probe, effector drained and camera still so the write is safe
 --driven from the main update every frame so it can arm before any recoil episode
 function M.update_probe(is_firing)
-	if not use_comp_return or write_verified or probe_tries >= PROBE_MAX_TRIES then
+	if not (use_comp_return or no_cam_restore) or write_verified or probe_tries >= PROBE_MAX_TRIES then
 		return
 	end
 	if is_firing or m_angle > 0.001 then
@@ -231,7 +243,7 @@ end
 function M.on_shot(handle_power, scale)
 	--TODO: use evnet pre once debug is done.
 	--fresh episode anchors the restore floor at the current aim
-	if use_comp_return and (is_restored or m_angle <= min_cam_restore_step) then
+	if (use_comp_return or no_cam_restore) and (is_restored or m_angle <= min_cam_restore_step) then
 		anchor_pitch = cam_pitch_up()
 		has_anchor = true
 	end
@@ -385,6 +397,16 @@ function M.do_restore_comp(dt)
 	m_angle = m_angle - final_step
 	set_player_angle(m_angle)
 end
+---@type fuzz_on_restoring
+function M.no_restore()
+	if write_verified then
+		transfer_residual()
+		logger.dbg("restored")
+		return
+	end
+	logger.err("Unexpected Restored")
+	M.restored()
+end
 
 ---------
 ---IMGUI
@@ -394,6 +416,18 @@ function M.imgui_info_drawer()
 	local angle_text = string.format("Cam angle: %.3frad,%.2fdeg", m_angle, math.deg(m_angle))
 	ImGui.ProgressBar(m_angle, vector2():set(-1, 0), angle_text)
 	ImGui.Text(string.format("Cam velocity: %.3f", m_vel))
+	ImGui.Text(string.format("Cam Dir Pitch:%.4f", device().cam_dir:getP()))
+	if has_anchor then
+		ImGui.Text(
+			string.format(
+				"Comp anchor: %.2fdeg, room %.2fdeg",
+				math.deg(anchor_pitch),
+				math.deg(cam_pitch_up() - anchor_pitch)
+			)
+		)
+	else
+		ImGui.Text("Comp anchor: none")
+	end
 end
 function M.imgui_config_drawer()
 	ImGui.Text("Cam Recoil Config")

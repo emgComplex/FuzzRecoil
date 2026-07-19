@@ -383,6 +383,7 @@ function renderOptions()
 
 		_, options.bolt_action_Y_lift = ImGui.Checkbox("Bolt-Action Lift", options.bolt_action_Y_lift)
 		_, options.cam_drag = ImGui.SliderFloat("Cam Drag", options.cam_drag, 5.0, 20.0, "%.2f")
+		_, options.no_cam_restore = ImGui.Checkbox("No Camera Return", options.no_cam_restore)
 		_, options.use_comp_return = ImGui.Checkbox("Cam Compensating Return", options.use_comp_return)
 		_, options.instant_mode = ImGui.Checkbox("Instant Mode", options.instant_mode)
 		_, options.use_bloom = ImGui.Checkbox("Fire Bloom", options.use_bloom)
