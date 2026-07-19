@@ -306,7 +306,6 @@ function renderProfile()
 		prf:reload_all_modifiers()
 		hudrc.cache_profile(prf)
 		camrc.cache_profile(prf)
-		fuzz_recoil.set_handling_speed(prf.handling_speed)
 	end
 	---@diagnostic enable: param-type-mismatch
 	ImGui.SameLine()
@@ -314,11 +313,6 @@ function renderProfile()
 	if modi_enabled_change then
 		fuzz_recoil.static_modifiers.enabled(modi_enabled)
 		fuzz_recoil.dynamic_modifiers.enabled(modi_enabled)
-		--takes effect immediately, same path as apply profile
-		prf:reload_all_modifiers()
-		hudrc.cache_profile(prf)
-		camrc.cache_profile(prf)
-		fuzz_recoil.set_handling_speed(prf.handling_speed)
 	end
 	ImGui.Text(export_hint)
 	if ImGui.Button("Export to LTX", vector2():set(150, 25)) then

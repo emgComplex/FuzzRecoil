@@ -332,8 +332,12 @@ function M.imgui_editor_drawer(_prf, _prf_type, _prf_name)
 	_, _prf.firing_damping = ImGui.SliderFloat("Spring Damping", _prf.firing_damping, 0.1, 4.0, "%.2f")
 	ImGui.Separator()
 	ImGui.Text("Handling")
-	--applies through the apply profile button like every other field
-	_, _prf.handling_speed = ImGui.SliderFloat("Handling speed", _prf.handling_speed, 0.1, 2.0, "%.2f")
+	local handle_speed_change
+	handle_speed_change, _prf.handling_speed =
+		ImGui.SliderFloat("Handling speed", _prf.handling_speed, 0.1, 2.0, "%.2f")
+	if handle_speed_change then
+		fuzz_recoil.set_handling_speed(_prf.handling_speed)
+	end
 
 	ImGui.Text("Shot Impact Force")
 	_, _prf.force_pitch = ImGui.SliderFloat("Pitch", _prf.force_pitch, 0, 60, "%.2f")
