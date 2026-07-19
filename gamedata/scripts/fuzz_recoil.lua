@@ -838,20 +838,26 @@ function add_actor_stat_modifiers()
 	add_modis_to(stat_modi, M.dynamic_modifiers, 1, true)
 end
 
+local upgrade_modi = {
+	{ name = "upgrade", param = "cam_recoil_power", type = 2 },
+	{ name = "upgrade", param = "force_pitch", type = 2 },
+	{ name = "upgrade", param = "force_yaw", type = 2 },
+	{ name = "upgrade", param = "pull_force", type = 2 },
+	{ name = "upgrade", param = "handling_speed", type = 2 },
+}
+UPGRADES_MODI_ID_START = 10
+UPGRADES_MODI_ID_END = #upgrade_modi + UPGRADES_MODI_ID_START - 1
 function add_upgrades_modifiers(vert, hori, handle)
 	logger.dbg("aplly v:%.4f,hori:%.4f,handle:%.4f", vert, hori, handle)
-	local upgrade_modi = {
-		{ name = "upgrade", param = "cam_recoil_power", type = 2, val = vert },
-		{ name = "upgrade", param = "force_pitch", type = 2, val = vert },
-		{ name = "upgrade", param = "force_yaw", type = 2, val = hori },
-		{ name = "upgrade", param = "pull_force", type = 2, val = 2 - handle },
-		{ name = "upgrade", param = "handling_speed", type = 2, val = 2 - handle },
-	}
-	add_modis_to(upgrade_modi, M.static_modifiers, 10, true)
+	local val_list = { vert, vert, hori, 2 - handle, 2 - handle }
+	for i, modi in ipairs(upgrade_modi) do
+		modi.val = val_list[i]
+	end
+	add_modis_to(upgrade_modi, M.static_modifiers, UPGRADES_MODI_ID_START, true)
 end
 
 function remove_upgrade_modifiers()
-	for id = 10, 13 do
+	for id = UPGRADES_MODI_ID_START, UPGRADES_MODI_ID_END do
 		M.static_modifiers:remove_modifier(id)
 	end
 	M.static_modifiers:refresh_modi_cache()
