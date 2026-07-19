@@ -25,14 +25,14 @@ M.on_start = Event.new("start")
 ---invoke: fun(self: FuzzEvent,is_ads:boolean) }
 M.on_before_fire = Event.new("before_fire")
 
----@alias fuzz_on_before_shot fun(hp:number, kick_scale:any, ads:boolean, ...)
+---@alias fuzz_on_before_shot fun(hp:number, impulse_scale:any, ads:boolean, ...)
 ---@type FuzzEvent|{ add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_before_shot),
----invoke: fun(self: FuzzEvent, hp:number, kick_scale:any, ads:boolean, ...) }
+---invoke: fun(self: FuzzEvent, hp:number, impulse_scale:any, ads:boolean, ...) }
 M.on_before_shot = Event.new("before_shot")
 
----@alias fuzz_on_shot fun(hp:number, kick_scale:any, ads:boolean, ...)
+---@alias fuzz_on_shot fun(hp:number, impulse_scale:any, ads:boolean, ...)
 ---@type FuzzEvent|{ add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_shot),
----invoke: fun(self: FuzzEvent, hp:number, kick_scale:any, ads:boolean, ...) }
+---invoke: fun(self: FuzzEvent, hp:number, impulse_scale:any, ads:boolean, ...) }
 M.on_shot = Event.new("on_shot")
 
 --NOTE: dt must be first for handling_power
@@ -243,7 +243,7 @@ function actor_on_weapon_before_fire()
 	end
 end
 function actor_on_weapon_fired()
-	--grenade launcher shots keep vanilla behavior, no rifle kick
+	--grenade launcher shots keep vanilla behavior, no rifle impulse
 	if cur_wpn and cur_wpn:weapon_in_grenade_mode() then
 		return
 	end
@@ -257,8 +257,8 @@ function actor_on_weapon_fired()
 
 	-- ammo_addon_koefs_on_shot()
 
-	--ads or hip kick mul reaches cam and punch in every hud mode
-	impulse_scale = shot_cam_k * hudrc.get_ads_kick_mul(is_ads)
+	--ads or hip impulse mul reaches cam and punch in every hud mode
+	impulse_scale = shot_cam_k * hudrc.get_ads_hip_mul(is_ads)
 	M.on_shot:invoke(real_handling_power, impulse_scale, is_ads, shot_cam_k, burst_shots)
 
 	--TODO: instead of burst_shot,heating should implemented by a new system like how fatigue works
