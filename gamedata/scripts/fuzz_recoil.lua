@@ -819,8 +819,6 @@ function add_option_scale_modifiers()
 		{ name = "option_scale", param = "cam_recoil_power", type = 1, val = options.recoil_cam_scale },
 		{ name = "option_scale", param = "force_yaw", type = 1, val = options.recoil_h_scale },
 		{ name = "option_scale", param = "handling_speed", type = 1, val = options.handling_speed_scale },
-		-- { name = "", param = "force_pitch", type = 1, val = options.recoil_v_scale },
-		-- { name = "", param = "force_y", type = 1, val = options.recoil_v_scale },
 		-- { name = "", param = "force_x", type = 1, val = options.recoil_h_scale },
 	}
 	add_modis_to(scale_modi, M.static_modifiers, 1, true)
