@@ -967,7 +967,7 @@ M.debug_var = {
 	bool0 = false,
 	bool1 = true,
 	float_s1 = 0.8,
-	float_s2 = 0.03,
+	float_s2 = 0,
 	float_x1 = 0,
 	float_x2 = 0,
 }

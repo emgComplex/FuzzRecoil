@@ -182,24 +182,11 @@ end
 function cam_fx_id()
 	return CAM_FX_ID
 end
-local old_angle = 0
 local function set_player_angle(angle)
 	--no op until start adds the effector, resets before init are silent
-	if write_verified then
-		local actor = db.actor
-		if actor then
-			local da = angle - old_angle
-			local d = device().cam_dir
-			local h, p = d:getH(), d:getP() + da
-			actor:set_actor_direction(write_flip_h and -h or h, write_flip_p and -p or p, 0)
-			logger.dbg("force restored")
-			old_angle = angle
-			return
-		end
+	if M.has_camera_effector() then
+		level.set_cam_effector_factor(CAM_FX_ID, math.max(0.0001, math.min(angle, max_angle)))
 	end
-	-- if M.has_camera_effector() then
-	-- 	level.set_cam_effector_factor(CAM_FX_ID, math.max(0.0001, math.min(angle, max_angle)))
-	-- end
 end
 function M.remove_cam_fx()
 	if level.check_cam_effector(CAM_FX_ID) then
@@ -245,7 +232,6 @@ end
 ---@param profile fuzz_recoil_profile
 ---@type fuzz_on_start
 function M.start(profile)
-	old_angle = 0
 	M.cache_profile(profile)
 	create_cam_effector()
 	is_restored = false
@@ -277,10 +263,9 @@ end
 function M.restored()
 	-- M.remove_cam_fx()
 	frm.on_restoring:remove(EVENT_ID)
-	-- set_player_angle(0.0001)
+	set_player_angle(0.0001)
 	is_restored = true
 	m_angle = 0
-	old_angle = 0
 	m_vel = 0
 end
 ---@type fuzz_on_stop
@@ -337,7 +322,7 @@ end
 
 --bakes the held lift into the base camera and zeroes the effector in the
 --same frame, the view holds and the state resets clean
-function transfer_residual()
+local function transfer_residual()
 	local actor = db.actor
 	if actor then
 		local d = device().cam_dir
@@ -454,12 +439,12 @@ function M.do_restore_comp(dt)
 end
 ---@type fuzz_on_restoring
 function M.no_restore()
-	-- if write_verified then
-	-- 	transfer_residual()
-	-- 	logger.dbg("restored")
-	-- 	return
-	-- end
-	-- logger.err("Unexpected Restored")
+	if write_verified then
+		transfer_residual()
+		logger.dbg("restored")
+		return
+	end
+	logger.err("Unexpected Restored")
 	M.restored()
 end
 
