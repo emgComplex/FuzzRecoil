@@ -5,6 +5,9 @@ local logger = fuzz_recoil_logger
 ---@field recoil_h_scale number
 ---@field handling_speed_scale number
 ---@field impulse_fatigue_ratio number
+---@field pistol_recoil_mul number
+---@field bolt_action_recoil_mul number
+---@field shotgun_recoil_mul number
 ---@field cam_drag number
 ---@field bolt_action_Y_lift boolean
 ---@field instant_mode boolean
@@ -36,6 +39,12 @@ local defaults = {
 	use_punch = false,
 	--revert the punch to the prior system, console fov and shove only under true PiP
 	punch_legacy = false,
+	-- mutilpier for pistol's shot_delay_impulse
+	pistol_recoil_mul = 0.15,
+	-- mutilpier for shotgun's shot_delay_impulse
+	shotgun_recoil_mul = 0.7,
+	--mutilpier for sniper's shot_delay_impulse
+	bolt_action_recoil_mul = 1,
 	--Camera drag for bolt-action weapon
 	--The higher the sharper, the lower the smoother (and softer)
 	--(8-20)
@@ -95,6 +104,11 @@ function M.on_mcm_load()
             { id = "impulse_fatigue_ratio", type = "track", val = 2, min = 0.0, max = 0.3, step = 0.01, def = defaults.impulse_fatigue_ratio },
             { id = "use_punch", type = "check", val = 1, def = defaults.use_punch },
             { id = "punch_legacy", type = "check", val = 1, def = defaults.punch_legacy },
+            { id = "kind_cam_impulse_group_title", type = "title",align = "l",text = "ui_mcm_fuzz_recoil_cam_impulse_group_title" },
+            { id = "kind_cam_impulse_group_line", type = "line" },
+            { id = "pistol_recoil_mul", type = "track", val = 2, min = 0.01, max = 0.3, step = 0.01, def = defaults.pistol_recoil_mul },
+            { id = "shotgun_recoil_mul", type = "track", val = 2, min = 0.05, max = 1.5, step = 0.05, def = defaults.shotgun_recoil_mul },
+            { id = "bolt_action_recoil_mul", type = "track", val = 2, min = 0.05, max = 1.5, step = 0.05, def = defaults.bolt_action_recoil_mul },
             { id = "bolt_cam_group_line", type = "line" },
             { id = "cam_drag", type = "track", val = 2, min = 8, max = 20, step = 1, def = defaults.cam_drag },
             { id = "bolt_action_Y_lift", type = "check", val = 1, def = defaults.bolt_action_Y_lift },

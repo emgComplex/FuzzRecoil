@@ -215,9 +215,12 @@ end
 
 function M.on_option_change()
 	logger.on_option_change()
+	cvter.on_option_change()
 	hudrc.on_option_change()
 	camrc.on_option_change()
 	punchrc.on_option_change()
+
+	cached_weapons = {}
 	bloom_on_option_change()
 	add_option_scale_modifiers()
 	m_profile:reload_static_modier()

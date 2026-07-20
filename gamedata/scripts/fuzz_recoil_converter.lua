@@ -1,4 +1,5 @@
 local utils = fuzz_recoil_utils
+local option = fuzz_recoil_mcm
 
 local M = {}
 _G.fuzz_recoil_converter = M
@@ -127,4 +128,9 @@ function M.get_shot_delay(prf, wpn_info)
 		prf.shot_delay_time = utils.math_clamp(prf.fire_interval * skind.mul, 0.04, 0.5)
 		prf.shot_cam_impulse_factor = skind.cam_impulse
 	end
+end
+function M.on_option_change()
+	shot_delay_list.w_pistol.cam_impulse = option.pistol_recoil_mul
+	shot_delay_list.w_shotgun.cam_impulse = option.shotgun_recoil_mul
+	shot_delay_list.w_sniper.cam_impulse = option.bolt_action_recoil_mul
 end
