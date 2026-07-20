@@ -87,6 +87,8 @@ local camrc = fuzz_recoil_cam_recoil.awake()
 local hudrc = fuzz_recoil_hud_recoil.awake()
 local punchrc = fuzz_recoil_punch.awake()
 
+local wct = weapon_cover_tilt
+
 ---@type fuzz_recoil_profile
 local m_profile = Profile.new()
 ---@class fuzz_recoil_wpn_info
@@ -121,6 +123,7 @@ local cur_cast_wpn = nil
 local cur_wpn_id = 0
 local player = nil
 --------- state
+local enabled = true
 local active = false
 local is_firing = false
 local handling_power = 0.0
@@ -208,6 +211,10 @@ function M.on_game_start()
 	RegisterScriptCallback("actor_on_weapon_before_fire", actor_on_weapon_before_fire)
 	RegisterScriptCallback("actor_on_weapon_fired", actor_on_weapon_fired)
 	RegisterScriptCallback("actor_on_update", actor_on_update)
+	if wct then
+		wct.add_callback("actor_on_weapon_tilting", actor_on_weapon_tilt_start)
+		wct.add_callback("actor_on_weapon_tilting_back", actor_on_weapon_tilt_end)
+	end
 end
 -- function actor_on_first_update()
 -- logger.dbg("first update")
@@ -234,6 +241,9 @@ function actor_on_changed_slot()
 	M.check_current_weapon()
 end
 function actor_on_weapon_before_fire()
+	if not enabled then
+		return
+	end
 	-- logger.dbg("Before Shot ")
 	if not active then
 		active = M.check_current_weapon()
@@ -246,6 +256,9 @@ function actor_on_weapon_before_fire()
 	end
 end
 function actor_on_weapon_fired()
+	if not enabled then
+		return
+	end
 	--grenade launcher shots keep vanilla behavior, no rifle impulse
 	if cur_wpn and cur_wpn:weapon_in_grenade_mode() then
 		return
@@ -296,7 +309,20 @@ function firing_stop()
 	M.on_firing_stop:invoke()
 	-- logger.dbg("Fire stopped")
 end
+----------------------
+---Compat hook
+---------------------
+function actor_on_weapon_tilt_start()
+	enabled = false
+	if active then
+		M.force_reset_recoil()
+		hudrc.enable_hud_adjust()
+	end
+end
 
+function actor_on_weapon_tilt_end()
+	enabled = true
+end
 ----------------------
 ---Recoil state
 ---------------------
