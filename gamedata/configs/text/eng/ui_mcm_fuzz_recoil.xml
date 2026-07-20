@@ -42,6 +42,18 @@
     <string id="ui_mcm_fuzz_recoil_impulse_fatigue_ratio_desc">
         <text>How fast fatigue increases. Higher than 0.15 is recommended, 0 to turn it off.</text>
     </string>
+    <string id="ui_mcm_fuzz_recoil_cam_impulse_group_title">
+        <text>Camera Recoil Multipliers(Switch Weapon To Apply)</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_pistol_recoil_mul">
+        <text>Pistol Recoil Multiplier</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_shotgun_recoil_mul">
+        <text>Shotgun Recoil Multiplier</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_bolt_action_recoil_mul">
+        <text>Bolt-action Recoil Multiplier</text>
+    </string>
     
     <string id="ui_mcm_fuzz_recoil_experimental_group_title">
         <text>Experimetnal Features</text>

@@ -166,6 +166,10 @@ local convert_list = {
 	cam_max_angle    = { type = 2, read = false },
 	--stylua: ignore end
 }
+--renamed ltx keys read through their old names, gamma patch ships the old ones
+local key_aliases = {
+	cam_restore_speed = "cam_return_speed",
+}
 
 function M:read_profile(wpn_sec, wpn_info, prf_sec)
 	if prf_sec and not force_convert then
@@ -173,6 +177,9 @@ function M:read_profile(wpn_sec, wpn_info, prf_sec)
 		---@diagnostic disable: need-check-nil
 		for param, v in pairs(convert_list) do
 			local result = SYS_GetParam(v.type, prf_sec, param)
+			if result == nil and key_aliases[param] then
+				result = SYS_GetParam(v.type, prf_sec, key_aliases[param])
+			end
 			v.read = not (result == nil)
 			self[param] = result
 		end
@@ -325,12 +332,7 @@ function M.imgui_editor_drawer(_prf, _prf_type, _prf_name)
 	_, _prf.firing_damping = ImGui.SliderFloat("Spring Damping", _prf.firing_damping, 0.1, 4.0, "%.2f")
 	ImGui.Separator()
 	ImGui.Text("Handling")
-	local handle_speed_change
-	handle_speed_change, _prf.handling_speed =
-		ImGui.SliderFloat("Handling speed", _prf.handling_speed, 0.1, 2.0, "%.2f")
-	if handle_speed_change then
-		fuzz_recoil.set_handling_speed(_prf.handling_speed)
-	end
+	_, _prf.handling_speed = ImGui.SliderFloat("Handling speed", _prf.handling_speed, 0.1, 2.0, "%.2f")
 
 	ImGui.Text("Shot Impact Force")
 	_, _prf.force_pitch = ImGui.SliderFloat("Pitch", _prf.force_pitch, 0, 60, "%.2f")

@@ -74,13 +74,13 @@ smooth_firing = 4.5
 smooth_restore = 10
 local threshold_restore = 0.001
 
---v2 kick   profile impulses rescaled into instant hud displacement
+--v2 impulse   profile impulses rescaled into instant hud displacement
 v2_pitch_scale = 0.022
 v2_yaw_scale = 0.025
 v2_pos_scale = 0.02
---fraction of the kick fed straight into the smoothed value   frame one snap
-v2_kick_feedforward = 0.65
---per shot kick variance   plateau jitter scales with handling so the peak needs work
+--fraction of the impulse fed straight into the smoothed value   frame one snap
+v2_impulse_feedforward = 0.65
+--per shot impulse variance   plateau jitter scales with handling so the peak needs work
 v2_pitch_jitter = 0.16
 v2_plateau_jitter = 0.05
 --small aim point wander   visual shake only since bullets follow the camera
@@ -88,16 +88,16 @@ v2_plateau_jitter = 0.05
 --the uncompensatable spread comes from fire bloom instead
 v2_wander = 0.08
 v2_wander_vel = 0.18
-v2_burst_kick = 0.12
+v2_burst_impulse = 0.12
 v2_wander_damp = 0.9
 v2_wander_max = 0.4
 v2_wander_decay = 0.25
---ads uses vanilla zoom ratio   hip fire kicks harder and wanders more
-ads_kick_mul = 1.0
+--ads uses vanilla zoom ratio   hip fire impulses harder and wanders more
+ads_impulse_mul = 1.0
 --ads walk speed and dwell   shift far then settle a few shots then shift again
 ads_wander_mul = 1.15
 ads_dwell_shots = 3
-hip_kick_mul = 1.3
+hip_impulse_mul = 1.05
 hip_spread_mul = 2.2
 hip_jitter_mul = 2.0
 hip_recover_mul = 0.72
@@ -138,9 +138,12 @@ end
 function M.get_vel_rot()
 	return vel_rot
 end
---TODO:apply to spring with different mul...
-function M.get_mode_kick_mul()
-	return is_ads and ads_kick_mul or hip_kick_mul
+--ads impulse vs hip impulse for the camera channel, independent of hud mode
+function M.get_ads_hip_mul(ads)
+	return ads and ads_impulse_mul or hip_impulse_mul
+end
+function M.get_mode_impulse_mul()
+	return M.get_ads_hip_mul(is_ads)
 end
 
 --------------
@@ -318,38 +321,52 @@ local function init_offset(wpn_sec, cast_wpn)
 	hud_adjust.enabled(false)
 end
 --------------
---Spring Mode
+--Share
 --------------
+local function restore_update_share(dt)
+	apply_spring_vec(pos_raw, vel_pos, dt, restore_spring, restore_damping)
+	apply_spring_vec(rot_raw, vel_rot, dt, restore_spring, restore_damping)
+
+	if rot_raw:magnitude() < threshold_restore and pos_raw:magnitude() < threshold_restore then
+		M.restored()
+		return
+	end
+end
 local function apply_trans_and_smooth(dt, smooth, rot)
 	pos_y_sync_with_cam()
 
 	apply_simple_smooth(dt, smooth)
 	M.set_hud_offset(pos_smooth, rot)
 end
+--------------
+--Spring Mode
+--------------
 ---@type fuzz_on_shot
-local function on_shot_spring(handling_power)
+local function on_shot_spring(handling_power, _, ads)
 	is_restored = false
+	--instant mode writes this in its own handler, keep spring fresh too
+	is_ads = ads and true or false
 	-- NOTE: vertical recoil should come from cam recoil  no this
 	-- but we could turn this into an visual effect.
-	-- local pitch_kick_enhancer = 1
+	-- local pitch_kick_enhance = 1
 	-- if handling_power > 0.7 then
-	-- 	pitch_kick_enhancer = ((yaw_sign > 0) and 1 or 0.8) * yaw_sign -- * utils.lerp(math.random(), 0.7, 1)
-	-- 	-- pitch_kick_enhancer = utils.lerp(math.random(), 0.7, 1)
+	-- 	pitch_kick_enhance = ((yaw_sign > 0) and 1 or 0.8) * yaw_sign -- * utils.lerp(math.random(), 0.7, 1)
+	-- 	-- pitch_kick_enhance = utils.lerp(math.random(), 0.7, 1)
 	-- end
-	-- vel_rot.y = vel_rot.y + pitch_kick_enhancer * force_pitch --/ mass_factor
+	-- vel_rot.y = vel_rot.y + pitch_kick_enhance * force_pitch --/ mass_factor
 	vel_rot.y = vel_rot.y + force_pitch --/ mass_factor
 	vel_pos.y = vel_pos.y + force_y --/mass_factor
 
 	--TODO: options for enabled and scales
-	local yaw_kick_enhancer = utils.lerp(math.random(), 0.5, 1)
+	local yaw_kick_enhance = utils.lerp(math.random(), 0.5, 1)
 	if handling_power < 0.7 and fuzz_recoil.get_handling_fatigue() < 1 then
-		yaw_kick_enhancer = utils.lerp(math.random(), 0.7, 1) * yaw_sign
+		yaw_kick_enhance = utils.lerp(math.random(), 0.7, 1) * yaw_sign
 	else
 		M.pick_yaw_sign()
-		yaw_kick_enhancer = yaw_kick_enhancer * yaw_sign
+		yaw_kick_enhance = yaw_kick_enhance * yaw_sign
 	end
 
-	local yaw_impulse = force_yaw * yaw_kick_enhancer
+	local yaw_impulse = force_yaw * yaw_kick_enhance
 	vel_rot.x = vel_rot.x + yaw_impulse
 
 	--NOTE:count_ratio = 1/20
@@ -369,16 +386,7 @@ local function firing_update_spring(dt, handling_power)
 end
 ---@type fuzz_on_restoring
 local function restoring_update_spring(dt)
-	local spring = restore_spring
-	local damping = restore_damping
-
-	apply_spring_vec(pos_raw, vel_pos, dt, spring, damping)
-	apply_spring_vec(rot_raw, vel_rot, dt, spring, damping)
-
-	if rot_raw:magnitude() < threshold_restore and pos_raw:magnitude() < threshold_restore then
-		M.restored()
-		return
-	end
+	restore_update_share(dt)
 	apply_trans_and_smooth(dt, smooth_restore, rot_smooth)
 end
 
@@ -392,7 +400,7 @@ local function on_shot_instant(handling_power, _, ads, cam_k, burst_shots)
 	is_ads = ads and true or false
 	shot_cam_k = cam_k or 1
 
-	local mode_mul = M.get_mode_kick_mul()
+	local mode_mul = M.get_mode_impulse_mul()
 	local jitter_mul = is_ads and 1 or hip_jitter_mul
 	local spread_mul = is_ads and 1 or hip_spread_mul
 	local v_scale = shot_cam_k * mode_mul
@@ -405,7 +413,7 @@ local function on_shot_instant(handling_power, _, ads, cam_k, burst_shots)
 		heat = v2_heat_max
 	end
 
-	--kick variance floored, starved kicks would let the recovery sink the baseline
+	--impulse variance floored, starved impulses would let the recovery sink the baseline
 	local jitter = 1 + (math.random() * 2 - 1) * v2_pitch_jitter * jitter_mul
 	if jitter < 0.6 then
 		jitter = 0.6
@@ -423,7 +431,7 @@ local function on_shot_instant(handling_power, _, ads, cam_k, burst_shots)
 	--pitch rides above the plateau, surges up freely, sags down only gently, never dives
 	local pmax = wmax * 0.12
 	if burst_shots == 0 then
-		drift_vel_pitch = math.random() * v2_burst_kick * jitter_mul
+		drift_vel_pitch = math.random() * v2_burst_impulse * jitter_mul
 	else
 		drift_vel_pitch = drift_vel_pitch * v2_wander_damp + (math.random() * 2 - 1) * accel
 	end
@@ -475,8 +483,8 @@ local function on_shot_instant(handling_power, _, ads, cam_k, burst_shots)
 	pos_raw.x = pos_raw.x + d_pos_x
 	pos_raw.z = pos_raw.z + d_pos_z
 
-	--feed part of the kick straight into the smoothed value, the ema only shapes recovery
-	local ff = v2_kick_feedforward
+	--feed part of the impulse straight into the smoothed value, the ema only shapes recovery
+	local ff = v2_impulse_feedforward
 	rot_smooth.y = rot_smooth.y + d_pitch * ff
 	rot_smooth.x = rot_smooth.x + d_yaw * ff
 	pos_smooth.y = pos_smooth.y + d_pos_y * ff
@@ -509,8 +517,7 @@ local function firing_update_instant(dt, handling_power)
 end
 ---@type fuzz_on_restoring
 local function restoring_update_instant(dt)
-	restoring_update_spring(dt, false)
-	-- FIXME: doubled applying
+	restore_update_share(dt)
 	local wd = math.exp(-6 * dt)
 	drift_pitch = drift_pitch * wd
 	drift_yaw = drift_yaw * wd
@@ -663,12 +670,12 @@ function M.imgui_config_drawer()
 		_, v2_pitch_scale = ImGui.SliderFloat("Pitch Scale", v2_pitch_scale, 0.01, 0.4, "%.3f")
 		_, v2_yaw_scale = ImGui.SliderFloat("Yaw Scale", v2_yaw_scale, 0.01, 0.3, "%.3f")
 		_, v2_pos_scale = ImGui.SliderFloat("Pos Scale", v2_pos_scale, 0.001, 0.2, "%.3f")
-		_, v2_kick_feedforward = ImGui.SliderFloat("Kick Feedforward", v2_kick_feedforward, 0, 1, "%.2f")
+		_, v2_impulse_feedforward = ImGui.SliderFloat("Kick Feedforward", v2_impulse_feedforward, 0, 1, "%.2f")
 		_, v2_pitch_jitter = ImGui.SliderFloat("Pitch Jitter", v2_pitch_jitter, 0, 0.6, "%.2f")
 		_, v2_plateau_jitter = ImGui.SliderFloat("Plateau Jitter", v2_plateau_jitter, 0, 1, "%.2f")
 		_, v2_wander = ImGui.SliderFloat("Wander Accel", v2_wander, 0, 1, "%.2f")
 		_, v2_wander_vel = ImGui.SliderFloat("Wander Max Vel", v2_wander_vel, 0, 1.5, "%.2f")
-		_, v2_burst_kick = ImGui.SliderFloat("Burst Start Kick", v2_burst_kick, 0, 1, "%.2f")
+		_, v2_burst_impulse = ImGui.SliderFloat("Burst Start Kick", v2_burst_impulse, 0, 1, "%.2f")
 		_, v2_wander_damp = ImGui.SliderFloat("Wander Damp", v2_wander_damp, 0.5, 1, "%.2f")
 		_, v2_wander_max = ImGui.SliderFloat("Wander Box", v2_wander_max, 0.2, 4, "%.2f")
 		_, v2_wander_decay = ImGui.SliderFloat("Wander Decay", v2_wander_decay, 0, 3, "%.2f")
@@ -689,10 +696,10 @@ function M.imgui_config_drawer()
 		ImGui.TreePop()
 	end
 	if ImGui.TreeNode("ADS & Hip") then
-		_, ads_kick_mul = ImGui.SliderFloat("ADS Kick Mul", ads_kick_mul, 0.2, 2, "%.2f")
+		_, ads_impulse_mul = ImGui.SliderFloat("ADS Kick Mul", ads_impulse_mul, 0.2, 2, "%.2f")
 		_, ads_wander_mul = ImGui.SliderFloat("ADS Wander Mul", ads_wander_mul, 0.2, 3, "%.2f")
 		_, ads_dwell_shots = ImGui.SliderFloat("ADS Dwell Shots", ads_dwell_shots, 0, 8, "%.0f")
-		_, hip_kick_mul = ImGui.SliderFloat("Hip Kick Mul", hip_kick_mul, 0.5, 3, "%.2f")
+		_, hip_impulse_mul = ImGui.SliderFloat("Hip Kick Mul", hip_impulse_mul, 0.5, 3, "%.2f")
 		_, hip_spread_mul = ImGui.SliderFloat("Hip Spread Mul", hip_spread_mul, 0.5, 4, "%.2f")
 		_, hip_jitter_mul = ImGui.SliderFloat("Hip Jitter Mul", hip_jitter_mul, 0.5, 4, "%.2f")
 		_, hip_recover_mul = ImGui.SliderFloat("Hip Recover Mul", hip_recover_mul, 0.2, 1.5, "%.2f")

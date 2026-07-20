@@ -283,6 +283,8 @@ local _prf_type = 1
 local modi_enabled = true
 local export_to_gamedata = fuzz_dev and true or false
 local force_convert = false
+local profile_to_copy = {}
+local profile_copy_hint = "Copy a pofile first"
 --TODO:! load and apply modifier
 --don't forget sort this out ,man
 function renderProfile()
@@ -301,18 +303,23 @@ function renderProfile()
 	prf.imgui_editor_drawer(available_prf[_prf_type], _prf_type, prf.info.name)
 
 	ImGui.Separator()
+	local function apply_profile(__profile)
+		prf:reload_all_modifiers()
+		hudrc.cache_profile(__profile)
+		camrc.cache_profile(__profile)
+		frm.force_invoke_init(__profile)
+	end
 	ImGui.Text("Edit without modifier if you want to share your recoil profile")
 	if ImGui.Button("Apply profile", vector2():set(200, 25)) then
-		prf:reload_all_modifiers()
-		hudrc.cache_profile(prf)
-		camrc.cache_profile(prf)
+		apply_profile(prf)
 	end
 	---@diagnostic enable: param-type-mismatch
 	ImGui.SameLine()
-	modi_enabled_change, modi_enabled = ImGui.Checkbox("With Modifier", modi_enabled)
+	modi_enabled_change, modi_enabled = ImGui.Checkbox("Modifier", modi_enabled)
 	if modi_enabled_change then
 		fuzz_recoil.static_modifiers.enabled(modi_enabled)
 		fuzz_recoil.dynamic_modifiers.enabled(modi_enabled)
+		apply_profile(prf)
 	end
 	ImGui.Text(export_hint)
 	if ImGui.Button("Export to LTX", vector2():set(150, 25)) then
@@ -333,6 +340,26 @@ function renderProfile()
 	end
 	ImGui.SameLine()
 	_, force_convert = ImGui.Checkbox("Convert", force_convert)
+
+	ImGui.Text(profile_copy_hint)
+	if ImGui.Button("Copy Profile", vector2():set(150, 25)) then
+		if not prf or not prf.raw_profile then
+			profile_copy_hint = "Can't copy profile, reload profile and try again"
+			return
+		end
+		fuzz_recoil_profile.shallow_copy(prf.raw_profile, profile_to_copy)
+		profile_copy_hint = "Copied Profile:" .. prf.info.name
+	end
+	ImGui.SameLine()
+	if ImGui.Button("Paste Profile", vector2():set(150, 25)) then
+		if not prf or profile_to_copy == {} then
+			profile_copy_hint = "Can't find profile to copy,Try copy again"
+			return
+		end
+		fuzz_recoil_profile.shallow_copy(profile_to_copy, prf.raw_profile)
+		apply_profile(prf)
+		profile_copy_hint = "Pasted!"
+	end
 end
 function renderOptions()
 	if ImGui.TreeNode("Options") then
@@ -352,8 +379,6 @@ function renderOptions()
 		ImGui.Text("2Axis cam and Punch")
 		_, options.use_punch = ImGui.Checkbox("FOV Punch / Shove", options.use_punch)
 		_, options.punch_legacy = ImGui.Checkbox("Punch Legacy (console/PiP)", options.punch_legacy)
-		-- _, options.recoil_v_scale =
-		-- 	ImGui.SliderFloat("Recoil scale(Vert)", options.recoil_v_scale, -0.9, 2, "%.2f")
 		if ImGui.Button("Apply Options", vector2():set(-1, 25)) then
 			frm.on_option_change()
 		end
@@ -529,8 +554,14 @@ function M.on_game_start()
 	hudrc = fuzz_recoil_hud_recoil
 	RegisterScriptCallback("actor_on_weapon_fired", on_fire)
 	RegisterScriptCallback("actor_on_first_update", actor_on_first_update)
-	-- RegisterScriptCallback("actor_on_update", on_update)
+	RegisterScriptCallback("actor_on_update", actor_on_update())
 	log("Fuzz:Dev mode enabled")
+end
+function actor_on_update()
+	if cheat_mag and frm.is_active() then
+		cast_wpn = fuzz_recoil.get_cur_wpn():cast_Weapon()
+		cast_wpn:SetMisfire(false)
+	end
 end
 function actor_on_first_update()
 	if inf_weight then
@@ -541,6 +572,5 @@ function on_fire()
 	if cheat_mag then
 		cast_wpn = fuzz_recoil.get_cur_wpn():cast_Weapon()
 		cast_wpn:SetAmmoElapsed(30)
-		cast_wpn:SetMisfire(false)
 	end
 end

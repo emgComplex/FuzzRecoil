@@ -150,7 +150,7 @@ function M.stop()
 	-- NOTE: what if we don't remove cam effector at all?
 	M.remove_cam_fx()
 end
---scale carries the per shot koefs, frac variance, expansion and mode kick
+--scale carries the per shot koefs, frac variance, expansion and mode impulse
 
 ---@type fuzz_on_firing
 function M.update_cubic(dt)

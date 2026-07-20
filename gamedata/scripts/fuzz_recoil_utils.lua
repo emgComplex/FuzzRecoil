@@ -81,8 +81,11 @@ end
 ---@return number updated_vel
 function M.apply_spring(raw_val, vel, dt, spring, damping)
 	if not damping then
-		--Calculate critical damping
-		damping = math.sqrt(spring) * 2
+		--critical damping solved exactly, identical motion at any fps
+		local w = math.sqrt(spring)
+		local e = math.exp(-w * dt)
+		local a = vel + w * raw_val
+		return (raw_val + a * dt) * e, (vel - a * w * dt) * e
 	end
 	--TODO: switch to solution for better fps adaption
 	dt = math.min(dt, 1 / 30)

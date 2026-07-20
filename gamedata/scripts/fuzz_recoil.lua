@@ -25,14 +25,14 @@ M.on_start = Event.new("start")
 ---invoke: fun(self: FuzzEvent,is_ads:boolean) }
 M.on_before_fire = Event.new("before_fire")
 
----@alias fuzz_on_before_shot fun(hp:number, kick_scale:any, ads:boolean, ...)
+---@alias fuzz_on_before_shot fun(hp:number, impulse_scale:any, ads:boolean, ...)
 ---@type FuzzEvent|{ add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_before_shot),
----invoke: fun(self: FuzzEvent, hp:number, kick_scale:any, ads:boolean, ...) }
+---invoke: fun(self: FuzzEvent, hp:number, impulse_scale:any, ads:boolean, ...) }
 M.on_before_shot = Event.new("before_shot")
 
----@alias fuzz_on_shot fun(hp:number, kick_scale:any, ads:boolean, ...)
+---@alias fuzz_on_shot fun(hp:number, impulse_scale:any, ads:boolean, ...)
 ---@type FuzzEvent|{ add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_shot),
----invoke: fun(self: FuzzEvent, hp:number, kick_scale:any, ads:boolean, ...) }
+---invoke: fun(self: FuzzEvent, hp:number, impulse_scale:any, ads:boolean, ...) }
 M.on_shot = Event.new("on_shot")
 
 --NOTE: dt must be first for handling_power
@@ -214,9 +214,14 @@ end
 -- end
 
 function M.on_option_change()
+	logger.on_option_change()
+	cvter.on_option_change()
 	hudrc.on_option_change()
 	camrc.on_option_change()
 	punchrc.on_option_change()
+
+	cached_weapons = {}
+	bloom_on_option_change()
 	add_option_scale_modifiers()
 	m_profile:reload_static_modier()
 	-- logger.dbg("apply options to hud")
@@ -241,6 +246,10 @@ function actor_on_weapon_before_fire()
 	end
 end
 function actor_on_weapon_fired()
+	--grenade launcher shots keep vanilla behavior, no rifle impulse
+	if cur_wpn and cur_wpn:weapon_in_grenade_mode() then
+		return
+	end
 	--first draw reaches here with active already true, check the effector too
 	if not active or not camrc.has_camera_effector() then
 		start_recoil()
@@ -251,6 +260,8 @@ function actor_on_weapon_fired()
 
 	-- ammo_addon_koefs_on_shot()
 
+	--ads or hip impulse mul reaches cam and punch in every hud mode
+	impulse_scale = shot_cam_k * hudrc.get_ads_hip_mul(is_ads)
 	M.on_shot:invoke(real_handling_power, impulse_scale, is_ads, shot_cam_k, burst_shots)
 
 	--TODO: instead of burst_shot,heating should implemented by a new system like how fatigue works
@@ -281,7 +292,7 @@ end
 function firing_stop()
 	is_firing = false
 	burst_shots = 0
-	M.on_restoring:add(HP_EVENT_ID, update_handling_restoring)
+	M.on_restoring:add(HP_EVENT_ID, handling_update_restoring)
 	M.on_firing_stop:invoke()
 	-- logger.dbg("Fire stopped")
 end
@@ -350,13 +361,26 @@ function update_fatigue(dt)
 		handling_fatigue = math.min(1, handling_fatigue - 0.18 * dt)
 	end
 end
+---@type fuzz_on_init_wpn
+function handling_init(profile)
+	-- inil some recoil paramete from here
+	firing_handling_ease:set_speed(profile.handling_speed)
+	idle_handling_ease:set_speed(profile.handling_speed)
+
+	if profile.is_bolt_action then
+		idle_handling_ease.intensity = sniper_idle_handling.intensity
+		idle_handling_ease.offset = sniper_idle_handling.offset
+	else
+		idle_handling_ease:reset()
+	end
+end
 ---@type fuzz_on_firing
-function update_handling_firing(dt)
+function handling_update_firing(dt)
 	handling_power = utils.math_clamp(firing_handling_ease:update(handling_power, dt), 0, 1)
 	real_handling_power = M.get_real_handling_power()
 end
 ---@type fuzz_on_restoring
-function update_handling_restoring(dt)
+function handling_update_restoring(dt)
 	handling_power = utils.math_clamp(idle_handling_ease:update(handling_power, dt), 0, 1)
 	if handling_power <= 0 then
 		M.on_restoring:remove(HP_EVENT_ID)
@@ -445,22 +469,18 @@ function init_weapon(wpn_sec)
 	check_upgrade(wpn_sec)
 	m_profile:apply_static_modifiers()
 	remove_vanilla_cam_recoil()
-	-- inil some recoil paramete from here
-	firing_handling_ease:set_speed(m_profile.handling_speed)
-	idle_handling_ease:set_speed(m_profile.handling_speed)
-
-	if m_profile.is_bolt_action then
-		idle_handling_ease.intensity = sniper_idle_handling.intensity
-		idle_handling_ease.offset = sniper_idle_handling.offset
-	else
-		idle_handling_ease:reset()
-	end
-
 	M.on_init_wpn:invoke(m_profile, cur_cast_wpn, wpn_sec)
 	-- ammo_addon_koefs_init()
 
 	addon_sig = get_addon_sig()
 	logger.dbg("Initialize weapon")
+end
+function M.force_invoke_init(profile)
+	if not cur_wpn or cur_wpn_id <= 0 then
+		return
+	end
+	local wpn_sec = cur_wpn:section()
+	M.on_init_wpn:invoke(profile, cur_cast_wpn, wpn_sec)
 end
 --TODO:if using cached profile , we need check upgrades and call this agian
 --NOTE: engine getters return the live post-upgrade values in radians,
@@ -552,6 +572,10 @@ function M.check_current_weapon()
 	end
 	local new_id = cur_wpn:id()
 	if cur_wpn_id == new_id then
+		--an upgrade can land while equipped, recheck when waking from idle
+		if not active and cur_cast_wpn then
+			check_upgrade(cur_wpn:section())
+		end
 		return active
 	end
 	--NOTE: give the previous weapon its vanilla cam recoil back,
@@ -576,10 +600,18 @@ function M.check_current_weapon()
 		return false
 	end
 	m_wpn_info.kind = kind
-	init_weapon(wpn_sec)
+	--a failed init keeps vanilla recoil instead of a zero recoil gun
+	local ok, err = pcall(init_weapon, wpn_sec)
+	if not ok then
+		logger.err("init_weapon failed for %s, vanilla recoil kept: %s", wpn_sec, tostring(err))
+		restore_vanilla_cam_recoil()
+		cur_wpn_id = -1
+		return false
+	end
 	return true
 end
 function M.force_recheck_weapon()
+	cached_weapons[cur_wpn_id] = nil
 	cur_wpn_id = -2
 	M.check_current_weapon()
 end
@@ -790,8 +822,6 @@ function add_option_scale_modifiers()
 		{ name = "option_scale", param = "cam_recoil_power", type = 1, val = options.recoil_cam_scale },
 		{ name = "option_scale", param = "force_yaw", type = 1, val = options.recoil_h_scale },
 		{ name = "option_scale", param = "handling_speed", type = 1, val = options.handling_speed_scale },
-		-- { name = "", param = "force_pitch", type = 1, val = options.recoil_v_scale },
-		-- { name = "", param = "force_y", type = 1, val = options.recoil_v_scale },
 		-- { name = "", param = "force_x", type = 1, val = options.recoil_h_scale },
 	}
 	add_modis_to(scale_modi, M.static_modifiers, 1, true)
@@ -809,20 +839,26 @@ function add_actor_stat_modifiers()
 	add_modis_to(stat_modi, M.dynamic_modifiers, 1, true)
 end
 
+local upgrade_modi = {
+	{ name = "upgrade", param = "cam_recoil_power", type = 2 },
+	{ name = "upgrade", param = "force_pitch", type = 2 },
+	{ name = "upgrade", param = "force_yaw", type = 2 },
+	{ name = "upgrade", param = "pull_force", type = 2 },
+	{ name = "upgrade", param = "handling_speed", type = 2 },
+}
+UPGRADES_MODI_ID_START = 10
+UPGRADES_MODI_ID_END = #upgrade_modi + UPGRADES_MODI_ID_START - 1
 function add_upgrades_modifiers(vert, hori, handle)
 	logger.dbg("aplly v:%.4f,hori:%.4f,handle:%.4f", vert, hori, handle)
-	local upgrade_modi = {
-		{ name = "upgrade", param = "cam_recoil_power", type = 2, val = vert },
-		{ name = "upgrade", param = "force_pitch", type = 2, val = vert },
-		{ name = "upgrade", param = "force_yaw", type = 2, val = hori },
-		{ name = "upgrade", param = "pull_force", type = 2, val = 2 - handle },
-		{ name = "upgrade", param = "handling_speed", type = 2, val = 2 - handle },
-	}
-	add_modis_to(upgrade_modi, M.static_modifiers, 10, true)
+	local val_list = { vert, vert, hori, 2 - handle, 2 - handle }
+	for i, modi in ipairs(upgrade_modi) do
+		modi.val = val_list[i]
+	end
+	add_modis_to(upgrade_modi, M.static_modifiers, UPGRADES_MODI_ID_START, true)
 end
 
 function remove_upgrade_modifiers()
-	for id = 10, 13 do
+	for id = UPGRADES_MODI_ID_START, UPGRADES_MODI_ID_END do
 		M.static_modifiers:remove_modifier(id)
 	end
 	M.static_modifiers:refresh_modi_cache()
@@ -884,7 +920,10 @@ end
 ---Sub Event
 ------------
 M.on_restoring.on_empty = stop_recoil
-M.on_firing:add(HP_EVENT_ID, update_handling_firing)
+
+M.on_init_wpn:add(HP_EVENT_ID, handling_init)
+M.on_firing:add(HP_EVENT_ID, handling_update_firing)
+
 M.on_init_wpn:add(SHOT_DELAY_EVENT_ID, shot_delay_init)
 --------------------------------------
 ---Debug
