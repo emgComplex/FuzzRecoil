@@ -50,7 +50,10 @@ restore_ease = 1.0
 ---Options
 ----------
 local cam_drag = 12
+---@type fuzz_on_restoring
 local __restoring_fn = M.do_restore_full
+---@type fuzz_on_restoring
+local __real_restoring_fn = M.do_restore_full
 function M.on_option_change()
 	cam_drag = options.cam_drag
 	if options.use_comp_return ~= nil then
@@ -227,7 +230,7 @@ function M.init(profile)
 	M.restored()
 	frm.on_firing:add(EVENT_ID, _firing_update_fn)
 	--NOTE: full restore if desync_hud
-	frm.on_restoring:add(EVENT_ID, profile.desync_hud and M.do_restore_full or __restoring_fn)
+	__real_restoring_fn = profile.desync_hud and M.do_restore_full or __restoring_fn
 end
 ---@param profile fuzz_recoil_profile
 ---@type fuzz_on_start
@@ -257,7 +260,7 @@ end
 function M.on_firing_stop()
 	--restore glides from rest, leftover kick velocity would bump upward first
 	m_vel = 0
-	frm.on_restoring:add(EVENT_ID, __restoring_fn)
+	frm.on_restoring:add(EVENT_ID, __real_restoring_fn)
 end
 
 function M.restored()
