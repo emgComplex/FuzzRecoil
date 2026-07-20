@@ -53,10 +53,6 @@ local cam_drag = 12
 local __restoring_fn = M.do_restore_full
 function M.on_option_change()
 	cam_drag = options.cam_drag
-	--FIXME: the camera return is always needed when hud desyncs with camera.
-	--so all pistol shotgun and snipers
-	--check it in init ,use  full or saved __restoring_fn
-	--move this once we are done
 	if options.use_comp_return ~= nil then
 		use_comp_return = options.use_comp_return
 		no_cam_restore = options.no_cam_restore
@@ -230,6 +226,8 @@ function M.init(profile)
 	end
 	M.restored()
 	frm.on_firing:add(EVENT_ID, _firing_update_fn)
+	--NOTE: full restore if desync_hud
+	frm.on_restoring:add(EVENT_ID, profile.desync_hud and M.do_restore_full or __restoring_fn)
 end
 ---@param profile fuzz_recoil_profile
 ---@type fuzz_on_start
