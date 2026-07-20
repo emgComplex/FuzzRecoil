@@ -50,6 +50,13 @@ function LinePlotHack:draw(new_val)
 	ImGui.PopStyleVar()
 end
 
+local function toggle_overlays()
+	overlay_toggle = not overlay_toggle
+	showPlots = overlay_toggle
+	showLogs = overlay_toggle
+	showInfo = overlay_toggle
+	showProfile = overlay_toggle
+end
 function renderImguiWindow()
 	ImGui.SetNextWindowSize(vector2():set(800, 600), ImGuiCond.FirstUseEver)
 
@@ -77,11 +84,7 @@ function renderImguiTab()
 	end
 	ImGui.SameLine()
 	if ImGui.Button("ToggleOverlays", vector2():set(100, 25)) then
-		overlay_toggle = not overlay_toggle
-		showPlots = overlay_toggle
-		showLogs = overlay_toggle
-		showInfo = overlay_toggle
-		showProfile = overlay_toggle
+		toggle_overlays()
 	end
 	----------------
 	----------------
@@ -127,6 +130,14 @@ function renderImguiTab()
 			ImGui.Text("Not in dev mode,advanced configs disabled")
 			return
 		end
+		-----------------HOTKEYS-----------------
+		if ImGui.IsKeyPressed(ImGuiKey.Keypad1, false) then
+			toggle_overlays()
+		end
+		if ImGui.IsKeyPressed(ImGuiKey.Keypad6, false) then
+			cheat_mag = not cheat_mag
+		end
+		-----------------HOTKEYS-----------------
 		renderExtra()
 		if ImGui.TreeNode("Recoil Config") then
 			renderConfig()
@@ -385,7 +396,7 @@ function renderOptions()
 		ImGui.TreePop()
 	end
 end
-local cheat_mag = false
+cheat_mag = false
 local inf_weight = fuzz_dev and true or false
 function renderExtra()
 	---------cheat-------------
