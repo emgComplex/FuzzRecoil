@@ -7,14 +7,9 @@ function on_game_start()
 		log("Can't find Fuzz recoil")
 		return
 	end
-	local ori_init = hudrc.init_offset
 	if wct then
-		hudrc.init_offset = function(wpn_sec, cast_wpn)
-			--FIXME: this is just a temp fix,to see if it works.
-			ori_init(wpn_sec, cast_wpn)
-			wct.reset_wpn_hud(wpn_sec)
-		end
-		logger.dbg("Use wct to init")
+		hudrc.set_3db_offsets = wct.reset_wpn_hud
+		logger.dbg("Use wct to set 3db offfsets")
 	else
 		logger.err("(MASG Patch)Can't find weapon cover tilt")
 	end

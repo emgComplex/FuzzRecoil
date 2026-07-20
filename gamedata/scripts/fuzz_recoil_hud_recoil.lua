@@ -235,32 +235,28 @@ local function rot_with_drift()
 	rot:clamp(max_hud_rot)
 	return rot
 end
-------------------------------------------
----3DB offsets
-------------------------------------------
-function M.init_offset(wpn_sec, cast_wpn)
-	hud_adjust.enabled(true)
-	local hud = utils.get_string(wpn_sec, "hud")
-	local postfix = utils_xml.is_widescreen() and "_16x9" or ""
-	local function get_hud_vector(hud_sec, key, v)
-		local value = utils.get_string(hud_sec, key .. postfix)
-		if value == "" then
-			value = utils.get_string(hud_sec, key)
-		end
-		if value == "" then
-			return v.def or vector():set(0, 0, 0)
-		end
-		return utils_data.string_to_vector(value)
+local hud_sec_postfix = utils_xml.is_widescreen() and "_16x9" or ""
+local function get_hud_vector(hud_sec, key, v)
+	local value = utils.get_string(hud_sec, key .. hud_sec_postfix)
+	if value == "" then
+		value = utils.get_string(hud_sec, key)
 	end
-	local function set_hud_vector(hud_sec, key, v)
-		local _vec = get_hud_vector(hud_sec, key, v)
-		hud_adjust.set_vector(v.idxa, v.idxb, _vec.x, _vec.y, _vec.z)
+	if value == "" then
+		return v.def or vector():set(0, 0, 0)
 	end
+	return utils_data.string_to_vector(value)
+end
+local function set_hud_vector(hud_sec, key, v)
+	local _vec = get_hud_vector(hud_sec, key, v)
+	hud_adjust.set_vector(v.idxa, v.idxb, _vec.x, _vec.y, _vec.z)
+end
+local function read_wpn_hud_hand(hud)
 	ori_hand_trs = {
 		get_hud_vector(hud, "hands_position", { def = vector():set(0, 0, 0) }),
 		get_hud_vector(hud, "hands_orientation", { def = vector():set(0, 0, 0) }),
 	}
-	--credit:@demonized's weapon tilt cover
+end
+function M.set_3db_offsets(wpn_sec, hud)
 	local offset_key_list = {
 		["hands_position"] = { idxa = 0, idxb = 0 },
 		["hands_orientation"] = { idxa = 1, idxb = 0 },
@@ -318,6 +314,16 @@ function M.init_offset(wpn_sec, cast_wpn)
 	hud_adjust.set_value("scope_zoom_factor", scope_zoom)
 	hud_adjust.set_value("gl_zoom_factor", utils.get_float(wpn_sec, "gl_zoom_factor"))
 	hud_adjust.set_value("scope_zoom_factor_alt", utils.get_float(wpn_sec, "scope_zoom_factor_alt"))
+end
+------------------------------------------
+---3DB offsets
+------------------------------------------
+local function init_offset(wpn_sec, cast_wpn)
+	hud_adjust.enabled(true)
+	local hud = utils.get_string(wpn_sec, "hud")
+	read_wpn_hud_hand(hud)
+	M.set_3db_offsets(wpn_sec, hud)
+	--credit:@demonized's weapon tilt cover
 	hud_adjust.enabled(false)
 end
 --------------
@@ -594,7 +600,7 @@ end
 
 ---@type fuzz_on_init_wpn
 function M.init(_, cast_wpn, wpn_sec)
-	M.init_offset(wpn_sec, cast_wpn)
+	init_offset(wpn_sec, cast_wpn)
 end
 ---@type fuzz_on_start
 function M.start(profile)
