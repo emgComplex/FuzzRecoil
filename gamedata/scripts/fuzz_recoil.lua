@@ -103,6 +103,7 @@ local m_wpn_info = {
 	rpm = 600,
 	cam_relax_speed = 0,
 	mag_size = 30,
+	inertion_enabled = true,
 	--NOTE: feature needed
 	addon_cam_k = 1,
 	addon_cam_inc_k = 1,
@@ -341,6 +342,8 @@ function start_recoil()
 	add_actor_stat_modifiers()
 	M.dynamic_modifiers:refresh_modi_cache()
 	m_profile:apply_dynamic_modifiers()
+	---@diagnostic disable-next-line: undefined-field,need-check-nil
+	cur_wpn:set_hud_inertion_enabled(false)
 	M.on_start:invoke(m_profile)
 	-- M.on_start:print_handlers()
 	-- M.on_firing:print_handlers()
@@ -351,6 +354,8 @@ function stop_recoil()
 	is_firing = false
 	burst_shots = 0
 	handling_power = 0
+	---@diagnostic disable-next-line: undefined-field,need-check-nil
+	cur_wpn:set_hud_inertion_enabled(m_wpn_info.inertion_enabled)
 
 	M.on_stop:invoke()
 
@@ -533,6 +538,7 @@ function get_basic_wpn_info()
 	m_wpn_info.zoom_cam_dispersion = math.deg(cur_cast_wpn:GetZoomCamDispersion())
 	m_wpn_info.zoom_cam_dispersion_inc = math.deg(cur_cast_wpn:GetZoomCamDispersionInc())
 	m_wpn_info.cam_relax_speed = math.deg(cur_cast_wpn:GetCamRelaxSpeed())
+	m_wpn_info.inertion_enabled = cur_wpn:hud_inertion_enabled()
 end
 function get_feat_wpn_info()
 	--live weight includes attached addons
