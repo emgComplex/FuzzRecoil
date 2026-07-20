@@ -1,6 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+should_release=0
+while getopts ":r" opt; do
+	case "$opt" in
+	r) should_release=1 ;;
+	\?)
+		echo "bad arg:-$OPTARG" >&2
+		exit 1
+		;;
+	esac
+done
+
+shift $((OPTIND - 1))
+
 mod_name="fuzz_recoil"
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -87,4 +100,7 @@ if [[ -e "$out_zip" ]]; then
 fi
 
 7z a "$out_zip" "${out_root}/*"
-cp "$out_zip" "$HOME/Downloads"
+
+if ((should_release)); then
+	gh release create "${version}" "${out_zip}" --generate-notes --latest "$@"
+fi
