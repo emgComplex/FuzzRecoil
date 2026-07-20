@@ -146,6 +146,7 @@ end
 --===========================
 --Credit:@verdatim
 local dumped_weapons = {}
+local iteration_result = ""
 local ini_loadouts = ini_file_ex("items\\settings\\npc_loadouts\\npc_loadouts.ltx")
 local disallowed_sections = {}
 local allowed_sections = {}
@@ -156,6 +157,7 @@ local m_allowed_kinds = {
 	w_sniper = true,
 	w_smg = true,
 }
+
 function M.get_all_weapon_sections(allowed_kinds, action, postaction)
 	dumped_weapons = {}
 	M.iterate_action = action
@@ -241,5 +243,22 @@ function M.dump_to_json()
 		return
 	end
 	f:write(json.encode(dumped_weapons))
+	f:close()
+end
+
+function M.write_zero_inertion(wpn_sec_name)
+	iteration_result = iteration_result
+		.. string.format("![%s]:hud_base\n", wpn_sec_name)
+		.. "inertion_offset_LRUD            = 0,0,0,0\n"
+		.. "inertion_offset_LRUD_aim        = 0,0,0,0\n"
+	dumped_weapons[wpn_sec_name] = true
+end
+function M.write_result_to_file()
+	local f = io.open("fuzz_recoil_result.txt", "w")
+	if not f then
+		logger.err("Failed to open file")
+		return
+	end
+	f:write(iteration_result)
 	f:close()
 end

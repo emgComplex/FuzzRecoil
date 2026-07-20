@@ -478,6 +478,7 @@ function renderWeaponSpawner()
 		ImGui.SameLine()
 		if ImGui.Button("Dump  Weapons datas (need json.lua)", vector2():set(-1, 25)) then
 			utils.get_all_weapon_sections(allowed_kinds, utils.dump_vanilla_data, utils.dump_to_json)
+			-- utils.get_all_weapon_sections(allowed_kinds, utils.write_zero_inertion, utils.write_result_to_file)
 		end
 		ImGui.TreePop()
 	end
