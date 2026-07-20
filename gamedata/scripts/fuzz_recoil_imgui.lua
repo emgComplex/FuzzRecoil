@@ -460,11 +460,11 @@ function renderWeaponSpawner()
 			end
 		end
 		if ImGui.Button("Spawn Weapons", vector2():set(120, 25)) then
-			utils.get_all_weapon_sections(allowed_kinds, true)
+			utils.get_all_weapon_sections(allowed_kinds, utils.spawn_weapon)
 		end
 		ImGui.SameLine()
 		if ImGui.Button("Dump  Weapons datas (need json.lua)", vector2():set(-1, 25)) then
-			utils.get_all_weapon_sections(allowed_kinds)
+			utils.get_all_weapon_sections(allowed_kinds, utils.dump_vanilla_data, utils.dump_to_json)
 		end
 		ImGui.TreePop()
 	end

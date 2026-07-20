@@ -146,7 +146,6 @@ local dumped_weapons = {}
 local ini_loadouts = ini_file_ex("items\\settings\\npc_loadouts\\npc_loadouts.ltx")
 local disallowed_sections = {}
 local allowed_sections = {}
-local should_spawn_wpn = false
 local m_allowed_kinds = {
 	w_pistol = true,
 	w_rifle = true,
@@ -154,13 +153,9 @@ local m_allowed_kinds = {
 	w_sniper = true,
 	w_smg = true,
 }
-function M.get_all_weapon_sections(allowed_kinds, spawn)
-	json = require("json")
-	if not json then
-		logger.err("Cannot find json.lua")
-	end
-
-	should_spawn_wpn = spawn
+function M.get_all_weapon_sections(allowed_kinds, action, postaction)
+	dumped_weapons = {}
+	M.iterate_action = action
 	m_allowed_kinds = allowed_kinds
 
 	local scripted_loadouts = ini_loadouts:collect_section("loadouts_per_name")
@@ -179,17 +174,9 @@ function M.get_all_weapon_sections(allowed_kinds, spawn)
 	ini_loadouts:section_for_each(loadout_exists_iterator)
 
 	ini_loadouts:section_for_each(iterator)
-	if should_spawn_wpn then
-		return
+	if postaction then
+		postaction()
 	end
-	local f = io.open("dumped_weapons.json", "w")
-	if not f then
-		logger.err("Failed to open file")
-		return
-	end
-	f:write(json.encode(dumped_weapons))
-	f:close()
-	dumped_weapons = {}
 end
 function loadout_exists_iterator(section)
 	-- checks if a loadout section is mentioned in any stalker loadout section; exists just in case sections that arent assigned to any loadout exists
@@ -218,22 +205,38 @@ function iterator(section)
 		if ini_sys:section_exist(wpn_sec_name) and not dumped_weapons[wpn_sec_name] then
 			local kind = ini_sys:r_string_ex(wpn_sec_name, "kind")
 			if m_allowed_kinds[kind] then
-				if should_spawn_wpn then
-					give_object_to_actor(wpn_sec_name)
-					dumped_weapons[wpn_sec_name] = true
-					goto continue
-				end
-				dumped_weapons[wpn_sec_name] = {
-					kind = ini_sys:r_string_ex(wpn_sec_name, "kind"),
-					inv_weight = ini_sys:r_string_ex(wpn_sec_name, "inv_weight"),
-					cam_dispersion = ini_sys:r_string_ex(wpn_sec_name, "cam_dispersion"),
-					cam_dispersion_inc = ini_sys:r_string_ex(wpn_sec_name, "cam_dispersion_inc"),
-					cam_step_angle_horz = ini_sys:r_string_ex(wpn_sec_name, "cam_step_angle_horz"),
-					cam_relax_speed = ini_sys:r_string_ex(wpn_sec_name, "cam_relax_speed"),
-					rpm = ini_sys:r_string_ex(wpn_sec_name, "rpm"),
-				}
+				M.iterate_action(wpn_sec_name)
 			end
 		end
-		::continue::
 	end
+end
+M.iterate_action = M.spawn_weapon
+function M.spawn_weapon(wpn_sec_name)
+	give_object_to_actor(wpn_sec_name)
+	dumped_weapons[wpn_sec_name] = true
+end
+function M.dump_vanilla_data(wpn_sec_name)
+	dumped_weapons[wpn_sec_name] = {
+		kind = ini_sys:r_string_ex(wpn_sec_name, "kind"),
+		inv_weight = ini_sys:r_string_ex(wpn_sec_name, "inv_weight"),
+		cam_dispersion = ini_sys:r_string_ex(wpn_sec_name, "cam_dispersion"),
+		cam_dispersion_inc = ini_sys:r_string_ex(wpn_sec_name, "cam_dispersion_inc"),
+		cam_step_angle_horz = ini_sys:r_string_ex(wpn_sec_name, "cam_step_angle_horz"),
+		cam_relax_speed = ini_sys:r_string_ex(wpn_sec_name, "cam_relax_speed"),
+		rpm = ini_sys:r_string_ex(wpn_sec_name, "rpm"),
+	}
+end
+function M.dump_to_json()
+	json = require("json")
+	if not json then
+		logger.err("Cannot find json.lua")
+	end
+
+	local f = io.open("dumped_weapons.json", "w")
+	if not f then
+		logger.err("Failed to open file")
+		return
+	end
+	f:write(json.encode(dumped_weapons))
+	f:close()
 end
