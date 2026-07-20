@@ -78,6 +78,9 @@ copy_files "03 Gamma_Patch" \
 	"./gamedata/configs/mod_system_z_fuzz_recoil_gamma_patch_pistol.ltx" \
 	"./gamedata/configs/mod_system_z_fuzz_recoil_gamma_patch_sniper.ltx"
 
+copy_files "04 MASG_Patch" \
+	"./gamedata/scripts/fuzz_recoil_zz_masg_patch.lua"
+
 out_zip="./output/${mod_name}_${version}.7z"
 if [[ -e "$out_zip" ]]; then
 	rm "$out_zip"
