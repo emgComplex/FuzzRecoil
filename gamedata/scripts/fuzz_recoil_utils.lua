@@ -249,8 +249,15 @@ end
 function M.write_zero_inertion(wpn_sec_name)
 	iteration_result = iteration_result
 		.. string.format("![%s]:hud_base\n", wpn_sec_name)
-		.. "inertion_offset_LRUD            = 0,0,0,0\n"
-		.. "inertion_offset_LRUD_aim        = 0,0,0,0\n"
+		.. "inertion_offset_LRUD = 0.0, 0.0, 0.0, 0.0\n"
+		.. "inertion_offset_LRUD_aim = 0.0, 0.0, 0.0, 0.0\n"
+		.. "inertion_min_angle = 89.0\n"
+		.. "inertion_min_angle_aim = 89.0\n"
+		.. "inertion_tendto_aim_speed = 0.0\n"
+		.. "inertion_tendto_speed = 0.0\n"
+		.. "inertion_tendto_ret_speed = 0.0\n"
+		.. "inertion_tendto_ret_aim_speed = 0.0\n"
+		.. "strafe_aim_enabled = false\n"
 	dumped_weapons[wpn_sec_name] = true
 end
 function M.write_result_to_file()
