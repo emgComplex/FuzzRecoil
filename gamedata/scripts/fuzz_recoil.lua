@@ -228,6 +228,10 @@ function M.on_option_change()
 	punchrc.on_option_change()
 
 	cached_weapons = {}
+	if cur_wpn_id > 0 then
+		M.force_reset_recoil()
+		M.force_recheck_weapon()
+	end
 	bloom_on_option_change()
 	add_option_scale_modifiers()
 	m_profile:reload_static_modier()
