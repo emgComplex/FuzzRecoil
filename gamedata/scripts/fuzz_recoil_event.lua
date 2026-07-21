@@ -12,10 +12,10 @@ M.__index = M
 local event_id_list = {
 	[5] = "shot_delay",
 	[11] = "bloom",
-	[21] = "handling_power",
-	[22] = "cam_recoil",
-	[23] = "hud_recoil",
-	[24] = "cam_punch",
+	[25] = "handling_power",
+	[35] = "cam_recoil",
+	[45] = "hud_recoil",
+	[55] = "cam_punch",
 }
 local unknown_id = 100
 function M.getEventID(event_name)
