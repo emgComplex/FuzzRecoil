@@ -3,6 +3,7 @@ local logger = fuzz_recoil_logger
 ---@field debug_mode boolean
 ---@field recoil_cam_scale number
 ---@field recoil_h_scale number
+---@field fixed_yaw_direction boolean
 ---@field handling_speed_scale number
 ---@field impulse_fatigue_ratio number
 ---@field pistol_recoil_mul number
@@ -28,6 +29,8 @@ local defaults = {
 	--positive increases, negative decreases , 0 means default
 	---(-0,9---2.0)
 	recoil_h_scale = 0,
+	--Fixed yaw direction if you don't like RNG on horizontal axis
+	fixed_yaw_direction = false,
 	--Global recoil handling additional scale,
 	--positive increases, negative decreases , 0 means default
 	--(-0,9---2.0)
@@ -102,6 +105,7 @@ function M.on_mcm_load()
             { id = "recoil_group_title", type = "line" },
             { id = "recoil_cam_scale", type = "track", val = 2, min = -0.2, max = 0.2, step = 0.01, def = defaults.recoil_cam_scale },
             { id = "recoil_h_scale", type = "track", val = 2, min = -0.2, max = 0.2, step = 0.01, def = defaults.recoil_h_scale },
+            { id = "fixed_yaw_direction", type = "check", val = 1, def = defaults.fixed_yaw_direction },
             { id = "handling_speed_scale", type = "track", val = 2, min = -0.5, max = 1, step = 0.05, def = defaults.handling_speed_scale },
             { id = "impulse_fatigue_ratio", type = "track", val = 2, min = 0.0, max = 0.3, step = 0.01, def = defaults.impulse_fatigue_ratio },
             { id = "use_punch", type = "check", val = 1, def = defaults.use_punch },

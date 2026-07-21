@@ -368,7 +368,7 @@ local function on_shot_spring(handling_power, _, ads)
 	if handling_power < 0.7 and fuzz_recoil.get_handling_fatigue() < 1 then
 		yaw_kick_enhance = utils.lerp(math.random(), 0.7, 1) * yaw_sign
 	else
-		M.pick_yaw_sign()
+		M.pick_yaw_sign_random(false)
 		yaw_kick_enhance = yaw_kick_enhance * yaw_sign
 	end
 
@@ -597,20 +597,30 @@ end
 function M.invert_yaw_sign()
 	yaw_sign = yaw_sign * -1
 end
+---@type fuzz_on_before_fire
+M.pick_yaw_sign = M.pick_yaw_sign_random
+---@type fuzz_on_before_fire
+function M.pick_yaw_sign_fix()
+	math.randomseed(fire_interval * 60)
+	yaw_sign = math.random() > 0.5 and 1 or -1
+	math.randomseed(os.time())
+end
+---@type fuzz_on_before_fire
+function M.pick_yaw_sign_random()
+	yaw_sign = math.random() > 0.5 and 1 or -1
+end
 
 ---@type fuzz_on_init_wpn
 function M.init(_, cast_wpn, wpn_sec)
 	init_offset(wpn_sec, cast_wpn)
+	M.pick_yaw_sign = options.fixed_yaw_direction and M.pick_yaw_sign_fix or M.pick_yaw_sign_random
+	frm.on_before_fire:add(EVENT_ID, M.pick_yaw_sign)
 end
 ---@type fuzz_on_start
 function M.start(profile)
 	M.cache_profile(profile)
 	M.reset_hud_hand()
 	M.enable_hud_adjust()
-end
----@type fuzz_on_before_fire
-function M.pick_yaw_sign()
-	yaw_sign = math.random() > 0.5 and 1 or -1
 end
 ---@type fuzz_on_firing_stop
 function M.on_firing_stop()

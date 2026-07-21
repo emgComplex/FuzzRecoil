@@ -376,6 +376,7 @@ function renderOptions()
 	if ImGui.TreeNode("Options") then
 		_, options.recoil_cam_scale = ImGui.SliderFloat("Recoil scale(Cam)", options.recoil_cam_scale, -0.9, 2, "%.2f")
 		_, options.recoil_h_scale = ImGui.SliderFloat("Recoil scale(Hori) ", options.recoil_h_scale, -0.9, 2, "%.2f")
+		_, options.fixed_yaw_direction = ImGui.Checkbox("Fixed yaw Direction", options.fixed_yaw_direction)
 		_, options.handling_speed_scale =
 			ImGui.SliderFloat("Handling Speed", options.handling_speed_scale, -0.9, 2, "%.2f")
 		_, options.impulse_fatigue_ratio =

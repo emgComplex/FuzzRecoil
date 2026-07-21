@@ -37,6 +37,12 @@
     <string id="ui_mcm_fuzz_recoil_recoil_h_scale_desc">
         <text>Global horizontal recoil additional scale. Positive increases, negative decreases, 0 means default.</text>
     </string>
+    <string id="ui_mcm_fuzz_recoil_fixed_yaw_direction">
+        <text>Fixed Horizontal Recoil Direction</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_fixed_yaw_direction_desc">
+        <text>Fixed yaw direction if you don't like RNG on horizontal axis</text>
+    </string>
     
     <string id="ui_mcm_fuzz_recoil_handling_speed_scale">
         <text>Handling Speed Scale</text>
