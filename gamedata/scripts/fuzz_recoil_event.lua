@@ -33,14 +33,22 @@ local m_events = {}
 local m_events_count = 0
 
 function M.print_all_events()
-	for _, e in ipairs(m_events) do
-		e:print_handlers()
+	for i, e in pairs(m_events) do
+		if e then
+			e:print_handlers()
+		else
+			logger.err("Event is nil at index(%s)", i)
+		end
 	end
 end
 function M.get_all_evetns_info()
 	local result = "Events:\n"
-	for _, e in ipairs(m_events) do
-		result = e:get_handlers_info() .. "\n"
+	for i, e in pairs(m_events) do
+		if e then
+			result = result .. e:get_handlers_info()
+		else
+			result = result .. string.format("Event is nil at index(%s)\n", i)
+		end
 	end
 	return result
 end
@@ -116,10 +124,11 @@ function M:__tostring()
 	return result
 end
 function M:get_handlers_info()
-	result = self.label .. ":/n"
-	for _, h in pairs(self.handlers) do
-		result = result .. logger.get_func_info(h) .. "\n"
+	result = string.format("[%s]:\n", self.label)
+	for i, h in pairs(self.handlers) do
+		result = result .. string.format("%s[%s]>>%s\n", i, event_id_list[i] or "unknown_id", logger.get_func_info(h))
 	end
+	return result
 end
 
 function M:print_handlers()

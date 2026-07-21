@@ -8,6 +8,7 @@ local punchrc = fuzz_recoil_punch
 local impacts = fuzz_recoil_impacts
 local options = fuzz_recoil_mcm
 local modifier = fuzz_recoil_modifier
+local f_events = fuzz_recoil_event
 --stylua: ignore start
 --stylua: ignore end
 -- local log_text = frm.log_text
@@ -19,6 +20,7 @@ local showProfile = fuzz_dev and true or false
 local showInfo = fuzz_dev and true or false
 local showLogs = fuzz_dev and true or false
 local showPlots = fuzz_dev and true or false
+local showEvents = fuzz_dev and true or false
 
 local debug_text1 = "Weapon profile won't refresh untill you shot a bullet"
 local auto_scroll_logs = true
@@ -56,6 +58,7 @@ local function toggle_overlays()
 	showLogs = overlay_toggle
 	showInfo = overlay_toggle
 	showProfile = overlay_toggle
+	showEvents = overlay_toggle
 end
 function renderImguiWindow()
 	ImGui.SetNextWindowSize(vector2():set(800, 600), ImGuiCond.FirstUseEver)
@@ -75,13 +78,7 @@ function renderImguiTab()
 	ImGui.SameLine()
 	_, showInfo = ImGui.Checkbox("Info", showInfo)
 	ImGui.SameLine()
-	if ImGui.Button("Load Weapon", vector2():set(100, 25)) then
-		if frm.check_current_weapon() then
-			debug_text1 = frm.get_cur_wpn():section() .. ":" .. frm.get_cur_wpn_id()
-		else
-			debug_text1 = "Failed to load weapon"
-		end
-	end
+	_, showEvents = ImGui.Checkbox("Events", showEvents)
 	ImGui.SameLine()
 	if ImGui.Button("ToggleOverlays", vector2():set(100, 25)) then
 		toggle_overlays()
@@ -167,6 +164,7 @@ ImGui.Groups.Unique.Widget(function()
 	plot_overlay()
 	profile_overlay()
 	info_overlay()
+	event_overlay()
 end)
 ImGui.Groups.Mods.Widget(function()
 	_, showImguiWin = ImGui.MenuItem("FuzzRecoil", nil, showImguiWin, true)
@@ -286,6 +284,18 @@ function info_overlay()
 		hudrc.imgui_info_drawer()
 		ImGui.Separator()
 		camrc.imgui_info_drawer()
+	end
+	ImGui.End()
+end
+
+function event_overlay()
+	if not showEvents then
+		return
+	end
+	ImGui.SetNextWindowSize(vector2():set(400, 600), ImGuiCond.FirstUseEver)
+	expanded, _ = ImGui.Begin("Events Info", true)
+	if expanded and frm.is_game_started() then
+		ImGui.Text(f_events.get_all_evetns_info())
 	end
 	ImGui.End()
 end
