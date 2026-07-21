@@ -96,7 +96,9 @@ function M.on_mcm_load()
         sh = true,
         gr = {
             { id = "title", type = "slide", link = "ui_options_slider_player", text = "ui_mcm_fuzz_recoil_title", size = {512, 50}, spacing = 20 },
-            { id = "debug_mode", type = "check", val = 1, def = defaults.debug_mode },
+            { id = "easy", type = "button", functor_ui = { function(gui) apply_preset_by_id("easy", gui) end, }, },
+            { id = "noraml", type = "button", functor_ui = { function(gui) apply_preset_by_id("normal", gui) end, }, },
+            { id = "hard", type = "button", functor_ui = { function(gui) apply_preset_by_id("hard", gui) end, }, },
             { id = "recoil_group_title", type = "line" },
             { id = "recoil_cam_scale", type = "track", val = 2, min = -0.2, max = 0.2, step = 0.01, def = defaults.recoil_cam_scale },
             { id = "recoil_h_scale", type = "track", val = 2, min = -0.2, max = 0.2, step = 0.01, def = defaults.recoil_h_scale },
@@ -116,7 +118,50 @@ function M.on_mcm_load()
             { id = "experimental_group_line", type = "line" },
             { id = "use_bloom", type = "check", val = 1, def = defaults.use_bloom },
             { id = "instant_mode", type = "check", val = 1, def = defaults.instant_mode },
-        }
+            { id = "debug_mode", type = "check", val = 1, def = defaults.debug_mode },
+		}
     }
 end
 --stylua: ignore end
+
+DIFFICULTY_PRESET = {
+	easy = {
+		recoil_cam_scale = -0.1,
+		recoil_h_scale = -0.1,
+		impulse_fatigue_ratio = 0,
+	},
+	normal = {
+		recoil_cam_scale = 0,
+		recoil_h_scale = 0,
+		impulse_fatigue_ratio = 0.15,
+	},
+	hard = {
+		recoil_cam_scale = 0.15,
+		recoil_h_scale = 0.15,
+		impulse_fatigue_ratio = 0.22,
+	},
+}
+function apply_preset_by_id(preset_id, gui)
+	logger.dbg("Apllying preset" .. preset_id)
+	local preset = DIFFICULTY_PRESET[preset_id]
+	if not preset then
+		logger.err("Wrong Preset ID:" .. preset_id)
+		return
+	end
+
+	local path = "fuzz_recoil/"
+
+	logger.dbg("before saving")
+	for key, value in pairs(preset) do
+		ui_mcm.set(path .. key, value)
+	end
+	on_option_change()
+	if gui then
+		if gui.owner and gui.owner.SetMsg then
+			gui.owner:SetMsg("Difficulty preset applied:" .. preset_id, 3)
+		end
+		if gui.On_Cancel then
+			gui:On_Cancel()
+		end
+	end
+end

@@ -8,6 +8,15 @@
         <text>Fuzz Recoil Options</text>
     </string>
 
+    <string id="ui_mcm_fuzz_recoil_easy">
+        <text>DIFFICULTY:EASY</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_noraml">
+        <text>DIFFICULTY:NORMAL</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_hard">
+        <text>DIFFICULTY:HARD</text>
+    </string>
     <string id="ui_mcm_fuzz_recoil_debug_mode">
         <text>Debug Mode</text>
     </string>
