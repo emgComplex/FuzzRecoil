@@ -381,6 +381,8 @@ function renderOptions()
 			ImGui.SliderFloat("Handling Speed", options.handling_speed_scale, -0.9, 2, "%.2f")
 		_, options.impulse_fatigue_ratio =
 			ImGui.SliderFloat("Fatigue Increase Rate", options.impulse_fatigue_ratio, 0, 0.3, "%.3f")
+		_, options.cam_restore_speed_scale =
+			ImGui.SliderFloat("Cam Restore Speed Scale", options.cam_restore_speed_scale, -0.9, 5, "%.2f")
 
 		_, options.bolt_action_Y_lift = ImGui.Checkbox("Bolt-Action Lift", options.bolt_action_Y_lift)
 		_, options.cam_drag = ImGui.SliderFloat("Cam Drag", options.cam_drag, 5.0, 20.0, "%.2f")

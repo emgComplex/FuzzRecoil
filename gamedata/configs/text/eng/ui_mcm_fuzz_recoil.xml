@@ -50,13 +50,21 @@
     <string id="ui_mcm_fuzz_recoil_handling_speed_scale_desc">
         <text>Global recoil handling additional scale. Positive increases, negative decreases, 0 means default.</text>
     </string>
-    
+
+    <string id="ui_mcm_fuzz_recoil_cam_restore_speed_scale">
+        <text>Cam Return Speed Scale</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_cam_restore_speed_scale_desc">
+        <text>Global Camera return speed additional scale. Positive increases, negative decreases, 0 means default.</text>
+    </string>
+
     <string id="ui_mcm_fuzz_recoil_impulse_fatigue_ratio">
         <text>Impulse Fatigue Ratio</text>
     </string>
     <string id="ui_mcm_fuzz_recoil_impulse_fatigue_ratio_desc">
         <text>How fast fatigue increases. Higher than 0.15 is recommended, 0 to turn it off.</text>
     </string>
+    
     <string id="ui_mcm_fuzz_recoil_cam_impulse_group_title">
         <text>Camera Recoil Multipliers(Switch Weapon To Apply)</text>
     </string>

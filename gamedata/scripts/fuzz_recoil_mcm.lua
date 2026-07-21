@@ -5,6 +5,7 @@ local logger = fuzz_recoil_logger
 ---@field recoil_h_scale number
 ---@field fixed_yaw_direction boolean
 ---@field handling_speed_scale number
+---@field cam_restore_speed_scale number
 ---@field impulse_fatigue_ratio number
 ---@field pistol_recoil_mul number
 ---@field bolt_action_recoil_mul number
@@ -35,6 +36,9 @@ local defaults = {
 	--positive increases, negative decreases , 0 means default
 	--(-0,9---2.0)
 	handling_speed_scale = 0,
+	--Global camera return speed additional scale
+	--positive increases, negative decreases , 0 means default
+	cam_restore_speed_scale = 0,
 	--how fast fatigue increases,higher than 0.15 is recommanded,0 to turn it off
 	--(0-0.3)
 	impulse_fatigue_ratio = 0.15, --most gun impulse landed around 2-3
@@ -107,6 +111,7 @@ function M.on_mcm_load()
             { id = "recoil_h_scale", type = "track", val = 2, min = -0.2, max = 0.2, step = 0.01, def = defaults.recoil_h_scale },
             { id = "fixed_yaw_direction", type = "check", val = 1, def = defaults.fixed_yaw_direction },
             { id = "handling_speed_scale", type = "track", val = 2, min = -0.5, max = 1, step = 0.05, def = defaults.handling_speed_scale },
+            { id = "cam_restore_speed_scale", type = "track", val = 2, min = -0.5, max = 4, step = 0.05, def = defaults.cam_restore_speed_scale },
             { id = "impulse_fatigue_ratio", type = "track", val = 2, min = 0.0, max = 0.3, step = 0.01, def = defaults.impulse_fatigue_ratio },
             { id = "use_punch", type = "check", val = 1, def = defaults.use_punch },
             { id = "punch_legacy", type = "check", val = 1, def = defaults.punch_legacy },
