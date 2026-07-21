@@ -13,26 +13,33 @@ local HP_EVENT_ID = Event.getEventID("handling_power")
 ---@alias fuzz_on_init_wpn fun(profile:fuzz_recoil_profile, cast_wpn:CWeapon, wpn_sec:any)
 ---@type FuzzEvent|{ add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_init_wpn),invoke: fun(self: FuzzEvent, profile:fuzz_recoil_profile, cast_wpn:CWeapon, wpn_sec:any) }
 ---
+--NOTE: Invoke when player switch out the weapon for first time or optios are changed
+--WARN: This is a one-time call ,since we use cached profile.Consider on_start or static_modifier.
 M.on_init_wpn = Event.new("init_weapon")
 
 ---@alias fuzz_on_start fun(profile:fuzz_recoil_profile)
 ---@type FuzzEvent|{ add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_start),
 ---invoke: fun(self: FuzzEvent, profile:fuzz_recoil_profile) }
+--NOTE:Invoke once recoil became active.
 M.on_start = Event.new("start")
 
 ---@alias fuzz_on_before_fire fun(is_ads:boolean)
 ---@type FuzzEvent|{ add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_before_fire),
 ---invoke: fun(self: FuzzEvent,is_ads:boolean) }
+--NOTE:Invoke once the firing button is pressed,
+--WARN:Shot is not gurantted.possible reason:No ammo,misfire...
 M.on_before_fire = Event.new("before_fire")
 
----@alias fuzz_on_before_shot fun(hp:number, impulse_scale:any, ads:boolean, ...)
+---@alias fuzz_on_before_shot fun(hp:number,impulse_scale:number,is_ads:boolean)
 ---@type FuzzEvent|{ add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_before_shot),
----invoke: fun(self: FuzzEvent, hp:number, impulse_scale:any, ads:boolean, ...) }
+---invoke: fun(self: FuzzEvent,hp:number,impulse_scale:number,is_ads:boolean) }
+--NOTE:Invoke every time before on_shot is invoked.it can be useful if you want to change impulse_scale
 M.on_before_shot = Event.new("before_shot")
 
----@alias fuzz_on_shot fun(hp:number, impulse_scale:any, ads:boolean, ...)
+---@alias fuzz_on_shot fun(hp:number, impulse_scale:number, ads:boolean, ...)
 ---@type FuzzEvent|{ add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_shot),
----invoke: fun(self: FuzzEvent, hp:number, impulse_scale:any, ads:boolean, ...) }
+---invoke: fun(self: FuzzEvent, hp:number, impulse_scale:number, ads:boolean, ...) }
+--NOTE:Invoke once a bullet is fired.
 M.on_shot = Event.new("on_shot")
 
 --NOTE: dt must be first for handling_power
@@ -40,10 +47,12 @@ M.on_shot = Event.new("on_shot")
 ---@alias fuzz_on_firing fun(dt:number, hp:number, ads:boolean)
 ---@type FuzzEvent|{ add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_firing),
 ---invoke: fun(self: FuzzEvent, dt:number, hp:number, ads:boolean) }
+--NOTE:Invoke every frame when firing
 M.on_firing = Event.new("on_firing")
 
 ---@alias fuzz_on_firing_stop fun()
 ---@type FuzzEvent|{add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_firing_stop)}
+--NOTE:Invoke once when firing is stopped
 M.on_firing_stop = Event.new("firing_stop")
 
 --NOTE: dt must be first for handling_power
@@ -51,10 +60,12 @@ M.on_firing_stop = Event.new("firing_stop")
 ---@alias fuzz_on_restoring fun(dt:number,ads:boolean)
 ---@type FuzzEvent|{ add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_restoring),
 ---invoke: fun(self: FuzzEvent, dt:number, ads:boolean) }
+--NOTE:Invoke every frame when restoring
 M.on_restoring = Event.new("restoring")
 
 ---@alias fuzz_on_stop fun()
 ---@type FuzzEvent|{add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_stop)}
+--NOTE:Invoke once when system is fully restored
 M.on_stop = Event.new("stop")
 
 local m_events = {
@@ -206,6 +217,9 @@ end
 function M.add_handling_fatigue(val)
 	handling_fatigue = handling_fatigue + math.abs(val) * options.impulse_fatigue_ratio
 end
+function M.SetImpulseScale(val)
+	impulse_scale = val
+end
 --------------------
 ---Engine HOOKS
 --------------------
@@ -281,6 +295,7 @@ function actor_on_weapon_fired()
 
 	is_firing = true
 
+	M.on_before_shot:invoke(real_handling_power, impulse_scale, is_ads)
 	-- ammo_addon_koefs_on_shot()
 
 	--ads or hip impulse mul reaches cam and punch in every hud mode

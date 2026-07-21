@@ -41,7 +41,8 @@
     "get_console_cmd",
     "ResetTimeEvent",
     "ImGuiCol",
-    "game"
+    "game",
+        "weapon_cover_tilt"
   ],
   "diagnostics.disable": ["unused-local", "lowercase-global"],
   "workspace.library": [
