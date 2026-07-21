@@ -123,6 +123,7 @@ local cur_cast_wpn = nil
 local cur_wpn_id = 0
 local player = nil
 --------- state
+local game_started = false
 local enabled = true
 local active = false
 local is_firing = false
@@ -155,6 +156,9 @@ sniper_idle_handling = { offset = 0.2, intensity = 0.8 }
 --------------------
 ---Public Getter
 --------------------
+function M.is_game_started()
+	return game_started
+end
 function M.get_wpn_info()
 	return m_wpn_info
 end
@@ -206,7 +210,7 @@ end
 ---Engine HOOKS
 --------------------
 function M.on_game_start()
-	-- RegisterScriptCallback("actor_on_first_update", actor_on_first_update)
+	RegisterScriptCallback("actor_on_first_update", actor_on_first_update)
 	RegisterScriptCallback("actor_on_changed_slot", actor_on_changed_slot)
 	RegisterScriptCallback("actor_on_weapon_before_fire", actor_on_weapon_before_fire)
 	RegisterScriptCallback("actor_on_weapon_fired", actor_on_weapon_fired)
@@ -216,9 +220,11 @@ function M.on_game_start()
 		wct.add_callback("actor_on_weapon_tilting_back", actor_on_weapon_tilt_end)
 	end
 end
--- function actor_on_first_update()
--- logger.dbg("first update")
--- end
+function actor_on_first_update()
+	game_started = true
+	logger.dbg("Game started,Version:%s", M.version)
+	-- logger.dbg("first update")
+end
 
 function M.on_option_change()
 	logger.on_option_change()
