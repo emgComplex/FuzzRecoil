@@ -1,4 +1,4 @@
-local M = { version = "no_cam_return_test" }
+local M = { version = "no_cam_return_test-2" }
 _G.fuzz_recoil = M
 ---@diagnostic disable: lowercase-global
 --------------------
