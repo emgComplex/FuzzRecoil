@@ -51,9 +51,9 @@ restore_ease = 1.0
 ----------
 local cam_drag = 12
 ---@type fuzz_on_restoring
-local __restoring_fn = M.do_restore_full
+local __restoring_fn = M.do_restore_lerp
 ---@type fuzz_on_restoring
-local __real_restoring_fn = M.do_restore_full
+local __real_restoring_fn = M.do_restore_lerp
 function M.on_option_change()
 	cam_drag = options.cam_drag
 	if options.use_comp_return ~= nil then
@@ -64,7 +64,7 @@ function M.on_option_change()
 		elseif use_comp_return then
 			__restoring_fn = M.prepare_compensation
 		else
-			__restoring_fn = M.do_restore_full
+			__restoring_fn = M.do_restore_lerp
 		end
 	end
 end
@@ -166,6 +166,18 @@ function M.is_write_verified()
 	return write_verified
 end
 
+--bakes the held lift into the base camera and zeroes the effector in the
+--same frame, the view holds and the state resets clean
+local function bake_cam_fx(pitch)
+	local actor = db.actor
+	if actor then
+		local d = device().cam_dir
+		local h = d:getH()
+		local p = pitch or d:getP()
+		actor:set_actor_direction(write_flip_h and -h or h, write_flip_p and -p or p, 0)
+	end
+end
+
 ----------
 ---CAM_FX
 ----------
@@ -230,7 +242,7 @@ function M.init(profile)
 	M.restored()
 	frm.on_firing:add(EVENT_ID, _firing_update_fn)
 	--NOTE: full restore if desync_hud
-	__real_restoring_fn = profile.desync_hud and M.do_restore_full or __restoring_fn
+	__real_restoring_fn = profile.desync_hud and M.do_restore_lerp or __restoring_fn
 end
 ---@param profile fuzz_recoil_profile
 ---@type fuzz_on_start
@@ -323,32 +335,12 @@ function M.switch_mode(mode)
 	end
 end
 
---bakes the held lift into the base camera and zeroes the effector in the
---same frame, the view holds and the state resets clean
-local function transfer_residual()
-	local actor = db.actor
-	if actor then
-		local d = device().cam_dir
-		local h, p = d:getH(), d:getP()
-		actor:set_actor_direction(write_flip_h and -h or h, write_flip_p and -p or p, 0)
-	end
-	M.restored()
-end
-local function bake_pitch(p)
-	local actor = db.actor
-	if actor then
-		local d = device().cam_dir
-		local h = d:getH()
-		actor:set_actor_direction(write_flip_h and -h or h, write_flip_p and -p or p, 0)
-	end
-end
-
 --NOTE: min_step is the best i can got...still can't get the final phase right.
 --TODO: --maybe try simple_ease and lerp the vel to a min value?,it could be more natrual when the angle is high.
 --i think it's fine for now, and maybe remove camera return in the future if we can get rid of cam_effector
 --leave it here
 ---@type fuzz_on_restoring
-function M.do_restore_full(dt)
+function M.do_restore_lerp(dt)
 	if m_angle <= min_cam_restore_step then
 		M.restored()
 		return
@@ -367,18 +359,20 @@ function M.do_restore_full(dt)
 end
 local function go_restore()
 	--replace with old lerp restore
-	frm.on_restoring:add(EVENT_ID, M.do_restore_full)
+	frm.on_restoring:add(EVENT_ID, M.do_restore_lerp)
 end
+--NOTE: bake camera first then do restore, so we can share different retstoring style.
 function M.prepare_compensation()
 	if has_anchor then
 		if write_verified then
 			if cam_pitch_up() > anchor_pitch then
 				m_angle = screen_to_angle(math.abs(cam_pitch_up() - anchor_pitch))
 				set_player_angle(m_angle)
-				bake_pitch(anchor_pitch)
+				bake_cam_fx(anchor_pitch)
 				go_restore()
 				return
 			else
+				--NOTE: no cam restore if lower than anchor
 				M.no_restore(0, false)
 				return
 			end
@@ -388,62 +382,10 @@ function M.prepare_compensation()
 	end
 end
 ---@type fuzz_on_restoring
-function M.do_restore_comp(dt)
-	--TODO:remove config and cache this when init
-	if restore_smooth then
-		--settled below perception, the final zero is invisible
-		if m_angle <= 0.0008 and math.abs(m_vel) <= 0.01 then
-			M.restored()
-			return
-		end
-	elseif m_angle <= min_cam_restore_step then
-		M.restored()
-		return
-	end
-	--comp floor, only the share still above the burst anchor may restore
-	local room_cap = nil
-	if has_anchor then
-		local room = cam_pitch_up() - anchor_pitch - comp_eps
-		if room <= 0 then
-			if write_verified then
-				transfer_residual()
-			else
-				--unverified write holds the residual instead of baking it
-				m_vel = 0
-			end
-			return
-		end
-		room_cap = m_angle - screen_to_angle(effector_screen_pitch(m_angle) - room)
-	end
-	local speed_factor = base_cam_restore_speed + wepaon_cam_restore_speed
-	if restore_smooth then
-		--critically damped glide, gentle entry and an eased settle into the aim
-		local w = speed_factor * restore_ease
-		local new_angle, new_vel = utils.apply_spring(m_angle, m_vel, dt, w * w)
-		local final_step = m_angle - new_angle
-		m_vel = new_vel
-		if room_cap and final_step > room_cap then
-			final_step = room_cap
-			m_vel = 0
-		end
-		m_angle = m_angle - final_step
-		set_player_angle(m_angle)
-		return
-	end
-	local lerp_factor = 1.0 - math.exp(-speed_factor * dt)
-
-	local step = m_angle * lerp_factor
-	local min_step = min_cam_restore_step
-	local final_step = math.max(step, min_step)
-	--NOTE:vel is actually step when restoring ,im just lazy ,its easy to debug
-	m_vel = final_step
-	m_angle = m_angle - final_step
-	set_player_angle(m_angle)
-end
----@type fuzz_on_restoring
 function M.no_restore()
 	if write_verified then
-		transfer_residual()
+		bake_cam_fx()
+		M.restored()
 		logger.dbg("restored")
 		return
 	end
@@ -461,7 +403,7 @@ function M.force_set_cam()
 end
 function M.force_bake()
 	local actor = db.actor
-	transfer_residual()
+	bake_cam_fx()
 	M.remove_cam_fx()
 end
 function M.imgui_info_drawer()
