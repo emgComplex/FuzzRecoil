@@ -51,13 +51,14 @@ local special_converter = {
 		return apply_rule_single("pull_force", op.cam_dispersion_inc * (op.addon_cam_inc_k or 1))
 	end,
 	["handling_speed"] = function(op)
-		return apply_rule_single("handling_speed", op.cam_dispersion_inc * (op.addon_cam_inc_k or 1))
+		return apply_rule_single("handling_speed", math.abs(op.cam_dispersion_inc) * (op.addon_cam_inc_k or 1))
 	end,
 	--FIXME: use raw yaw then cache would be better?
 	["force_yaw"] = function(op)
+		local sign = utils.math_sign(op.cam_step_angle_horz)
 		local base_pitch = apply_rule_single("force_pitch", op.cam_dispersion)
-		local base_yaw = apply_rule_single("force_yaw", op.cam_step_angle_horz)
-		return base_pitch + base_yaw
+		local base_yaw = apply_rule_single("force_yaw", math.abs(op.cam_step_angle_horz))
+		return (base_pitch + base_yaw) * sign
 	end,
 	["firing_damping"] = function(op)
 		return 1

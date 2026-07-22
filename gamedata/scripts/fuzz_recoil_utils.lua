@@ -56,6 +56,9 @@ function M.range_lerp(val, from, to, offset, clamp)
 	end
 	return (val - from.min) / range * (to.max - to.min) + to.min + offset
 end
+function M.math_sign(val)
+	return val >= 0 and 1 or -1
+end
 function M.vector_clamp_with_sign(val, min)
 	local flag = val < 0
 	local sign = flag and -1 or 1
