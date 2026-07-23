@@ -506,9 +506,11 @@ M.disable_weapon_inertia = function()
 	cur_wpn:set_hud_inertion_enabled(false)
 end
 M.restore_weapon_inertia = function()
-	if cur_wpn then
+	local wpn = db.actor:active_item()
+	if wpn then
+		---@diagnostic disable-next-line: undefined-field,need-check-nil
 		---@diagnostic disable-next-line: undefined-field
-		cur_wpn:set_hud_inertion_enabled(m_wpn_info.inertion_enabled)
+		wpn:set_hud_inertion_enabled(m_wpn_info.inertion_enabled)
 	end
 end
 ----------------------
