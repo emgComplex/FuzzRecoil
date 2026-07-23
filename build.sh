@@ -95,7 +95,8 @@ copy_files "04 MASG_Patch" \
 	"./gamedata/scripts/fuzz_recoil_zz_masg_patch.lua"
 
 copy_files "05 No_Weapon_Inertion" \
-	"./gamedata/configs/mod_system_zzzzz_fuzz_no_inertion.ltx"
+	"./gamedata/configs/mod_system_zzzzz_fuzz_no_inertion.ltx" \
+	"./gamedata/scripts/fuzz_recoil_zz_inertia_patch.lua"
 
 out_zip="./output/${mod_name}_${version}.7z"
 if [[ -e "$out_zip" ]]; then

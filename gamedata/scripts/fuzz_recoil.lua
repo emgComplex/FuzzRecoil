@@ -1,4 +1,4 @@
-local M = { version = "v0.2.0" }
+local M = { version = "v0.2.1" }
 _G.fuzz_recoil = M
 ---@diagnostic disable: lowercase-global
 --------------------
@@ -262,7 +262,9 @@ function actor_on_changed_slot()
 	--NOTE: i think calling  this will cause cam glith when camera not fully is_cam_restored
 	--Never seen it happens since switching animation will give us a natrual delay
 	--but if it happens we can fix it with a TimeEvent
-	M.force_reset_recoil()
+	if cur_wpn_id > 0 then
+		M.force_reset_recoil()
+	end
 	M.check_current_weapon()
 end
 function actor_on_weapon_before_fire()
@@ -363,7 +365,7 @@ function start_recoil()
 	add_actor_stat_modifiers()
 	M.dynamic_modifiers:refresh_modi_cache()
 	m_profile:apply_dynamic_modifiers()
-	disable_weapon_inertia()
+	M.disable_weapon_inertia()
 	M.on_start:invoke(m_profile)
 	-- M.on_start:print_handlers()
 	-- M.on_firing:print_handlers()
@@ -374,12 +376,13 @@ function stop_recoil()
 	is_firing = false
 	burst_shots = 0
 	handling_power = 0
-	restore_weapon_inertia()
+	M.restore_weapon_inertia()
 	M.on_stop:invoke()
 
 	-- logger.dbg("reset recoil")
 end
 function M.force_reset_recoil()
+	--TODO:chere wpn id here?
 	camrc.restored()
 	hudrc.restored()
 	M.on_restoring:remove_all()
@@ -498,22 +501,16 @@ function set_vanilla_cam_recoil(cast_wpn, cam_disp, cam_disp_inc, zoom_cam_disp,
 	cast_wpn:SetZoomCamDispersion(zoom_cam_disp)
 	cast_wpn:SetZoomCamDispersionInc(zoom_cam_dis_inc)
 end
-function disable_weapon_inertia() end
-function restore_weapon_inertia() end
-if MODDED_EXES_VERSION >= 20260722 then
-	read_inertion_enabled = function()
+M.disable_weapon_inertia = function()
+	---@diagnostic disable-next-line: undefined-field,need-check-nil
+	cur_wpn:set_hud_inertion_enabled(false)
+end
+M.restore_weapon_inertia = function()
+	local wpn = db.actor:active_item()
+	if wpn then
 		---@diagnostic disable-next-line: undefined-field,need-check-nil
-		m_wpn_info.inertion_enabled = cur_wpn:hud_inertion_enabled()
-	end
-	disable_weapon_inertia = function()
-		---@diagnostic disable-next-line: undefined-field,need-check-nil
-		cur_wpn:set_hud_inertion_enabled(false)
-	end
-	restore_weapon_inertia = function()
-		if cur_wpn then
-			---@diagnostic disable-next-line: undefined-field
-			cur_wpn:set_hud_inertion_enabled(m_wpn_info.inertion_enabled)
-		end
+		---@diagnostic disable-next-line: undefined-field
+		wpn:set_hud_inertion_enabled(m_wpn_info.inertion_enabled)
 	end
 end
 ----------------------
@@ -574,9 +571,12 @@ function get_basic_wpn_info()
 	m_wpn_info.zoom_cam_dispersion = math.deg(cur_cast_wpn:GetZoomCamDispersion())
 	m_wpn_info.zoom_cam_dispersion_inc = math.deg(cur_cast_wpn:GetZoomCamDispersionInc())
 	m_wpn_info.cam_relax_speed = math.deg(cur_cast_wpn:GetCamRelaxSpeed())
-	read_inertion_enabled()
+	M.read_inertion_enabled()
 end
-function read_inertion_enabled() end
+M.read_inertion_enabled = function()
+	---@diagnostic disable-next-line: undefined-field,need-check-nil
+	m_wpn_info.inertion_enabled = cur_wpn:hud_inertion_enabled()
+end
 function get_feat_wpn_info()
 	--live weight includes attached addons
 	m_wpn_info.inv_weight = cur_cast_wpn:Weight()
