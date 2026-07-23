@@ -262,7 +262,9 @@ function actor_on_changed_slot()
 	--NOTE: i think calling  this will cause cam glith when camera not fully is_cam_restored
 	--Never seen it happens since switching animation will give us a natrual delay
 	--but if it happens we can fix it with a TimeEvent
-	M.force_reset_recoil()
+	if cur_wpn_id > 0 then
+		M.force_reset_recoil()
+	end
 	M.check_current_weapon()
 end
 function actor_on_weapon_before_fire()
@@ -380,6 +382,7 @@ function stop_recoil()
 	-- logger.dbg("reset recoil")
 end
 function M.force_reset_recoil()
+	--TODO:chere wpn id here?
 	camrc.restored()
 	hudrc.restored()
 	M.on_restoring:remove_all()
