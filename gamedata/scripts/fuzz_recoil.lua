@@ -114,6 +114,7 @@ local m_wpn_info = {
 	rpm = 600,
 	cam_relax_speed = 0,
 	mag_size = 30,
+	inertion_enabled = true,
 	--NOTE: feature needed
 	addon_cam_k = 1,
 	addon_cam_inc_k = 1,
@@ -307,10 +308,15 @@ function actor_on_weapon_fired()
 end
 function actor_on_update()
 	local dt = device().time_delta / 1000
+	--arms the comp transfer at any quiet moment, cheap and independent of active
+	--TODO: EVENT on_update_always
+	camrc.update_probe(is_firing)
 	update_fatigue(dt)
 	if not active then
 		return
 	end
+
+	--TODO: EVENT on_update_pre_firing
 	check_addon(dt)
 
 	---@diagnostic disable-next-line: need-check-nil, undefined-field
@@ -357,6 +363,7 @@ function start_recoil()
 	add_actor_stat_modifiers()
 	M.dynamic_modifiers:refresh_modi_cache()
 	m_profile:apply_dynamic_modifiers()
+	disable_weapon_inertia()
 	M.on_start:invoke(m_profile)
 	-- M.on_start:print_handlers()
 	-- M.on_firing:print_handlers()
@@ -367,7 +374,7 @@ function stop_recoil()
 	is_firing = false
 	burst_shots = 0
 	handling_power = 0
-
+	restore_weapon_inertia()
 	M.on_stop:invoke()
 
 	-- logger.dbg("reset recoil")
@@ -491,6 +498,24 @@ function set_vanilla_cam_recoil(cast_wpn, cam_disp, cam_disp_inc, zoom_cam_disp,
 	cast_wpn:SetZoomCamDispersion(zoom_cam_disp)
 	cast_wpn:SetZoomCamDispersionInc(zoom_cam_dis_inc)
 end
+function disable_weapon_inertia() end
+function restore_weapon_inertia() end
+if MODDED_EXES_VERSION >= 20260722 then
+	read_inertion_enabled = function()
+		---@diagnostic disable-next-line: undefined-field,need-check-nil
+		m_wpn_info.inertion_enabled = cur_wpn:hud_inertion_enabled()
+	end
+	disable_weapon_inertia = function()
+		---@diagnostic disable-next-line: undefined-field,need-check-nil
+		cur_wpn:set_hud_inertion_enabled(false)
+	end
+	restore_weapon_inertia = function()
+		if cur_wpn then
+			---@diagnostic disable-next-line: undefined-field
+			cur_wpn:set_hud_inertion_enabled(m_wpn_info.inertion_enabled)
+		end
+	end
+end
 ----------------------
 ---Weapon Info
 ---------------------
@@ -549,7 +574,9 @@ function get_basic_wpn_info()
 	m_wpn_info.zoom_cam_dispersion = math.deg(cur_cast_wpn:GetZoomCamDispersion())
 	m_wpn_info.zoom_cam_dispersion_inc = math.deg(cur_cast_wpn:GetZoomCamDispersionInc())
 	m_wpn_info.cam_relax_speed = math.deg(cur_cast_wpn:GetCamRelaxSpeed())
+	read_inertion_enabled()
 end
+function read_inertion_enabled() end
 function get_feat_wpn_info()
 	--live weight includes attached addons
 	m_wpn_info.inv_weight = cur_cast_wpn:Weight()

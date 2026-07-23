@@ -88,6 +88,20 @@
         <text>Sustained fire and hip stance widen the real bullet cone.</text>
     </string>
     
+    <string id="ui_mcm_fuzz_recoil_no_cam_restore">
+        <text>No Camera return</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_no_cam_restore_desc">
+        <text>Camra will stay at where you stop shooting</text>
+    </string>
+
+    <string id="ui_mcm_fuzz_recoil_use_comp_return">
+        <text>Compensation Aware Camera Return</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_use_comp_return_desc">
+        <text>Stops the post burst camera dive when you pull down against recoil, the return only reclaims what you did not compensate.</text>
+    </string>
+    
     <string id="ui_mcm_fuzz_recoil_use_zoom_ratio">
         <text>Use Zoom Ratio</text>
     </string>

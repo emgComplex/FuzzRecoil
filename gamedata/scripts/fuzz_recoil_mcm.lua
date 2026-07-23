@@ -16,6 +16,8 @@ local logger = fuzz_recoil_logger
 ---@field use_bloom boolean
 ---@field use_punch boolean
 ---@field punch_legacy boolean
+---@field no_cam_restore boolean
+---@field use_comp_return boolean
 ---@field use_addon_ammo_koefs boolean
 local M = {}
 _G.fuzz_recoil_mcm = M
@@ -52,6 +54,10 @@ local defaults = {
 	shotgun_recoil_mul = 0.7,
 	--mutilpier for sniper's shot_delay_impulse
 	bolt_action_recoil_mul = 1,
+	--no camera restore at all
+	no_cam_restore = false,
+	--return floor at the burst start aim, user downpull is not returned again
+	use_comp_return = true,
 	--Camera drag for bolt-action weapon
 	--The higher the sharper, the lower the smoother (and softer)
 	--(8-20)
@@ -126,6 +132,8 @@ function M.on_mcm_load()
             { id = "experimental_group_title", type = "title",align = "l",text = "ui_mcm_fuzz_recoil_experimental_group_title" },
             { id = "experimental_group_line", type = "line" },
             { id = "use_bloom", type = "check", val = 1, def = defaults.use_bloom },
+            { id = "no_cam_restore", type = "check", val = 1, def = defaults.no_cam_restore },
+            { id = "use_comp_return", type = "check", val = 1, def = defaults.use_comp_return },
             { id = "instant_mode", type = "check", val = 1, def = defaults.instant_mode },
             { id = "debug_mode", type = "check", val = 1, def = defaults.debug_mode },
 		}

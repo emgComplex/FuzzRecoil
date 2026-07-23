@@ -396,6 +396,8 @@ function renderOptions()
 
 		_, options.bolt_action_Y_lift = ImGui.Checkbox("Bolt-Action Lift", options.bolt_action_Y_lift)
 		_, options.cam_drag = ImGui.SliderFloat("Cam Drag", options.cam_drag, 5.0, 20.0, "%.2f")
+		_, options.no_cam_restore = ImGui.Checkbox("No Camera Return", options.no_cam_restore)
+		_, options.use_comp_return = ImGui.Checkbox("Cam Compensating Return", options.use_comp_return)
 		_, options.instant_mode = ImGui.Checkbox("Instant Mode", options.instant_mode)
 		_, options.use_bloom = ImGui.Checkbox("Fire Bloom", options.use_bloom)
 		ImGui.Text("Vanilla data extras")
@@ -471,11 +473,16 @@ function renderWeaponSpawner()
 			end
 		end
 		if ImGui.Button("Spawn Weapons", vector2():set(120, 25)) then
-			utils.get_all_weapon_sections(allowed_kinds, true)
+			utils.get_all_weapon_sections(allowed_kinds, utils.spawn_weapon)
 		end
 		ImGui.SameLine()
 		if ImGui.Button("Dump  Weapons datas (need json.lua)", vector2():set(-1, 25)) then
-			utils.get_all_weapon_sections(allowed_kinds)
+			utils.get_all_weapon_sections(allowed_kinds, utils.dump_vanilla_data, utils.dump_to_json)
+		end
+		if fuzz_dev then
+			if ImGui.Button("Patch Zero inertia", vector2():set(-1, 25)) then
+				utils.get_all_weapon_sections(allowed_kinds, utils.write_zero_inertion, utils.write_result_to_file)
+			end
 		end
 		ImGui.TreePop()
 	end
@@ -504,6 +511,12 @@ function renderDebugVars()
 	_, vars.float_s2 = ImGui.SliderFloat("float_s2", vars.float_s2, 0, 1, "%.4f")
 	_, vars.float_x1 = ImGui.SliderFloat("float_x1", vars.float_x1, 0, 50, "%.2f")
 	_, vars.float_x2 = ImGui.SliderFloat("float_x2", vars.float_x2, 0, 50, "%.2f")
+	if ImGui.Button("Set Camera Force") then
+		camrc.force_set_cam()
+	end
+	if ImGui.Button("Bake Cam Fx") then
+		camrc.force_bake()
+	end
 end
 
 local M = {}
@@ -588,7 +601,7 @@ function actor_on_update()
 	end
 end
 function actor_on_first_update()
-	if inf_weight then
+	if inf_weight and weight then
 		weight.add_weight("fuzz_cheat", 8888)
 	end
 end
