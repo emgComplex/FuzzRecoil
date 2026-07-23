@@ -1,6 +1,6 @@
-## Fuzz Recoil
+# Fuzz Recoil
 
-Physics based 3D recoil system inspired by Escape from tarkov.\
+Physics-based 3D recoil system inspired by Escape from tarkov.\
 99% weapons are playable,not all of them are lore-accurate,that's up to you , we have an imgui editor inculded.\
 Please share you recoil profile ,create a PR or ,even better create you own mod.
 
@@ -13,6 +13,8 @@ Please share you recoil profile ,create a PR or ,even better create you own mod.
 
 ## Rquirement
 - xray-monolith that supports 3D ballsitic.
+- xray-monolith version >= 20260722 if you play with awareness camera compensation or no camera return.\
+  There is an alternative inertia patch available if new xray is not available for you.
 - MCM for configuration 
 
 ## Installation
@@ -21,8 +23,9 @@ Please share you recoil profile ,create a PR or ,even better create you own mod.
 2. Options
 - 01 disable shot_fx(camera-shake) from gboobs,we have a bulit-in one which cause less dizzyness
 - 02 Imgui editor,if you want to edit per-wepaon recoil.
-- 03 gamma patch
-- 04 enable this if you play with MASG
+- 03 Gamma patch
+- 04 MASG patch,enable this if you play with MASG
+- 05 No_Weapon_Inertion,enable this if your modded exe is lower than 20260722.
 
 3. In-game settings: turn off parallax shader in 3dss settings
    <img width="2692" height="746" alt="swappy-20260708-185300" src="https://github.com/user-attachments/assets/5f2565a5-2159-4ca0-9d2c-909257b32ab9" />
@@ -41,7 +44,10 @@ Basic settings is in MCM , you can hover on every option for more info.
 
 ## Known Bugs And Limitations
 - ~~Due to the engine limitation,we have to return the camera after shooting,maybe it will be fixed in the future.~~ \
-PR is already submited to xray-monolith, [use this for now](https://github.com/emgComplex/FuzzRecoil/releases/tag/no_cam_return_test-2)
+~~PR is already submited to xray-monolith, [use this for now](https://github.com/emgComplex/FuzzRecoil/releases/tag/no_cam_return_test-2)~~
+- Weapon tweaking when return,this is caused by inertia system.\
+Make sure you use right version of the xray-monolith or the patch.\
+Patch does NOT work for all weapons if they have default inertia settings or you are playing with mod which changing weapon inertia(like weapon inertia redux).
 - If you have no horizontal recoil,you probably have `Dynamic viewmodel` installed,diable it
 
 ## Recoil profile Customization
@@ -100,6 +106,8 @@ All of this occurs naturally within the system. Of course, not everything is ful
 ---
 
 ### Parameter Notes
+> [!TIP]
+> You can ctrl+click on any slider to input a value,even it's out of range
 
 Now that we understand the system’s operation, I assume you already know the role of most parameters. Here are a few additional ones:
 
