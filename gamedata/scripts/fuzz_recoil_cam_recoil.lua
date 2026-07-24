@@ -177,7 +177,14 @@ local function bake_cam_fx(pitch)
 		actor:set_actor_direction(write_flip_h and -h or h, write_flip_p and -p or p, 0)
 	end
 end
-
+----------
+---cam delta
+----------
+local function set_camera_offset_delta(pitch_delta)
+	--FIXME:well.......
+	local real_pitch_delta = effector_screen_pitch(m_angle + pitch_delta) - effector_screen_pitch(m_angle)
+	level.add_actor_camera_delta(0, real_pitch_delta)
+end
 ----------
 ---CAM_FX
 ----------
@@ -278,7 +285,8 @@ end
 function M.restored()
 	-- M.remove_cam_fx()
 	frm.on_restoring:remove(EVENT_ID)
-	set_player_angle(0.0001)
+	-- FIXME: might be an issue when force reset,but simple stop is accetpable.
+	-- set_player_angle(0.0001)
 	is_restored = true
 	m_angle = 0
 	m_vel = 0
@@ -298,7 +306,8 @@ function M.update_cubic(dt)
 	local drag = cam_drag * math.sqrt(math.abs(m_vel))
 	m_vel = m_vel * math.exp(-drag * dt)
 	m_angle = m_angle + m_vel * dt
-	set_player_angle(m_angle)
+	-- set_player_angle(m_angle)
+	set_camera_offset_delta(m_vel * dt)
 end
 ---@type fuzz_on_firing
 function M.update_exp(dt)
@@ -309,12 +318,14 @@ function M.update_exp(dt)
 	local step = m_vel * (1 - decay) / cam_step_div
 	m_vel = m_vel * decay
 	m_angle = m_angle + step
-	set_player_angle(m_angle)
+	-- set_player_angle(m_angle)
+	set_camera_offset_delta(step)
 end
 ---@type fuzz_on_firing
 function M.update_spring(dt)
 	m_angle, m_vel = utils.apply_spring(m_angle, m_vel, dt, frm.debug_var.float_x1)
-	set_player_angle(m_angle)
+	-- set_player_angle(m_angle)
+	set_camera_offset_delta(m_vel * dt)
 end
 --TODO: enum but not here,it should be in main script so every module can use it
 M.CURVEMODE = {
@@ -355,7 +366,8 @@ function M.do_restore_lerp(dt)
 	--NOTE:vel is actually step when restoring ,im just lazy ,its easy to debug
 	m_vel = final_step
 	m_angle = m_angle - final_step
-	set_player_angle(m_angle)
+	-- set_player_angle(m_angle)
+	set_camera_offset_delta(m_vel)
 end
 local function go_restore()
 	--replace with old lerp restore
@@ -364,19 +376,19 @@ end
 --NOTE: bake camera first then do restore, so we can share different retstoring style.
 function M.prepare_compensation()
 	if has_anchor then
-		if write_verified then
-			if cam_pitch_up() > anchor_pitch then
-				m_angle = screen_to_angle(math.abs(cam_pitch_up() - anchor_pitch))
-				set_player_angle(m_angle)
-				bake_cam_fx(anchor_pitch)
-				go_restore()
-				return
-			else
-				--NOTE: no cam restore if lower than anchor
-				M.no_restore(0, false)
-				return
-			end
+		-- if write_verified then
+		if cam_pitch_up() > anchor_pitch then
+			m_angle = screen_to_angle(math.abs(cam_pitch_up() - anchor_pitch))
+			-- set_player_angle(m_angle)
+			-- bake_cam_fx(anchor_pitch)
+			go_restore()
+			return
+		else
+			--NOTE: no cam restore if lower than anchor
+			M.no_restore(0, false)
+			return
 		end
+		-- end
 	else
 		go_restore()
 	end
@@ -384,7 +396,7 @@ end
 ---@type fuzz_on_restoring
 function M.no_restore()
 	if write_verified then
-		bake_cam_fx()
+		-- bake_cam_fx()
 		M.restored()
 		logger.dbg("restored")
 		return
