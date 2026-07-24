@@ -80,9 +80,10 @@ function M:add(id, handler)
 	if not id or not handler then
 		return
 	end
-	-- if self.handlers[id] then
-	-- 	return
-	-- end
+	if self.handlers[id] then
+		self.handlers[id] = handler
+		return
+	end
 
 	self.handlers[id] = handler
 	self.count = self.count + 1
