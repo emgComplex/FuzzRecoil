@@ -191,6 +191,9 @@ end
 local CAM_FX_ID = 7897
 local hud_sync_with_cam = true
 local function create_cam_effector()
+	if true then
+		return
+	end
 	if not level.check_cam_effector(CAM_FX_ID) then
 		level.add_cam_effector("camera_effects\\onerad.anm", 7897, true, "", 0, hud_sync_with_cam, 0.0001)
 	end
@@ -211,6 +214,9 @@ local function set_player_angle(angle)
 	end
 end
 function M.remove_cam_fx()
+	if true then
+		return
+	end
 	if level.check_cam_effector(CAM_FX_ID) then
 		level.remove_cam_effector(CAM_FX_ID)
 	end
