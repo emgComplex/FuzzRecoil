@@ -1,4 +1,4 @@
-local M = { version = "v0.2.1" }
+local M = { version = "bodycam-test" }
 _G.fuzz_recoil = M
 ---@diagnostic disable: lowercase-global
 --------------------
