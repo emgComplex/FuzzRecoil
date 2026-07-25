@@ -2,6 +2,8 @@ local utils = fuzz_recoil_utils
 local logger = fuzz_recoil_logger
 local options = fuzz_recoil_mcm
 local frm = fuzz_recoil
+local camera_delta = fuzz_recoil_camera_delta
+local has_camera_delta_api = camera_delta.available()
 
 local M = {}
 _G.fuzz_recoil_cam_recoil = M
@@ -22,7 +24,10 @@ local _firing_update_fn = M.update_exp
 local lift_force = 0
 local impulse_factor = 0
 --vanilla cam_max_angle cap in radians, 0 means uncapped
-local max_angle = 0.9999
+local DEFAULT_MAX_ANGLE = 0.9999
+local max_angle = DEFAULT_MAX_ANGLE
+local CAM_FX_ID = 7897
+local poll_camera_requests
 ----------
 ---Pulibc Getters
 ----------
@@ -98,6 +103,9 @@ local still_h, still_p = nil, nil
 --onerad authored angle, on screen pitch = atan(factor*sin)
 local SIN_ONERAD = math.sin(0.994838)
 local function effector_screen_pitch(angle)
+	if angle <= 0.0001 then
+		return 0
+	end
 	return math.atan(utils.math_clamp(angle, 0.0001, max_angle) * SIN_ONERAD)
 end
 local function screen_to_angle(pitch)
@@ -133,6 +141,10 @@ end
 --quiet moment probe, effector drained and camera still so the write is safe
 --driven from the main update every frame so it can arm before any recoil episode
 function M.update_probe(is_firing)
+	if has_camera_delta_api then
+		poll_camera_requests()
+		return
+	end
 	if not (use_comp_return or no_cam_restore) or write_verified or probe_tries >= PROBE_MAX_TRIES then
 		return
 	end
@@ -166,8 +178,7 @@ function M.is_write_verified()
 	return write_verified
 end
 
---bakes the held lift into the base camera and zeroes the effector in the
---same frame, the view holds and the state resets clean
+--Legacy fallback for engines without incremental camera-delta support.
 local function bake_cam_fx(pitch)
 	local actor = db.actor
 	if actor then
@@ -175,13 +186,14 @@ local function bake_cam_fx(pitch)
 		local h = d:getH()
 		local p = pitch or d:getP()
 		actor:set_actor_direction(write_flip_h and -h or h, write_flip_p and -p or p, 0)
+		return true
 	end
+	return false
 end
 
 ----------
 ---CAM_FX
 ----------
-local CAM_FX_ID = 7897
 local hud_sync_with_cam = true
 local function create_cam_effector()
 	if not level.check_cam_effector(CAM_FX_ID) then
@@ -197,12 +209,43 @@ end
 function cam_fx_id()
 	return CAM_FX_ID
 end
+
+poll_camera_requests = function()
+	local missed_pitch = camera_delta.poll()
+	if math.abs(missed_pitch) > camera_delta.epsilon() then
+		m_angle = screen_to_angle(effector_screen_pitch(m_angle) - missed_pitch)
+	end
+end
+
+local function submit_camera_angle(angle)
+	local target_pitch = effector_screen_pitch(angle)
+	return camera_delta.submit(target_pitch)
+end
+
+local function set_direct_camera_angle(angle)
+	poll_camera_requests()
+	return submit_camera_angle(angle)
+end
+
 local function set_player_angle(angle)
+	if has_camera_delta_api then
+		return set_direct_camera_angle(angle)
+	end
 	--no op until start adds the effector, resets before init are silent
 	if M.has_camera_effector() then
 		level.set_cam_effector_factor(CAM_FX_ID, math.max(0.0001, math.min(angle, max_angle)))
 	end
+	return true
 end
+
+local function set_recoil_camera_angle()
+	if not has_camera_delta_api then
+		return set_player_angle(m_angle)
+	end
+	poll_camera_requests()
+	return submit_camera_angle(m_angle)
+end
+
 function M.remove_cam_fx()
 	if level.check_cam_effector(CAM_FX_ID) then
 		level.remove_cam_effector(CAM_FX_ID)
@@ -230,7 +273,10 @@ function M.cache_profile(profile)
 	lift_force = profile.cam_recoil_power
 	impulse_factor = profile.shot_cam_impulse_factor
 	wepaon_cam_restore_speed = profile.cam_restore_speed
-	max_angle = profile.cam_max_angle or 0.9999
+	max_angle = profile.cam_max_angle
+	if not max_angle or max_angle <= 0 then
+		max_angle = DEFAULT_MAX_ANGLE
+	end
 	hud_sync_with_cam = not profile.desync_hud
 end
 ---@type fuzz_on_init_wpn
@@ -239,16 +285,23 @@ function M.init(profile)
 	if mode then
 		M.switch_mode(mode)
 	end
-	M.restored()
+	local restored = M.restored()
 	frm.on_firing:add(EVENT_ID, _firing_update_fn)
-	--NOTE: full restore if desync_hud
-	__real_restoring_fn = profile.desync_hud and M.do_restore_lerp or __restoring_fn
+	--The direct camera path keeps HUD recoil separate, so every return mode
+	--is valid regardless of the legacy desynchronized-HUD profile flag.
+	__real_restoring_fn = has_camera_delta_api and __restoring_fn
+		or (profile.desync_hud and M.do_restore_lerp or __restoring_fn)
+	if not restored and has_camera_delta_api then
+		frm.on_restoring:add(EVENT_ID, M.do_restore_lerp)
+	end
 end
 ---@param profile fuzz_recoil_profile
 ---@type fuzz_on_start
 function M.start(profile)
 	M.cache_profile(profile)
-	create_cam_effector()
+	if not has_camera_delta_api then
+		create_cam_effector()
+	end
 	is_restored = false
 end
 
@@ -275,17 +328,35 @@ function M.on_firing_stop()
 	frm.on_restoring:add(EVENT_ID, __real_restoring_fn)
 end
 
-function M.restored()
-	-- M.remove_cam_fx()
+local function finish_restore(retain_camera)
+	if retain_camera then
+		camera_delta.cancel_and_reset()
+	else
+		if not set_player_angle(0) then
+			return false
+		end
+		if camera_delta.pending_count() > 0
+			or math.abs(camera_delta.applied_pitch()) > camera_delta.epsilon()
+		then
+			return false
+		end
+	end
 	frm.on_restoring:remove(EVENT_ID)
-	set_player_angle(0.0001)
 	is_restored = true
 	m_angle = 0
 	m_vel = 0
+	return true
+end
+function M.restored()
+	return finish_restore(false)
 end
 ---@type fuzz_on_stop
 function M.stop()
-	-- NOTE: what if we don't remove cam effector at all?
+	if has_camera_delta_api then
+		if not set_direct_camera_angle(0) then
+			finish_restore(true)
+		end
+	end
 	M.remove_cam_fx()
 end
 --scale carries the per shot koefs, frac variance, expansion and mode impulse
@@ -298,7 +369,7 @@ function M.update_cubic(dt)
 	local drag = cam_drag * math.sqrt(math.abs(m_vel))
 	m_vel = m_vel * math.exp(-drag * dt)
 	m_angle = m_angle + m_vel * dt
-	set_player_angle(m_angle)
+	set_recoil_camera_angle()
 end
 ---@type fuzz_on_firing
 function M.update_exp(dt)
@@ -309,12 +380,12 @@ function M.update_exp(dt)
 	local step = m_vel * (1 - decay) / cam_step_div
 	m_vel = m_vel * decay
 	m_angle = m_angle + step
-	set_player_angle(m_angle)
+	set_recoil_camera_angle()
 end
 ---@type fuzz_on_firing
 function M.update_spring(dt)
 	m_angle, m_vel = utils.apply_spring(m_angle, m_vel, dt, frm.debug_var.float_x1)
-	set_player_angle(m_angle)
+	set_recoil_camera_angle()
 end
 --TODO: enum but not here,it should be in main script so every module can use it
 M.CURVEMODE = {
@@ -341,6 +412,13 @@ end
 --leave it here
 ---@type fuzz_on_restoring
 function M.do_restore_lerp(dt)
+	if has_camera_delta_api then
+		poll_camera_requests()
+		if camera_delta.pending_count() > 0 then
+			return
+		end
+		m_angle = screen_to_angle(camera_delta.applied_pitch())
+	end
 	if m_angle <= min_cam_restore_step then
 		M.restored()
 		return
@@ -355,19 +433,42 @@ function M.do_restore_lerp(dt)
 	--NOTE:vel is actually step when restoring ,im just lazy ,its easy to debug
 	m_vel = final_step
 	m_angle = m_angle - final_step
-	set_player_angle(m_angle)
+	set_recoil_camera_angle()
 end
 local function go_restore()
 	--replace with old lerp restore
 	frm.on_restoring:add(EVENT_ID, M.do_restore_lerp)
 end
---NOTE: bake camera first then do restore, so we can share different retstoring style.
 function M.prepare_compensation()
+	if has_camera_delta_api then
+		poll_camera_requests()
+		if camera_delta.pending_count() > 0 then
+			return
+		end
+		if not has_anchor then
+			go_restore()
+			return
+		end
+
+		local uncompensated_pitch = cam_pitch_up() - anchor_pitch
+		if uncompensated_pitch <= comp_eps then
+			M.no_restore()
+			return
+		end
+
+		-- Reclassify the camera angle without moving it. The restore loop now
+		-- removes only the portion still above the burst-start aim.
+		camera_delta.adopt(uncompensated_pitch)
+		m_angle = screen_to_angle(uncompensated_pitch)
+		go_restore()
+		return
+	end
+
 	if has_anchor then
 		if write_verified then
 			if cam_pitch_up() > anchor_pitch then
 				m_angle = screen_to_angle(math.abs(cam_pitch_up() - anchor_pitch))
-				set_player_angle(m_angle)
+				set_recoil_camera_angle()
 				bake_cam_fx(anchor_pitch)
 				go_restore()
 				return
@@ -383,13 +484,19 @@ function M.prepare_compensation()
 end
 ---@type fuzz_on_restoring
 function M.no_restore()
-	if write_verified then
-		bake_cam_fx()
-		M.restored()
+	if has_camera_delta_api then
+		finish_restore(true)
 		logger.dbg("restored")
 		return
 	end
-	logger.err("Unexpected Restored")
+
+	if write_verified and bake_cam_fx() then
+		finish_restore(true)
+		logger.dbg("restored")
+		return
+	end
+
+	logger.err("Unexpected restore fallback")
 	M.restored()
 end
 
@@ -402,6 +509,10 @@ function M.force_set_cam()
 	set_player_angle(frm.debug_var.float_s1)
 end
 function M.force_bake()
+	if has_camera_delta_api then
+		finish_restore(true)
+		return
+	end
 	local actor = db.actor
 	bake_cam_fx()
 	M.remove_cam_fx()
