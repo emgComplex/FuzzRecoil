@@ -633,11 +633,13 @@ end
 ----------------------
 ---Weapon Check
 ---------------------
---TODO: fallback to vanilla if something went wrong
---TODO: use vannilla recoil for grende launcher
 function should_active(wpn_sec)
 	local kind = utils.get_string(wpn_sec, "kind")
-	return allowed_kinds[kind], kind
+	local result = allowed_kinds[kind]
+	if utils.get_bool(wpn_sec, "disable_fuzz_recoil", false) then
+		result = false
+	end
+	return result, kind
 end
 function M.check_current_weapon()
 	player = db.actor
