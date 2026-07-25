@@ -78,6 +78,7 @@ copy_files "00 Core" \
 	"gamedata/scripts/fuzz_recoil_punch.lua" \
 	"gamedata/scripts/fuzz_recoil_mcm.lua" \
 	"gamedata/configs/text/eng/ui_mcm_fuzz_recoil.xml" \
+	"gamedata/configs/text/chs/ui_mcm_fuzz_recoil.xml" \
 	"gamedata/scripts/fuzz_recoil.lua"
 
 copy_files "01 Shot_fx_disable(camshake)" \

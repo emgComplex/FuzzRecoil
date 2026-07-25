@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<string_table>
+    <string id="ui_mcm_menu_fuzz_recoil">
+        <text>Fuzz Recoil</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_title">
+        <text>Fuzz Recoil 选项</text>
+    </string>
+
+    <string id="ui_mcm_fuzz_recoil_easy">
+        <text>难度：简单（EASY）</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_noraml">
+        <text>难度：普通（NORMAL）</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_hard">
+        <text>难度：困难（HARD）</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_debug_mode">
+        <text>调试模式</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_debug_mode_desc">
+        <text>启用开发者调试日志与追踪选项。</text>
+    </string>
+    
+    <string id="ui_mcm_fuzz_recoil_recoil_cam_scale">
+        <text>垂直后坐力调整</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_recoil_cam_scale_desc">
+        <text>全局垂直后坐力调整。正数增加，负数减少，0 表示默认。范围：</text>
+    </string>
+    
+    <string id="ui_mcm_fuzz_recoil_recoil_h_scale">
+        <text>水平后坐力调整</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_recoil_h_scale_desc">
+        <text>全局水平后坐力额外调整。正数增加，负数减少，0 表示默认。</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_fixed_yaw_direction">
+        <text>固定水平后坐力方向</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_fixed_yaw_direction_desc">
+        <text>当你不喜欢水平轴的随机性时，固定偏航（Yaw）后坐力方向</text>
+    </string>
+    
+    <string id="ui_mcm_fuzz_recoil_handling_speed_scale">
+        <text>操控/处理速度</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_handling_speed_scale_desc">
+        <text>全局后坐力操控额外倍率。正数增加，负数减少，0 表示默认。</text>
+    </string>
+
+    <string id="ui_mcm_fuzz_recoil_cam_restore_speed_scale">
+        <text>镜头回弹速度</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_cam_restore_speed_scale_desc">
+        <text>全局镜头回弹额外速度。正数增加，负数减少，0 表示默认。</text>
+    </string>
+
+    <string id="ui_mcm_fuzz_recoil_impulse_fatigue_ratio">
+        <text>射击疲劳系数（Impulse Fatigue Ratio）</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_impulse_fatigue_ratio_desc">
+        <text>疲劳增长速度。高于 0.15 建议使用；0 表示关闭。</text>
+    </string>
+    
+    <string id="ui_mcm_fuzz_recoil_cam_impulse_group_title">
+        <text>相机/后坐力冲击倍数（切换武器以应用）</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_pistol_recoil_mul">
+        <text>手枪后坐力倍数</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_shotgun_recoil_mul">
+        <text>霰弹枪后坐力倍数</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_bolt_action_recoil_mul">
+        <text>栓动步枪后坐力倍数</text>
+    </string>
+    
+    <string id="ui_mcm_fuzz_recoil_experimental_group_title">
+        <text>实验性功能</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_use_bloom">
+        <text>子弹扩散（Fire Bloom）</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_use_bloom_desc">
+        <text>持续射击与蹲姿（或臀部站姿）会让“真实子弹扩散锥体”变得更宽。</text>
+    </string>
+    
+    <string id="ui_mcm_fuzz_recoil_no_cam_restore">
+        <text>无镜头回弹</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_no_cam_restore_desc">
+        <text>镜头会停留在你停止射击时的位置</text>
+    </string>
+
+    <string id="ui_mcm_fuzz_recoil_use_comp_return">
+        <text>智能补偿镜头回弹</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_use_comp_return_desc">
+        <text>当你对抗后坐力向下拉动时，停止“连发后的镜头下坠”；回弹只会追回你没有补偿的部分。</text>
+    </string>
+    
+    <string id="ui_mcm_fuzz_recoil_use_zoom_ratio">
+        <text>使用缩放比例</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_use_zoom_ratio_desc">
+        <text>GAMMA 的缩放值在 0.6-0.8（相对开镜/散弹/与手持？）的水平；开启此项会削弱 ADS（瞄准开镜）低于当前设定的强度。</text>
+    </string>
+
+    <string id="ui_mcm_fuzz_recoil_use_punch">
+        <text>使用相机“猛击”（Camera Punch / 摄像机抖动）</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_use_punch_desc">
+        <text>每发的猛击效果：开镜时 FOV 扩大于手持（Hip）视角，并伴随瞄准时的空间推挤感。</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_punch_legacy">
+        <text>传统猛击（Legcy Punch / PiP）</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_punch_legacy_desc">
+        <text>将猛击恢复为旧系统：只有在真正的 PiP（画中画）条件下，才在控制台 FOV 和推挤（shove）上生效。</text>
+    </string>
+    
+    <string id="ui_mcm_fuzz_recoil_cam_drag">
+        <text>相机阻力（Camera Drag）</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_cam_drag_desc">
+        <text>适用于栓动武器的相机阻力：数值越高越“尖锐/急”，数值越低越“平滑/柔和”。</text>
+    </string>
+    
+    <string id="ui_mcm_fuzz_recoil_bolt_action_Y_lift">
+        <text>栓动步枪Y 轴抬升</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_bolt_action_Y_lift_desc">
+        <text>栓动步枪模型在循环过程中会在 Y 轴上抬升。</text>
+    </string>
+    
+    <string id="ui_mcm_fuzz_recoil_instant_mode">
+        <text>即时模式（Instant Mode）</text>
+    </string>
+    <string id="ui_mcm_fuzz_recoil_instant_mode_desc">
+        <text>注意：实验性。使用即时位移与缓动回收（eased recovery）的后坐力。试试就知道,说不清。</text>
+    </string>
+</string_table>
