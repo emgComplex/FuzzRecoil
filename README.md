@@ -48,6 +48,7 @@ Basic settings is in MCM , you can hover on every option for more info.
 - Weapon tweaking when return,this is caused by inertia system.\
 Make sure you use right version of the xray-monolith or the patch.\
 Patch does NOT work for all weapons if they have default inertia settings or you are playing with mod which changing weapon inertia(like weapon inertia redux).
+- Weapon reseting randomly during firing,this could be related to mags,some reports turn off `no camera return` may helps.
 - If you have no horizontal recoil,you probably have `Dynamic viewmodel` installed,diable it
 
 ## Recoil profile Customization
